@@ -31,7 +31,7 @@ struct ListView: View {
                             .onDelete(perform: bucketListViewModel.deleteItems)
                             // create an onMove function!
                         }
-                        .navigationBarTitle("Bucket List")
+                        .navigationBarTitle("My Bucket List")
                         .navigationBarItems(leading: EditButton())
                     }
                     
