@@ -12,21 +12,30 @@ struct PhotosPickerView: View {
     @State private var selectedItems = [PhotosPickerItem]()
     @State private var selectedImages = [Image]()
 
+    private let gridItems = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack {
+                LazyVGrid(columns: gridItems, spacing: 10) {
                     ForEach(0..<selectedImages.count, id: \.self) { i in
                         selectedImages[i]
                             .resizable()
-                            .scaledToFit()
-                            .frame(width: 300, height: 300)
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: UIScreen.main.bounds.width/5 - 20, height: UIScreen.main.bounds.width/5 - 20)
+                            .cornerRadius(10)
                     }
                 }
             }
-            .toolbar {
-                PhotosPicker("Select images", selection: $selectedItems, matching: .images)
+
+            VStack {
+                Spacer()
+                PhotosPicker("Select images", selection: $selectedItems, maxSelectionCount: 5, matching: .images)
+                    .frame(maxWidth: 200)
+//                    .padding()
+                Spacer()
             }
+            .background(Color.white.opacity(0.8))
             .onChange(of: selectedItems) { _ in
                 Task {
                     selectedImages.removeAll()
@@ -44,7 +53,6 @@ struct PhotosPickerView: View {
         }
     }
 }
-
 
 
 struct PhotosPickerView_Previews: PreviewProvider {
