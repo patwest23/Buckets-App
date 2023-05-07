@@ -5,7 +5,9 @@
 //  Created by Patrick Westerkamp on 4/10/23.
 //
 
+
 import SwiftUI
+import PhotosUI
 
 struct EditItemView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -25,7 +27,6 @@ struct EditItemView: View {
     }
 
     var body: some View {
-        
         VStack {
             Form {
                 Section(header: Text(item.name)) {
@@ -35,7 +36,12 @@ struct EditItemView: View {
                 }
             }
             .navigationBarTitle("Edit Item")
-            
+
+            // Multiple image picker
+            MultiImagePickerView()
+                .padding(.top, 20)
+
+
             HStack {
                 Button(action: {
                     presentationMode.wrappedValue.dismiss()
@@ -72,8 +78,19 @@ struct EditItemView: View {
                         .padding(.horizontal)
                 }
             }
-            
-           
+        }
+    }
+}
+
+
+struct EditItemView_Previews: PreviewProvider {
+    static let item = ItemModel(id: UUID(), name: "Example Item", description: "An example item description", completed: false)
+    
+    static var previews: some View {
+        NavigationView {
+            EditItemView(item: item) { updatedItem in
+                // Do something with updatedItem
+            }
         }
     }
 }
@@ -81,10 +98,14 @@ struct EditItemView: View {
 
 
 
-struct EditItemView_Previews: PreviewProvider {
-    static var previews: some View {
-        let item = ItemModel(id: UUID(), name: "Learn SwiftUI", description: "Learn how to create apps using SwiftUI", completed: false)
-        EditItemView(item: item, onSave: { _ in })
-    }
-}
+
+
+
+
+
+
+
+
+
+
 

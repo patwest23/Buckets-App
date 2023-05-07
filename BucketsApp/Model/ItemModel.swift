@@ -14,7 +14,7 @@ struct ItemModel: Identifiable, Codable {
     var description: String
     var completed: Bool
 
-    init(id: UUID = UUID(), name: String, description: String, completed: Bool = false) {
+    init(id: UUID = UUID(), name: String, description: String, completed: Bool) {
         self.id = id
         self.name = name
         self.description = description

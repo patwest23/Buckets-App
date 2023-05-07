@@ -11,7 +11,7 @@ struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @State private var showingAddItemView = false
     @State private var showingEditItemView = false
-    @State private var selectedItem: ItemModel?
+    @State private var selectedItem: ItemModel? = nil
     
     
     var body: some View {
@@ -67,11 +67,14 @@ struct ListView: View {
             EditItemView(item: item) { updatedItem in
                 if !updatedItem.name.trimmingCharacters(in: .whitespaces).isEmpty {
                     bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed)
+                    // Save images locally
+                    // ...
                 }
                 selectedItem = nil
                 showingEditItemView = false
             }
         }
+
     }
 }
 
