@@ -14,8 +14,7 @@ struct EditItemView: View {
     @State private var name: String
     @State private var description: String
     @State private var completed: Bool
-    // @State private var imageData: Data
-    @StateObject var imagePicker = ImagePicker()
+    @ObservedObject var imagePicker = ImagePicker()
 
     let columns = [GridItem(.adaptive(minimum: 50))]
     var item: ItemModel
@@ -26,8 +25,8 @@ struct EditItemView: View {
         self._name = State(initialValue: item.name)
         self._description = State(initialValue: item.description)
         self._completed = State(initialValue: item.completed)
-        // self._image = State(initialValue: item.image)
         self.onSave = onSave
+        self.imagePicker = ImagePicker()
     }
 
     var body: some View {
