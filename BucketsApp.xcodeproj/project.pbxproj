@@ -94,6 +94,7 @@
 				1FED1A1B29E20B5700868BAC /* ViewModel */,
 				1FED1A1A29E20B4D00868BAC /* View */,
 				1FED1A1029E20B3100868BAC /* Assets.xcassets */,
+				1F5E87582A09F97300B5A4ED /* GoogleService-Info.plist */,
 				1FED1A1229E20B3100868BAC /* Preview Content */,
 			);
 			path = BucketsApp;
@@ -103,7 +104,6 @@
 			isa = PBXGroup;
 			children = (
 				1FED1A1329E20B3100868BAC /* Preview Assets.xcassets */,
-				1F5E87582A09F97300B5A4ED /* GoogleService-Info.plist */,
 			);
 			path = "Preview Content";
 			sourceTree = "<group>";

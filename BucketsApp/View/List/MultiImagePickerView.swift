@@ -10,35 +10,50 @@ import PhotosUI
 
 struct MultiImagePickerView: View {
     @StateObject var imagePicker = ImagePicker()
-    let columns = [GridItem(.adaptive(minimum: 100))]
+    let columns = [GridItem(.adaptive(minimum: 50))]
+    
+    
     var body: some View {
-        VStack {
-            
-            PhotosPicker(selection: $imagePicker.imageSelections,
-                         maxSelectionCount: 10,
-                         matching: .images,
-                         photoLibrary: .shared()) {
-                Image(systemName: "photo.on.rectangle.angled")
-                    .imageScale(.large)
-            }
-
-            if !imagePicker.images.isEmpty {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(0..<imagePicker.images.count, id: \.self) { index in
-                            imagePicker.images[index]
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .clipped()
+        
+        Form {
+            Section {
+                HStack {
+                    Spacer()
+                    //image
+                    if !imagePicker.images.isEmpty {
+                        ScrollView {
+                            LazyVGrid(columns: columns, spacing: 20) {
+                                ForEach(0..<imagePicker.images.count, id: \.self) { index in
+                                    imagePicker.images[index]
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 100, height: 100)
+                                        .clipped()
+                                }
+                            }
                         }
+                    } else {
+                        Text("Tap the button to select multiple photos.")
                     }
+                    
+                    Spacer()
                 }
-            } else {
-                Text("Tap the menu bar button to select multiple photos.")
+                
+                HStack {
+                    Spacer()
+                    //button to bring up photo picker
+                    PhotosPicker(selection: $imagePicker.imageSelections,
+                                 maxSelectionCount: 10,
+                                 matching: .images,
+                                 photoLibrary: .shared()) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .imageScale(.large)
+                    }
+                    Spacer()
+                    
+                }
             }
         }
-        .padding()
     }
 }
 

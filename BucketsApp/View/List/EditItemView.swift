@@ -14,7 +14,10 @@ struct EditItemView: View {
     @State private var name: String
     @State private var description: String
     @State private var completed: Bool
+    // @State private var imageData: Data
+    @StateObject var imagePicker = ImagePicker()
 
+    let columns = [GridItem(.adaptive(minimum: 50))]
     var item: ItemModel
     var onSave: ((ItemModel) -> Void)
 
@@ -23,6 +26,7 @@ struct EditItemView: View {
         self._name = State(initialValue: item.name)
         self._description = State(initialValue: item.description)
         self._completed = State(initialValue: item.completed)
+        // self._image = State(initialValue: item.image)
         self.onSave = onSave
     }
 
@@ -33,15 +37,50 @@ struct EditItemView: View {
                     TextField("Name", text: $name)
                     TextField("Description", text: $description)
                     Toggle("Completed", isOn: $completed)
+                    //image picker form
+                        HStack {
+                            Spacer()
+                            //image
+                            if !imagePicker.images.isEmpty {
+                                ScrollView {
+                                    LazyVGrid(columns: columns, spacing: 10) {
+                                        ForEach(0..<imagePicker.images.count, id: \.self) { index in
+                                            imagePicker.images[index]
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 50, height: 50)
+                                                .clipped()
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("Tap the button to select multiple photos.")
+                            }
+                            
+                            Spacer()
+                        }
+                        
+                        HStack {
+                            Spacer()
+                            //button to bring up photo picker
+                            PhotosPicker(selection: $imagePicker.imageSelections,
+                                         maxSelectionCount: 10,
+                                         matching: .images,
+                                         photoLibrary: .shared()) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .imageScale(.large)
+                            }
+                            Spacer()
+                        }
                 }
             }
             .navigationBarTitle("Edit Item")
-
-            // Multiple image picker
-            MultiImagePickerView()
-                .padding(.top, 20)
-
-
+ 
+            
+            
+            
+            
+            // save and cancel buttons
             HStack {
                 Button(action: {
                     presentationMode.wrappedValue.dismiss()
