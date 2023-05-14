@@ -9,7 +9,7 @@ import SwiftUI
 
 struct AddItemView: View {
     @Environment(\.presentationMode) var presentationMode
-    @State private var newItem = ItemModel(id: UUID(), name: "", description: "", completed: false)
+    @State private var newItem = ItemModel(id: UUID(), image: Data(), name: "", description: "", completed: false)
 
     let onSave: (ItemModel) -> Void
 
@@ -44,7 +44,7 @@ struct AddItemView: View {
                 Button(action: {
                     onSave(newItem)
                     presentationMode.wrappedValue.dismiss()
-                   }) {
+                }) {
                     Text("Save")
                         .foregroundColor(Color("AccentColor"))
                         .padding()
@@ -62,6 +62,7 @@ struct AddItemView: View {
         }
     }
 }
+
 
 
 struct AddItemView_Previews: PreviewProvider {

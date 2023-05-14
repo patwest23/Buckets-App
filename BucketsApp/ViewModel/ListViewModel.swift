@@ -5,42 +5,14 @@
 //  Created by Patrick Westerkamp on 4/10/23.
 //
 
+/*
+
 import Foundation
 import SwiftUI
 import PhotosUI
 
 
 class ListViewModel: ObservableObject {
-    
-    
-    
-    
-    
-    
-    // ImagePicker Class
-    class ImagePicker: ObservableObject {
-        @Published var image: Image?
-        @Published var images: [Image] = []
-        
-        func loadTransferable(from imageSelections: [PhotosPickerItem]) async throws {
-            for imageSelection in imageSelections {
-                if let data = try? await imageSelection.loadTransferable(type: Data.self) {
-                    if let uiImage = UIImage(data: data) {
-                        let image = Image(uiImage: uiImage)
-                        images.append(image)
-                    }
-                }
-            }
-        }
-        
-        func loadTransferable(from imageSelection: PhotosPickerItem?) async throws {
-            if let data = try? await imageSelection?.loadTransferable(type: Data.self) {
-                if let uiImage = UIImage(data: data) {
-                    image = Image(uiImage: uiImage)
-                }
-            }
-        }
-    }
     
     @StateObject var imagePicker = ImagePicker()
     
@@ -104,6 +76,12 @@ class ListViewModel: ObservableObject {
     }
     
     
+    
+    
+    
+    
+    
+    
     // Simulate reading from a database
     func loadItems() {
         guard
@@ -113,6 +91,10 @@ class ListViewModel: ObservableObject {
         
         self.items = savedItems
     }
+    
+    
+    
+    
     
     func addItem(item: ItemModel) {
         guard !item.name.isEmpty else { return }
@@ -183,7 +165,7 @@ class ListViewModel: ObservableObject {
 }
 
  
- 
+*/
 
 
 

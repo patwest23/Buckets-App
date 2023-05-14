@@ -7,14 +7,14 @@
 
 
 import SwiftUI
-import PhotosUI
+import UIKit
 
 struct EditItemView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var name: String
     @State private var description: String
     @State private var completed: Bool
-    @ObservedObject var imagePicker = ImagePicker()
+    @State private var image: UIImage?
 
     let columns = [GridItem(.adaptive(minimum: 50))]
     var item: ItemModel
@@ -26,7 +26,6 @@ struct EditItemView: View {
         self._description = State(initialValue: item.description)
         self._completed = State(initialValue: item.completed)
         self.onSave = onSave
-        self.imagePicker = ImagePicker()
     }
 
     var body: some View {
@@ -36,50 +35,37 @@ struct EditItemView: View {
                     TextField("Name", text: $name)
                     TextField("Description", text: $description)
                     Toggle("Completed", isOn: $completed)
-                    //image picker form
-                        HStack {
-                            Spacer()
-                            //image
-                            if !imagePicker.images.isEmpty {
-                                ScrollView {
-                                    LazyVGrid(columns: columns, spacing: 10) {
-                                        ForEach(0..<imagePicker.images.count, id: \.self) { index in
-                                            imagePicker.images[index]
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 50, height: 50)
-                                                .clipped()
-                                        }
-                                    }
-                                }
-                            } else {
-                                Text("Tap the button to select multiple photos.")
-                            }
-                            
-                            Spacer()
+                    // Image picker form
+                    HStack {
+                        Spacer()
+                        // Image
+                        if let image = image {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 50, height: 50)
+                                .clipped()
+                        } else {
+                            Text("Tap the button to select an image.")
                         }
-                        
-                        HStack {
-                            Spacer()
-                            //button to bring up photo picker
-                            PhotosPicker(selection: $imagePicker.imageSelections,
-                                         maxSelectionCount: 10,
-                                         matching: .images,
-                                         photoLibrary: .shared()) {
-                                Image(systemName: "photo.on.rectangle.angled")
-                                    .imageScale(.large)
-                            }
-                            Spacer()
+                        Spacer()
+                    }
+                    HStack {
+                        Spacer()
+                        // Button to bring up photo picker
+                        Button(action: {
+                            selectImage()
+                        }) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .imageScale(.large)
                         }
+                        Spacer()
+                    }
                 }
             }
             .navigationBarTitle("Edit Item")
- 
-            
-            
-            
-            
-            // save and cancel buttons
+
+            // Save and cancel buttons
             HStack {
                 Button(action: {
                     presentationMode.wrappedValue.dismiss()
@@ -98,7 +84,7 @@ struct EditItemView: View {
                 }
                 Button(action: {
                     if !name.trimmingCharacters(in: .whitespaces).isEmpty {
-                        let updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
+                        let updatedItem = ItemModel(id: item.id, image: image?.pngData(), name: name, description: description, completed: completed)
                         onSave(updatedItem)
                         presentationMode.wrappedValue.dismiss()
                     }
@@ -118,11 +104,22 @@ struct EditItemView: View {
             }
         }
     }
+
+    private func selectImage() {
+        let imagePicker = ImagePicker(sourceType: .photoLibrary) { image in
+            self.image = image
+        }
+        presentationMode.wrappedValue.dismiss()
+        UIApplication.shared.windows.first?.rootViewController?.present(imagePicker, animated: true, completion: nil)
+    }
 }
 
 
+
+
+
 struct EditItemView_Previews: PreviewProvider {
-    static let item = ItemModel(id: UUID(), name: "Example Item", description: "An example item description", completed: false)
+    static let item = ItemModel(id: UUID(), image: Data(), name: "Example Item", description: "An example item description", completed: false)
     
     static var previews: some View {
         NavigationView {

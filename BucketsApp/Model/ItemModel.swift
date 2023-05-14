@@ -10,42 +10,71 @@ import SwiftUI
 
 struct ItemModel: Identifiable, Codable, Hashable {
     let id: UUID
+    var image: Data
     var name: String
     var description: String
     var completed: Bool
-    var images: [Data]
+    
+}
 
-    private enum CodingKeys: String, CodingKey {
-        case id, name, description, completed, images
+// Image data class
+@MainActor class ImageData : ObservableObject {
+    private let IMAGES_KEY = "ImagesKey"
+    var itemModel: [ItemModel] {
+        didSet {
+            objectWillChange.send()
+            saveItems()
+        }
     }
-
-    init(id: UUID = UUID(), name: String, description: String, completed: Bool, images: [Data] = []) {
-        self.id = id
-        self.name = name
-        self.description = description
-        self.completed = completed
-        self.images = images
+    
+    
+    // initialize the item model
+    init() {
+        if let data = UserDefaults.standard.data(forKey: IMAGES_KEY) {
+            if let decodedNotes = try? JSONDecoder().decode([ItemModel].self, from: data) {
+                itemModel = decodedNotes
+                print("Data successfully retrieved!")
+                return
+            }
+        }
+        itemModel = []
     }
+    
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        description = try container.decode(String.self, forKey: .description)
-        completed = try container.decode(Bool.self, forKey: .completed)
-        images = try container.decode([Data].self, forKey: .images)
+    func addItem(item: ItemModel) {
+        guard !item.name.isEmpty else { return }
+        itemModel.append(item)
     }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encode(description, forKey: .description)
-        try container.encode(completed, forKey: .completed)
-        try container.encode(images, forKey: .images)
+    
+    
+    func updateItem(_ item: ItemModel, withName name: String, description: String, completed: Bool) {
+        if let index = itemModel.firstIndex(where: { $0.id == item.id }) {
+            itemModel[index].name = name
+            itemModel[index].description = description
+            itemModel[index].completed = completed
+        }
+    }
+    
+    func deleteItems(at offsets: IndexSet) {
+        itemModel.remove(atOffsets: offsets)
+    }
+    
+    func onCompleted(for item: ItemModel, completed: Bool) {
+        if let index = itemModel.firstIndex(where: { $0.id == item.id }) {
+            itemModel[index].completed = completed
+        }
+    }
+    
+    
+    private func saveItems() {
+        if let encodedNotes = try? JSONEncoder().encode(itemModel) {
+            UserDefaults.standard.set(encodedNotes, forKey: IMAGES_KEY)
+        }
     }
 }
 
+    
+    
 
 
 
