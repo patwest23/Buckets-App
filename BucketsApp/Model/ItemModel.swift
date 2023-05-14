@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-struct ItemModel: Identifiable, Codable {
+struct ItemModel: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
     var description: String

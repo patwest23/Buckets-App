@@ -145,7 +145,13 @@ class ListViewModel: ObservableObject {
         }
     }
     
+    
+    
     // image picker functions
+    // revise these functions to be included in the Item Model
+    
+    
+    
     func loadTransferable(from imageSelections: [PhotosPickerItem]) async throws {
         do {
             for imageSelection in imageSelections {
