@@ -7,89 +7,10 @@
 
 import Foundation
 import SwiftUI
-import PhotosUI
 
 
 class ListViewModel: ObservableObject {
     
-    
-    
-    
-    
-    
-    // ImagePicker Class
-    class ImagePicker: ObservableObject {
-        @Published var image: Image?
-        @Published var images: [Image] = []
-        
-        func loadTransferable(from imageSelections: [PhotosPickerItem]) async throws {
-            for imageSelection in imageSelections {
-                if let data = try? await imageSelection.loadTransferable(type: Data.self) {
-                    if let uiImage = UIImage(data: data) {
-                        let image = Image(uiImage: uiImage)
-                        images.append(image)
-                    }
-                }
-            }
-        }
-        
-        func loadTransferable(from imageSelection: PhotosPickerItem?) async throws {
-            if let data = try? await imageSelection?.loadTransferable(type: Data.self) {
-                if let uiImage = UIImage(data: data) {
-                    image = Image(uiImage: uiImage)
-                }
-            }
-        }
-    }
-    
-    @StateObject var imagePicker = ImagePicker()
-    
-    @Published var image: Image?
-    @Published var images: [Image] = []
-    @Published var imageSelection: PhotosPickerItem? {
-        didSet {
-            if let imageSelection = imageSelection {
-                Task {
-                    do {
-                        try await imagePicker.loadTransferable(from: imageSelection)
-                    } catch {
-                        print(error.localizedDescription)
-                    }
-                }
-            }
-        }
-    }
-    @Published var imageSelections: [PhotosPickerItem] = [] {
-        didSet {
-            Task {
-                if !imageSelections.isEmpty {
-                    do {
-                        try await imagePicker.loadTransferable(from: imageSelections)
-                        imageSelections = []
-                    } catch {
-                        print(error.localizedDescription)
-                    }
-                }
-            }
-        }
-    }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
     @Published var items: [ItemModel] = [] {
         // any time the array is changed it will call the function saveItems
         didSet {
@@ -97,8 +18,11 @@ class ListViewModel: ObservableObject {
         }
     }
     
+    // what is an items key??
     let itemsKey: String = "items_list"
     
+    
+    // initialize loadItems
     init() {
         loadItems()
     }
@@ -145,37 +69,7 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    // image picker functions
-    func loadTransferable(from imageSelections: [PhotosPickerItem]) async throws {
-        do {
-            for imageSelection in imageSelections {
-                if let data = try await imageSelection.loadTransferable(type: Data.self) {
-                    if let uiImage = UIImage(data: data) {
-                        self.images.append(Image(uiImage: uiImage))
-                    }
-                }
-            }
-        } catch {
-            print(error.localizedDescription)
-        }
-    }
-    
-    func loadTransferable(from imageSelection: PhotosPickerItem?) async throws {
-//        print(Image.transferRepresentation)
-        do {
-            if let data = try await imageSelection?.loadTransferable(type: Data.self) {
-                if let uiImage = UIImage(data: data) {
-                    self.image = Image(uiImage: uiImage)
-                }
-            }
-        } catch {
-            print(error.localizedDescription)
-            image = nil
-        }
-    }
-    
 }
-
  
  
 
