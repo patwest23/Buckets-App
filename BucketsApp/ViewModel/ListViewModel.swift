@@ -8,48 +8,47 @@
 import Foundation
 import SwiftUI
 
-
 class ListViewModel: ObservableObject {
     
     @Published var items: [ItemModel] = [] {
-        // any time the array is changed it will call the function saveItems
         didSet {
             saveItems()
         }
     }
     
-    // what is an items key??
     let itemsKey: String = "items_list"
     
-    
-    // initialize loadItems
     init() {
         loadItems()
     }
     
-    
-    // Simulate reading from a database
     func loadItems() {
-        guard
-            let data = UserDefaults.standard.data(forKey: itemsKey),
-            let savedItems = try? JSONDecoder().decode([ItemModel].self, from: data)
-        else {return}
+        guard let data = UserDefaults.standard.data(forKey: itemsKey),
+              let savedItems = try? JSONDecoder().decode([ItemModel].self, from: data)
+        else {
+            return
+        }
         
         self.items = savedItems
     }
     
-    func addItem(item: ItemModel) {
+    func addItem(item: ItemModel, imageData: Data?) {
         guard !item.name.isEmpty else { return }
-        items.append(item)
+        var newItem = item
+        newItem.imageData = imageData
+        items.append(newItem)
     }
     
-    func updateItem(_ item: ItemModel, withName name: String, description: String, completed: Bool) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            items[index].name = name
-            items[index].description = description
-            items[index].completed = completed
+    func updateItem(_ item: ItemModel, withName name: String, description: String, completed: Bool, imageData: Data?) {
+            if let index = items.firstIndex(where: { $0.id == item.id }) {
+                var updatedItem = item
+                updatedItem.name = name
+                updatedItem.description = description
+                updatedItem.completed = completed
+                updatedItem.imageData = imageData
+                items[index] = updatedItem
+            }
         }
-    }
     
     func deleteItems(at offsets: IndexSet) {
         items.remove(atOffsets: offsets)
@@ -61,15 +60,13 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    // for now just want to persist locally on my iphone
-    // eventually will be on Firebase
     func saveItems() {
-        if let encodeData = try? JSONEncoder().encode(items) {
-            UserDefaults.standard.set(encodeData, forKey: itemsKey)
+        if let encodedData = try? JSONEncoder().encode(items) {
+            UserDefaults.standard.set(encodedData, forKey: itemsKey)
         }
     }
-    
 }
+
  
  
 

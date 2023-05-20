@@ -11,7 +11,7 @@ struct AddItemView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var newItem = ItemModel(id: UUID(), name: "", description: "", completed: false)
 
-    let onSave: (ItemModel) -> Void
+    let onSave: (ItemModel, Data?) -> Void
 
     var body: some View {
         VStack {
@@ -42,9 +42,9 @@ struct AddItemView: View {
                         .padding(.horizontal)
                 }
                 Button(action: {
-                    onSave(newItem)
+                    onSave(newItem, nil)
                     presentationMode.wrappedValue.dismiss()
-                   }) {
+                }) {
                     Text("Save")
                         .foregroundColor(Color("AccentColor"))
                         .padding()
@@ -58,7 +58,6 @@ struct AddItemView: View {
                         .padding(.horizontal)
                 }
             }
-
         }
     }
 }
@@ -66,7 +65,10 @@ struct AddItemView: View {
 
 struct AddItemView_Previews: PreviewProvider {
     static var previews: some View {
-        AddItemView { _ in }
+        AddItemView { item, imageData in
+            // Handle saving the item and imageData
+        }
     }
 }
+
 

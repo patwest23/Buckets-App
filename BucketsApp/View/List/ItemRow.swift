@@ -17,26 +17,50 @@ struct ItemRow: View {
     var onCompleted: (Bool) -> Void
 
     var body: some View {
-        HStack {
-            Button(action: {
-                onCompleted(!item.completed)
-            }) {
-                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(item.completed ? Color("AccentColor") : .gray)
+        VStack {
+            HStack {
+                Button(action: {
+                    onCompleted(!item.completed)
+                }) {
+                    Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(item.completed ? Color("AccentColor") : .gray)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+
+                Text(item.name)
+                    .strikethrough(item.completed)
             }
-            .buttonStyle(BorderlessButtonStyle())
-
-            Text(item.name)
-                .strikethrough(item.completed)
-
-            Spacer()
+            
+            if let imageData = item.imageData,
+               let uiImage = UIImage(data: imageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .frame(width: 50, height: 50)
+                    .cornerRadius(10)
+            } else {
+                Image(systemName: "photo")
+                    .resizable()
+                    .frame(width: 200, height: 200)
+                    .cornerRadius(10)
+                    .foregroundColor(.gray)
+            }
         }
     }
 }
 
+
 struct ItemRow_Previews: PreviewProvider {
     static var previews: some View {
-        ItemRow(item: ItemModel(id: UUID(), name: "Test Item for the item row!", description: "this is a test", completed: true)) { _ in }
+        let item = ItemModel(id: UUID(), name: "Example Item", description: "An example item description", completed: false)
+        
+        return ItemRow(item: item) { completed in
+            // Do something with completed
+        }
+        .environmentObject(ListViewModel())
+        .previewLayout(.fixed(width: 300, height: 80))
+        .padding()
+        .previewDisplayName("Item Row")
     }
 }
+
 
