@@ -35,11 +35,13 @@ struct ItemRow: View {
                let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
+                    .scaledToFit()
                     .frame(width: 50, height: 50)
                     .cornerRadius(10)
             } else {
                 Image(systemName: "photo")
                     .resizable()
+                    .scaledToFit()
                     .frame(width: 200, height: 200)
                     .cornerRadius(10)
                     .foregroundColor(.gray)

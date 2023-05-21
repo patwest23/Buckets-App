@@ -34,8 +34,32 @@ struct EditItemView: View {
                     TextField("Name", text: $name)
                     TextField("Description", text: $description)
                     Toggle("Completed", isOn: $completed)
-                    // Image picker form
-                    // ...
+                    
+                    
+                    
+                    
+                    // Image picker form and image if there is one
+                    
+                    VStack(alignment: .leading) {
+                        Text("Select Photo")
+                            .multilineTextAlignment(.leading)
+                            
+                        HStack {
+                            Spacer()
+                            Image(systemName: "photo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 300, height: 300, alignment: .center)
+                            
+                            Spacer()
+                        }
+                    }
+                    
+                    
+                    
+                    
+                    
+                    
                 }
             }
             .navigationBarTitle("Edit Item")
