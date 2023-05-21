@@ -36,8 +36,8 @@ struct ItemRow: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 50, height: 50)
-                    .cornerRadius(10)
+                    .frame(width: 200, height: 200)
+                    .cornerRadius(20)
             } else {
                 Image(systemName: "photo")
                     .resizable()

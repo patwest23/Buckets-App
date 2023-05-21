@@ -7,6 +7,8 @@
 
 
 import SwiftUI
+import PhotosUI
+
 
 struct EditItemView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -14,10 +16,12 @@ struct EditItemView: View {
     @State private var description: String
     @State private var completed: Bool
     @State private var imageData: Data?
-
+    @StateObject var imagePicker = ImagePicker()
+    
+    
     let item: ItemModel
     let onSave: (ItemModel, Data?) -> Void
-
+    
     init(item: ItemModel, onSave: @escaping (ItemModel, Data?) -> Void) {
         self.item = item
         self._name = State(initialValue: item.name)
@@ -26,7 +30,7 @@ struct EditItemView: View {
         self.onSave = onSave
         self._imageData = State(initialValue: item.imageData)
     }
-
+    
     var body: some View {
         VStack {
             Form {
@@ -36,34 +40,40 @@ struct EditItemView: View {
                     Toggle("Completed", isOn: $completed)
                     
                     
-                    
-                    
                     // Image picker form and image if there is one
-                    
                     VStack(alignment: .leading) {
-                        Text("Select Photo")
-                            .multilineTextAlignment(.leading)
-                            
+                        PhotosPicker(selection: $imagePicker.imageSelection,
+                                     matching: .images,
+                                     photoLibrary: .shared()) {
+                            Text("Select Photo")
+                        }
+                        
                         HStack {
                             Spacer()
-                            Image(systemName: "photo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 300, height: 300, alignment: .center)
-                            
-                            Spacer()
+                            if let uiImage = imagePicker.uiImage {
+                                // Display the selected image
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .cornerRadius(10)
+                            } else {
+                                Spacer()
+                                
+                                // Placeholder image or icon
+                                Image(systemName: "photo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 300, height: 300, alignment: .center)
+                                
+                                Spacer()
+                            }
                         }
                     }
-                    
-                    
-                    
-                    
-                    
                     
                 }
             }
             .navigationBarTitle("Edit Item")
-
+            
             // Save and cancel buttons
             HStack {
                 Button(action: {
@@ -82,12 +92,20 @@ struct EditItemView: View {
                         .padding(.horizontal)
                 }
                 Button(action: {
-                            if !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                    if !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                        if let uiImage = imagePicker.uiImage {
+                            if let imageData = uiImage.jpegData(compressionQuality: 1.0) {
                                 let updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
                                 onSave(updatedItem, imageData)
                                 presentationMode.wrappedValue.dismiss()
                             }
-                        }) {
+                        } else {
+                            let updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
+                            onSave(updatedItem, nil)
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                }) {
                     Text("Save")
                         .foregroundColor(Color("AccentColor"))
                         .padding()

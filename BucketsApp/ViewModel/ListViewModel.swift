@@ -40,15 +40,15 @@ class ListViewModel: ObservableObject {
     }
     
     func updateItem(_ item: ItemModel, withName name: String, description: String, completed: Bool, imageData: Data?) {
-            if let index = items.firstIndex(where: { $0.id == item.id }) {
-                var updatedItem = item
-                updatedItem.name = name
-                updatedItem.description = description
-                updatedItem.completed = completed
-                updatedItem.imageData = imageData
-                items[index] = updatedItem
-            }
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            var updatedItem = item
+            updatedItem.name = name
+            updatedItem.description = description
+            updatedItem.completed = completed
+            updatedItem.imageData = imageData
+            items[index] = updatedItem
         }
+    }
     
     func deleteItems(at offsets: IndexSet) {
         items.remove(atOffsets: offsets)
