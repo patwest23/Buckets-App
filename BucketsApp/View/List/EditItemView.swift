@@ -59,12 +59,13 @@ struct EditItemView: View {
                             } else {
                                 Spacer()
                                 
+                                /*
                                 // Placeholder image or icon
                                 Image(systemName: "photo")
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 300, height: 300, alignment: .center)
-                                
+                                */
                                 Spacer()
                             }
                         }
