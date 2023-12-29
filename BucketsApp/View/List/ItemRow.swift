@@ -17,7 +17,7 @@ struct ItemRow: View {
     var onCompleted: (Bool) -> Void
 
     var body: some View {
-        VStack {
+        VStack (alignment: .leading) {
             HStack {
                 Button(action: {
                     onCompleted(!item.completed)
@@ -36,15 +36,18 @@ struct ItemRow: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 200, height: 200)
                     .cornerRadius(20)
             } else {
+                Text("") // Display text when no image is available
+                                    .font(.system(size: 16)) // Adjust font size as needed
+                                    .foregroundColor(.gray)
+                /*
                 Image(systemName: "photo")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 200, height: 200)
                     .cornerRadius(10)
                     .foregroundColor(.gray)
+                 */
             }
         }
     }

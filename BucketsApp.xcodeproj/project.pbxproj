@@ -71,11 +71,19 @@
 			path = User;
 			sourceTree = "<group>";
 		};
+		1FDE823A2B3E286C0078862C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		1FED1A0029E20B2E00868BAC = {
 			isa = PBXGroup;
 			children = (
 				1FED1A0B29E20B2E00868BAC /* BucketsApp */,
 				1FED1A0A29E20B2E00868BAC /* Products */,
+				1FDE823A2B3E286C0078862C /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
