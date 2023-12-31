@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Firebase
 
 struct SignUpView: View {
     @State private var email: String = ""
@@ -94,6 +95,18 @@ struct SignUpView: View {
         }
 
         return true
+    }
+    
+    // firebase auth function for new user
+    private func signUpUser() {
+        Auth.auth().createUser(withEmail: email, password: password) { result, error in
+            if let error = error {
+                self.errorMessage = error.localizedDescription
+                self.showErrorAlert = true
+            } else {
+                // Handle successful sign-up, such as navigating to a different view
+            }
+        }
     }
 }
 
