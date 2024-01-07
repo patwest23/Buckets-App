@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		1F2BADF42A1AA6AC001182D5 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2BADF32A1AA6AC001182D5 /* ImagePicker.swift */; };
-		1F5E87592A09F97300B5A4ED /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1F5E87582A09F97300B5A4ED /* GoogleService-Info.plist */; };
 		1F5E875C2A09FB3500B5A4ED /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */; };
 		1F5E875E2A09FB3500B5A4ED /* FirebaseAnalyticsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1F5E875D2A09FB3500B5A4ED /* FirebaseAnalyticsSwift */; };
 		1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774929E5020F00B66F63 /* ListViewModel.swift */; };
@@ -26,11 +25,12 @@
 		1FED1A1429E20B3100868BAC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1FED1A1329E20B3100868BAC /* Preview Assets.xcassets */; };
 		1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A1E29E20C1500868BAC /* LogInView.swift */; };
 		1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A2029E20C2300868BAC /* SignUpView.swift */; };
+		1FFCE5B92B4200CB001751CA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */; };
+		1FFCE5BB2B420BEF001751CA /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1FFCE5BA2B420BEF001751CA /* FirebaseAuth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		1F2BADF32A1AA6AC001182D5 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
-		1F5E87582A09F97300B5A4ED /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = "GoogleService-Info.plist"; path = "BucketsApp/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
 		1F64774929E5020F00B66F63 /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
 		1F64774B29E5023600B66F63 /* ItemModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemModel.swift; sourceTree = "<group>"; };
 		1F64774D29E5025000B66F63 /* ListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListView.swift; sourceTree = "<group>"; };
@@ -47,6 +47,7 @@
 		1FED1A1329E20B3100868BAC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		1FED1A1E29E20C1500868BAC /* LogInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogInView.swift; sourceTree = "<group>"; };
 		1FED1A2029E20C2300868BAC /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
+		1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +56,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1F5E875E2A09FB3500B5A4ED /* FirebaseAnalyticsSwift in Frameworks */,
+				1FFCE5BB2B420BEF001751CA /* FirebaseAuth in Frameworks */,
 				1F5E875C2A09FB3500B5A4ED /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -103,7 +105,7 @@
 				1FED1A1B29E20B5700868BAC /* ViewModel */,
 				1FED1A1A29E20B4D00868BAC /* View */,
 				1FED1A1029E20B3100868BAC /* Assets.xcassets */,
-				1F5E87582A09F97300B5A4ED /* GoogleService-Info.plist */,
+				1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */,
 				1FED1A1229E20B3100868BAC /* Preview Content */,
 			);
 			path = BucketsApp;
@@ -185,6 +187,7 @@
 			packageProductDependencies = (
 				1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */,
 				1F5E875D2A09FB3500B5A4ED /* FirebaseAnalyticsSwift */,
+				1FFCE5BA2B420BEF001751CA /* FirebaseAuth */,
 			);
 			productName = BucketsApp;
 			productReference = 1FED1A0929E20B2E00868BAC /* BucketsApp.app */;
@@ -233,7 +236,7 @@
 			files = (
 				1FED1A1429E20B3100868BAC /* Preview Assets.xcassets in Resources */,
 				1FED1A1129E20B3100868BAC /* Assets.xcassets in Resources */,
-				1F5E87592A09F97300B5A4ED /* GoogleService-Info.plist in Resources */,
+				1FFCE5B92B4200CB001751CA /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -482,6 +485,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1F5E875A2A09FB3500B5A4ED /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalyticsSwift;
+		};
+		1FFCE5BA2B420BEF001751CA /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1F5E875A2A09FB3500B5A4ED /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -8,10 +8,7 @@
 import SwiftUI
 
 struct LogInView: View {
-    @State private var email: String = ""
-    @State private var password: String = ""
-    @State private var showErrorAlert = false
-    @State private var errorMessage = ""
+    @EnvironmentObject var viewModel: OnboardingViewModel
 
     var body: some View {
         VStack {
@@ -20,7 +17,7 @@ struct LogInView: View {
                 .fontWeight(.bold)
 
             VStack(spacing: 20) {
-                TextField("Email", text: $email)
+                TextField("Email", text: $viewModel.email)
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(8)
@@ -28,7 +25,7 @@ struct LogInView: View {
                     .disableAutocorrection(true)
                     .keyboardType(.emailAddress)
 
-                SecureField("Password", text: $password)
+                SecureField("Password", text: $viewModel.password)
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(8)
@@ -37,36 +34,41 @@ struct LogInView: View {
 
             Button(action: {
                 if validateInput() {
-                    // Add your log-in logic here
-                } else {
-                    showErrorAlert = true
+                    Task {
+                        await viewModel.signIn()
+                    }
                 }
             }) {
                 Text("Log In")
                     .fontWeight(.bold)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(/*@START_MENU_TOKEN@*/Color("AccentColor")/*@END_MENU_TOKEN@*/)
+                    .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(10)
                     .padding(.horizontal)
             }
-            .alert(isPresented: $showErrorAlert) {
-                Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+            .alert("Error", isPresented: $viewModel.showErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(viewModel.errorMessage ?? "Unknown error")
             }
         }
         .padding(.top)
     }
 
     private func validateInput() -> Bool {
-        guard !email.isEmpty, !password.isEmpty else {
-            errorMessage = "Please fill in all fields."
+        guard !viewModel.email.isEmpty, !viewModel.password.isEmpty else {
+            viewModel.errorMessage = "Please fill in all fields."
+            viewModel.showErrorAlert = true
             return false
         }
 
+        viewModel.showErrorAlert = false
         return true
     }
 }
+
 
 struct LogInView_Previews: PreviewProvider {
     static var previews: some View {
