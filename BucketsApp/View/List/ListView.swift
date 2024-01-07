@@ -12,6 +12,7 @@ struct ListView: View {
     @State private var showingAddItemView = false
     @State private var showingEditItemView = false
     @State private var selectedItem: ItemModel? = nil
+    @State private var showingProfileView = false  // State to control the display of ProfileView
     
     
     var body: some View {
@@ -32,6 +33,18 @@ struct ListView: View {
                         // create an onMove function!
                     }
                     .navigationBarTitle("My Bucket List")
+                    
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(action: {
+                                showingProfileView = true
+                            }) {
+                                Image(systemName: "person.crop.circle")
+                                    .imageScale(.large)
+                            }
+                        }
+                    }
+                    
                     .navigationBarItems(leading: EditButton())
                 }
                 
@@ -57,6 +70,11 @@ struct ListView: View {
                 }
             }
         }
+        
+        .sheet(isPresented: $showingProfileView) {
+                    ProfileView()
+                }
+        
         .sheet(isPresented: $showingAddItemView) {
             AddItemView { item, imageData in
                 bucketListViewModel.addItem(item: item, imageData: imageData)

@@ -21,8 +21,9 @@ struct BucketsApp: App {
             if onboardingViewModel.isAuthenticated {
                 NavigationView {
                     ListView()
+                        .environmentObject(bucketListViewModel)
+                        .environmentObject(onboardingViewModel) // Provide onboardingViewModel here as well
                 }
-                .environmentObject(bucketListViewModel)
             } else {
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
@@ -38,6 +39,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 }
+
 
 
 
