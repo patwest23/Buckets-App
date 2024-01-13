@@ -9,55 +9,50 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
-    @State private var isResetPasswordPresented = false
-    @State private var isUpdateEmailPresented = false
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        VStack {
-            if viewModel.isAuthenticated {
-                Text("Welcome, \(viewModel.email)")
-                    .font(.title)
+        NavigationStack(path: $navigationPath) {
+            List {
+                if viewModel.isAuthenticated {
+                    Text("Welcome, \(viewModel.email)")
+                        .font(.headline)
 
-                Button("Update Email") {
-                    isUpdateEmailPresented = true
+                    Section(header: Text("Account Settings")) {
+                        navigationLinkButton("Update Email", destination: UpdateEmailView())
+                        navigationLinkButton("Reset Password", destination: ResetPasswordView())
+                        navigationLinkButton("Update Password", destination: UpdatePasswordView())
+                        
+                        Button("Log Out", role: .destructive) {
+                            viewModel.signOut()
+                        }
+                    }
+                } else {
+                    Text("Not logged in")
+                        .foregroundColor(.gray)
                 }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-
-                Button("Reset Password") {
-                    isResetPasswordPresented = true
-                }
-                .padding()
-                .background(Color.orange)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-
-                Button("Log Out") {
-                    viewModel.signOut()
-                }
-                .padding()
-                .background(Color.red)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            } else {
-                Text("Not logged in")
-                    .foregroundColor(.gray)
+            }
+            .navigationTitle("Profile")
+            .listStyle(GroupedListStyle())
+            .onAppear {
+                viewModel.checkIfUserIsAuthenticated()
             }
         }
-        .padding()
-        .sheet(isPresented: $isResetPasswordPresented) {
-            // ResetPasswordView() // Create this view for resetting password
+    }
+
+    @ViewBuilder
+    private func navigationLinkButton<T: View>(_ title: String, destination: T) -> some View {
+        NavigationLink(value: title) {
+            Text(title)
         }
-        .sheet(isPresented: $isUpdateEmailPresented) {
-            // UpdateEmailView() // Create this view for updating email
-        }
-        .onAppear {
-            viewModel.checkIfUserIsAuthenticated()
+        .navigationDestination(for: String.self) { value in
+            if value == title {
+                destination
+            }
         }
     }
 }
+
 
 
 
