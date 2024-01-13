@@ -22,7 +22,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func signIn() async {
         do {
-            let result = try await Auth.auth().signIn(withEmail: email, password: password)
+            _ = try await Auth.auth().signIn(withEmail: email, password: password)
             isAuthenticated = true
             errorMessage = nil
             // Handle successful sign in, e.g., navigate to the next screen
@@ -47,7 +47,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func createUser() async {
         do {
-            let result = try await Auth.auth().createUser(withEmail: email, password: password)
+            _ = try await Auth.auth().createUser(withEmail: email, password: password)
             isAuthenticated = true
             errorMessage = nil
             // Handle successful user creation
@@ -61,4 +61,73 @@ final class OnboardingViewModel: ObservableObject {
     func checkIfUserIsAuthenticated() {
         isAuthenticated = Auth.auth().currentUser != nil
     }
+    
+    func resetPassword() {
+        Auth.auth().sendPasswordReset(withEmail: self.email) { error in
+            if error != nil {
+                // Handle the error - maybe update an error message state variable
+                return
+            }
+            // Handle success - maybe update a success message state variable
+        }
+    }
+    
+    func updateEmail(newEmail: String) {
+        Auth.auth().currentUser?.updateEmail(to: newEmail) { error in
+            if error != nil {
+                // Handle the error - maybe update an error message state variable
+                return
+            }
+            // Update the email in your ViewModel and handle success
+            self.email = newEmail
+        }
+    }
+    
+    func resetPassword(for email: String, completion: @escaping (Result<String, Error>) -> Void) {
+        Auth.auth().sendPasswordReset(withEmail: email) { error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            completion(.success("A link to reset your password has been sent to \(email)."))
+        }
+    }
+    
+    func updateEmail(newEmail: String, completion: @escaping (Result<String, Error>) -> Void) {
+        Auth.auth().currentUser?.updateEmail(to: newEmail) { error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            // Optionally, update the email in the ViewModel if needed
+            self.email = newEmail
+            completion(.success("Your email has been updated to \(newEmail)."))
+        }
+    }
+    
+    func updatePassword(currentPassword: String, newPassword: String, completion: @escaping (Result<String, Error>) -> Void) {
+        // Assuming you have a method to reauthenticate the user with their current password
+        reauthenticateUser(currentPassword: currentPassword) { [weak self] reauthResult in
+            switch reauthResult {
+            case .success:
+                Auth.auth().currentUser?.updatePassword(to: newPassword) { error in
+                    if let error = error {
+                        completion(.failure(error))
+                        return
+                    }
+                    completion(.success("Your password has been updated successfully."))
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+    // Implement reauthentication logic here
+    private func reauthenticateUser(currentPassword: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        // Firebase reauthentication logic
+    }
+
+
+
 }

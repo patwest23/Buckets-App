@@ -9,23 +9,37 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    @State private var isResetPasswordPresented = false
+    @State private var isUpdateEmailPresented = false
 
     var body: some View {
         VStack {
             if viewModel.isAuthenticated {
-                // Display user's information
                 Text("Welcome, \(viewModel.email)")
                     .font(.title)
 
-                // Add more user details here if needed
+                Button("Update Email") {
+                    isUpdateEmailPresented = true
+                }
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
 
-                // Log Out button
+                Button("Reset Password") {
+                    isResetPasswordPresented = true
+                }
+                .padding()
+                .background(Color.orange)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+
                 Button("Log Out") {
                     viewModel.signOut()
                 }
                 .padding()
-                .foregroundColor(.white)
                 .background(Color.red)
+                .foregroundColor(.white)
                 .cornerRadius(8)
             } else {
                 Text("Not logged in")
@@ -33,11 +47,18 @@ struct ProfileView: View {
             }
         }
         .padding()
+        .sheet(isPresented: $isResetPasswordPresented) {
+            // ResetPasswordView() // Create this view for resetting password
+        }
+        .sheet(isPresented: $isUpdateEmailPresented) {
+            // UpdateEmailView() // Create this view for updating email
+        }
         .onAppear {
             viewModel.checkIfUserIsAuthenticated()
         }
     }
 }
+
 
 
 struct ProfileView_Previews: PreviewProvider {
