@@ -106,8 +106,7 @@ final class OnboardingViewModel: ObservableObject {
     }
     
     func updatePassword(currentPassword: String, newPassword: String, completion: @escaping (Result<String, Error>) -> Void) {
-        // Assuming you have a method to reauthenticate the user with their current password
-        reauthenticateUser(currentPassword: currentPassword) { [weak self] reauthResult in
+        reauthenticateUser(currentPassword: currentPassword) { reauthResult in
             switch reauthResult {
             case .success:
                 Auth.auth().currentUser?.updatePassword(to: newPassword) { error in
@@ -122,6 +121,7 @@ final class OnboardingViewModel: ObservableObject {
             }
         }
     }
+
 
     // Implement reauthentication logic here
     private func reauthenticateUser(currentPassword: String, completion: @escaping (Result<Void, Error>) -> Void) {

@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-// Define the enum within the same file for easy access
-enum NavigationDestination {
+enum SignUpNavigationDestination {
     case listView
 }
 
@@ -18,52 +17,37 @@ struct SignUpView: View {
     @State private var agreedToTerms = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-    @State private var isSignUpSuccessful = false // Use this state to control navigation
-
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             VStack {
                 Text("Sign Up")
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
                 VStack(spacing: 20) {
-                    TextField("Email", text: $viewModel.email)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
-                        .keyboardType(.emailAddress)
-
-                    SecureField("Password", text: $viewModel.password)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-
-                    SecureField("Confirm Password", text: $confirmPassword)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-
-                    // Terms and Conditions Section
+                    emailTextField
+                    passwordSecureField
+                    confirmPasswordSecureField
                     termsAndConditionsSection
-                    
                 }
                 .padding(.horizontal)
 
                 signUpButton
-                // Conditional navigation based on sign-up success
-                    if isSignUpSuccessful {
-                        NavigationLink("Navigate to List View", isActive: $isSignUpSuccessful) {
-                            ListView() // Replace with your actual list view
-                                .environmentObject(viewModel)
-                        }
-                    }
+
+                NavigationLink(value: SignUpNavigationDestination.listView) {
+                    Text("Navigate to List View")
+                        .hidden()
                 }
-            
+            }
             .padding(.top)
+        }
+        .navigationDestination(for: SignUpNavigationDestination.self) { destination in
+            switch destination {
+            case .listView:
+                ListView().environmentObject(viewModel)
+            }
         }
         .alert("Error", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
@@ -72,7 +56,22 @@ struct SignUpView: View {
         }
     }
 
-    // Terms and Conditions Section
+    // Extracted subviews for readability
+    var emailTextField: some View {
+        TextField("Email", text: $viewModel.email)
+            .textFieldModifiers()
+    }
+
+    var passwordSecureField: some View {
+        SecureField("Password", text: $viewModel.password)
+            .textFieldModifiers()
+    }
+
+    var confirmPasswordSecureField: some View {
+        SecureField("Confirm Password", text: $confirmPassword)
+            .textFieldModifiers()
+    }
+
     var termsAndConditionsSection: some View {
         HStack {
             Text("I agree to the")
@@ -87,7 +86,6 @@ struct SignUpView: View {
         .font(.caption)
     }
 
-    // Sign Up Button
     var signUpButton: some View {
         Button(action: {
             if validateInput() {
@@ -99,24 +97,33 @@ struct SignUpView: View {
             }
         }) {
             Text("Sign Up")
-                .fontWeight(.bold)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .padding(.horizontal)
+                .buttonModifiers(isEnabled: agreedToTerms)
         }
         .disabled(!agreedToTerms)
-        .opacity(agreedToTerms ? 1.0 : 0.5)
     }
-
+    
+    // validate inputs in the email
     private func validateInput() -> Bool {
-        guard !viewModel.email.isEmpty, !viewModel.password.isEmpty, confirmPassword == viewModel.password else {
-            errorMessage = "Please ensure all fields are filled correctly and passwords match."
+        // Check if the email is not empty and is in a valid format
+        guard !viewModel.email.isEmpty, isValidEmail(viewModel.email) else {
+            errorMessage = "Please enter a valid email address."
             return false
         }
 
+        // Check if the password is not empty and meets minimum length criteria
+        let minimumPasswordLength = 6
+        guard !viewModel.password.isEmpty, viewModel.password.count >= minimumPasswordLength else {
+            errorMessage = "Password must be at least \(minimumPasswordLength) characters long."
+            return false
+        }
+
+        // Check if passwords match
+        guard viewModel.password == confirmPassword else {
+            errorMessage = "Passwords do not match."
+            return false
+        }
+
+        // Check if terms and conditions are agreed
         guard agreedToTerms else {
             errorMessage = "You must agree to the terms and conditions."
             return false
@@ -124,20 +131,53 @@ struct SignUpView: View {
 
         return true
     }
-    
-    // Function to sign up the user
+
+    // Helper function to validate email format
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Z0-9a-z.-]+\\.[A-Za-z]{2,}"
+        let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        return emailPred.evaluate(with: email)
+    }
+
+
     private func signUpUser() async {
-        do {
-            try await viewModel.createUser()
-            isSignUpSuccessful = true  // Set to true on successful sign-up
-        } catch {
-            errorMessage = error.localizedDescription
+        await viewModel.createUser()
+        if viewModel.isAuthenticated {
+            // Trigger navigation upon successful sign-up
+            navigationPath.append(SignUpNavigationDestination.listView)
+        } else if let errorMessage = viewModel.errorMessage {
+            // Handle error
+            self.errorMessage = errorMessage
             showErrorAlert = true
-            isSignUpSuccessful = false // Set to false if there's an error
         }
     }
 
 }
+
+// MARK: - View Modifiers
+private extension View {
+    func textFieldModifiers() -> some View {
+        self
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+            .autocapitalization(.none)
+            .disableAutocorrection(true)
+    }
+
+    func buttonModifiers(isEnabled: Bool) -> some View {
+        self
+            .fontWeight(.bold)
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(isEnabled ? Color.blue : Color.gray)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+            .padding(.horizontal)
+            .opacity(isEnabled ? 1.0 : 0.5)
+    }
+}
+
 
 
 
