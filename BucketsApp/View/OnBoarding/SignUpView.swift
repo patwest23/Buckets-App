@@ -186,6 +186,7 @@ private extension View {
 
 struct SignUpView_Previews: PreviewProvider {
     static var previews: some View {
-        SignUpView()
+        SignUpView().environmentObject(OnboardingViewModel())
     }
 }
+

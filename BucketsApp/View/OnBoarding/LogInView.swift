@@ -72,6 +72,6 @@ struct LogInView: View {
 
 struct LogInView_Previews: PreviewProvider {
     static var previews: some View {
-        LogInView()
+        LogInView().environmentObject(OnboardingViewModel())
     }
 }
