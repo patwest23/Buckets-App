@@ -6,34 +6,36 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @State private var showingAddItemView = false
     @State private var showingEditItemView = false
     @State private var selectedItem: ItemModel? = nil
-    @State private var showingProfileView = false  // State to control the display of ProfileView
-    
-    
+    @State private var showingProfileView = false
+    @State private var showingOptions = false // State to control options menu
+
+    // Additional states for list options
+    @State private var hideCompleted = false
+    @State private var showImages = true
+
     var body: some View {
         VStack (spacing: 0) {
             ZStack {
                 NavigationView {
                     List {
                         ForEach(bucketListViewModel.items) { item in
-                            ItemRow(item: item) { completed in
+                            ItemRow(item: item, onCompleted: { completed in
                                 bucketListViewModel.onCompleted(for: item, completed: completed)
-                            }
+                            }, showImages: $showImages)
                             .onTapGesture {
-                                selectedItem = item
-                                showingEditItemView = true
+                                // Handle tap on the item if needed
                             }
                         }
                         .onDelete(perform: bucketListViewModel.deleteItems)
-                        // create an onMove function!
                     }
-                    .navigationBarTitle("My Bucket List")
-                    
+                    .navigationBarTitle("Buckets App", displayMode: .inline)
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button(action: {
@@ -43,9 +45,24 @@ struct ListView: View {
                                     .imageScale(.large)
                             }
                         }
+
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Menu {
+                                Button(hideCompleted ? "Show Completed" : "Hide Completed") {
+                                    hideCompleted.toggle()
+                                }
+                                Button(showImages ? "Hide Images" : "Show Images") {
+                                    showImages.toggle()
+                                }
+                                Button("Edit List") {
+                                    // Your edit list action
+                                }
+                            } label: {
+                                Image(systemName: "list.bullet.circle")
+                                    .imageScale(.large)
+                            }
+                        }
                     }
-                    
-                    .navigationBarItems(leading: EditButton())
                 }
                 
                 // hovering button in the ZStack
@@ -69,6 +86,24 @@ struct ListView: View {
                     }
                 }
             }
+        }
+        
+        .actionSheet(isPresented: $showingOptions) {
+            ActionSheet(
+                title: Text("Options"),
+                buttons: [
+                    .default(Text(hideCompleted ? "Show Completed" : "Hide Completed")) {
+                        hideCompleted.toggle()
+                    },
+                    .default(Text(showImages ? "Hide Images" : "Show Images")) {
+                        showImages.toggle()
+                    },
+                    .default(Text("Edit List")) {
+                        // Your edit list action
+                    },
+                    .cancel()
+                ]
+            )
         }
         
         .sheet(isPresented: $showingProfileView) {

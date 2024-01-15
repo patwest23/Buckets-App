@@ -9,7 +9,6 @@
 import SwiftUI
 import PhotosUI
 
-
 struct EditItemView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var name: String
@@ -17,7 +16,6 @@ struct EditItemView: View {
     @State private var completed: Bool
     @State private var imageData: Data?
     @StateObject var imagePicker = ImagePicker()
-    
     
     let item: ItemModel
     let onSave: (ItemModel, Data?) -> Void
@@ -29,7 +27,16 @@ struct EditItemView: View {
         self._completed = State(initialValue: item.completed)
         self.onSave = onSave
         self._imageData = State(initialValue: item.imageData)
+
+        // Initialize the imagePicker
+        _imagePicker = StateObject(wrappedValue: ImagePicker())
+
+        // Set the uiImage of imagePicker if imageData exists
+        if let imageData = item.imageData, let image = UIImage(data: imageData) {
+            _imagePicker.wrappedValue.uiImage = image
+        }
     }
+
     
     var body: some View {
         VStack {
@@ -38,39 +45,27 @@ struct EditItemView: View {
                     TextField("Name", text: $name)
                     TextField("Description", text: $description)
                     Toggle("Completed", isOn: $completed)
-                    
-                    
-                    // Image picker form and image if there is one
+
                     VStack(alignment: .leading) {
                         PhotosPicker(selection: $imagePicker.imageSelection,
                                      matching: .images,
                                      photoLibrary: .shared()) {
                             Text("Select Photo")
                         }
-                        
+
                         HStack {
                             Spacer()
+                            // This is where you display the image if it exists
                             if let uiImage = imagePicker.uiImage {
-                                // Display the selected image
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFit()
                                     .cornerRadius(10)
-                            } else {
-                                Spacer()
-                                
-                                /*
-                                // Placeholder image or icon
-                                Image(systemName: "photo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 300, height: 300, alignment: .center)
-                                */
+                            }
                                 Spacer()
                             }
                         }
                     }
-                    
                 }
             }
             .navigationBarTitle("Edit Item")
@@ -122,7 +117,7 @@ struct EditItemView: View {
             }
         }
     }
-}
+
 
 
 
