@@ -23,7 +23,6 @@ struct AddItemView: View {
                 }
                 
             }
-            .navigationBarTitle("Add Item")
             
             HStack {
                 Button(action: {

@@ -22,9 +22,6 @@ struct SignUpView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack {
-                Text("Sign Up")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
 
                 VStack(spacing: 20) {
                     emailTextField

@@ -68,7 +68,6 @@ struct EditItemView: View {
                     }
                 }
             }
-            .navigationBarTitle("Edit Item")
             
             // Save and cancel buttons
             HStack {
@@ -119,22 +118,20 @@ struct EditItemView: View {
     }
 
 
-
-
 struct EditItemView_Previews: PreviewProvider {
-    static let item = ItemModel(id: UUID(), name: "Example Item", description: "An example item description", completed: false)
-    
     static var previews: some View {
-        NavigationView {
-            EditItemView(item: item) { updatedItem, _ in
-                // Do something with updatedItem
+        // Create an instance of ItemModel for the preview
+        var previewItem = ItemModel(id: UUID(), name: "Example Item", description: "An example item description", completed: false)
+        // Set imageData to nil or provide sample data
+        previewItem.imageData = nil
+
+        return NavigationView {
+            EditItemView(item: previewItem) { updatedItem, _ in
+                // Preview action for saving the item
             }
         }
     }
 }
-
-
-
 
 
 

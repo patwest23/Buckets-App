@@ -6,59 +6,104 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct ProfileView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
     @State private var navigationPath = NavigationPath()
+    @State private var isImagePickerPresented = false
+    @State private var selectedImageItem: PhotosPickerItem?
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            List {
-                if viewModel.isAuthenticated {
-                    Text("Welcome, \(viewModel.email)")
-                        .font(.headline)
+        VStack {
+            ZStack {
+                Color.white
+                    .edgesIgnoringSafeArea(.top)
+                    .frame(height: 220)
+                    .padding(.bottom, 10)
 
+                VStack(spacing: 16) {
+                    Button(action: {
+                        isImagePickerPresented = true
+                    }) {
+                        if let imageData = viewModel.profileImageData, let image = UIImage(data: imageData) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill() // Changed from scaledToFit to scaledToFill
+                                .frame(width: 150, height: 150)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
+                                .shadow(radius: 10)
+                        } else {
+                            Image(systemName: "person.crop.circle.badge.plus")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 150, height: 150)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.top, 44)
+                    .padding(.bottom)
+                    .sheet(isPresented: $isImagePickerPresented) {
+                        PhotosPicker(selection: $selectedImageItem, matching: .images, photoLibrary: .shared()) {
+                            Text("Select Profile Picture")
+                        }
+                    }
+                    .onChange(of: selectedImageItem) { newItem in
+                        guard let newItem = newItem else { return }
+                        Task {
+                            do {
+                                if let data = try await newItem.loadTransferable(type: Data.self) {
+                                    viewModel.updateProfileImage(with: data)
+                                }
+                            } catch {
+                                print("Error loading image data: \(error)")
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, -10)
+            }
+
+            NavigationStack(path: $navigationPath) {
+                List {
                     Section(header: Text("Account Settings")) {
                         navigationLinkButton("Update Email", destination: UpdateEmailView())
                         navigationLinkButton("Reset Password", destination: ResetPasswordView())
                         navigationLinkButton("Update Password", destination: UpdatePasswordView())
-                        
+
                         Button("Log Out", role: .destructive) {
                             viewModel.signOut()
                         }
                     }
-                } else {
-                    Text("Not logged in")
-                        .foregroundColor(.gray)
                 }
-            }
-            .navigationTitle("Profile")
-            .listStyle(GroupedListStyle())
-            .onAppear {
-                viewModel.checkIfUserIsAuthenticated()
+                .listStyle(GroupedListStyle())
+                .onAppear {
+                    viewModel.checkIfUserIsAuthenticated()
+                }
             }
         }
     }
 
     @ViewBuilder
     private func navigationLinkButton<T: View>(_ title: String, destination: T) -> some View {
-        NavigationLink(value: title) {
+        NavigationLink(destination: destination) {
             Text(title)
-        }
-        .navigationDestination(for: String.self) { value in
-            if value == title {
-                destination
-            }
         }
     }
 }
-
-
-
 
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
         ProfileView().environmentObject(OnboardingViewModel())
     }
 }
+
+
+
+
+
+
+
 

@@ -12,9 +12,6 @@ struct LogInView: View {
 
     var body: some View {
         VStack {
-            Text("Log In")
-                .font(.largeTitle)
-                .fontWeight(.bold)
 
             VStack(spacing: 20) {
                 TextField("Email", text: $viewModel.email)
@@ -43,10 +40,10 @@ struct LogInView: View {
                     .fontWeight(.bold)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
+                    .background(Color.white)
                     .cornerRadius(10)
                     .padding(.horizontal)
+
             }
             .alert("Error", isPresented: $viewModel.showErrorAlert) {
                 Button("OK", role: .cancel) { }

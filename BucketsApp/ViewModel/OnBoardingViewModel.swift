@@ -15,6 +15,8 @@ final class OnboardingViewModel: ObservableObject {
     @Published var isAuthenticated: Bool = false
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
+    @Published var profileImageData: Data? // Store the profile image data
+
 
     init() {
         isAuthenticated = Auth.auth().currentUser != nil
@@ -120,6 +122,11 @@ final class OnboardingViewModel: ObservableObject {
                 completion(.failure(error))
             }
         }
+    }
+    
+    // Method to update the profile image
+    func updateProfileImage(with data: Data?) {
+        profileImageData = data
     }
 
 

@@ -10,138 +10,104 @@ import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
-    @State private var showingAddItemView = false
-    @State private var showingEditItemView = false
-    @State private var selectedItem: ItemModel? = nil
-    @State private var showingProfileView = false
-    @State private var showingOptions = false // State to control options menu
-
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @State private var navigationPath = NavigationPath()
+    @State private var selectedItem: ItemModel?
+    
     // Additional states for list options
     @State private var hideCompleted = false
     @State private var showImages = true
 
     var body: some View {
-        VStack (spacing: 0) {
-            ZStack {
-                NavigationView {
-                    List {
-                        ForEach(bucketListViewModel.items) { item in
-                            ItemRow(item: item, onCompleted: { completed in
-                                bucketListViewModel.onCompleted(for: item, completed: completed)
-                            }, showImages: $showImages)
-                            .onTapGesture {
-                                // Handle tap on the item if needed
-                            }
-                        }
-                        .onDelete(perform: bucketListViewModel.deleteItems)
+        NavigationStack(path: $navigationPath) {
+            List {
+                // List of Items
+                ForEach(bucketListViewModel.items) { item in
+                    NavigationLink(value: item) {
+                        ItemRow(item: item, onCompleted: { completed in
+                            bucketListViewModel.onCompleted(for: item, completed: completed)
+                        }, showImages: $showImages)
                     }
-                    .navigationBarTitle("Buckets App", displayMode: .inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(action: {
-                                showingProfileView = true
-                            }) {
-                                Image(systemName: "person.crop.circle")
-                                    .imageScale(.large)
-                            }
-                        }
-
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Menu {
-                                Button(hideCompleted ? "Show Completed" : "Hide Completed") {
-                                    hideCompleted.toggle()
-                                }
-                                Button(showImages ? "Hide Images" : "Show Images") {
-                                    showImages.toggle()
-                                }
-                                Button("Edit List") {
-                                    // Your edit list action
-                                }
-                            } label: {
-                                Image(systemName: "list.bullet.circle")
-                                    .imageScale(.large)
-                            }
+                }
+                .onDelete(perform: bucketListViewModel.deleteItems)
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: ProfileView()) {
+                        if let imageData = onboardingViewModel.profileImageData, let image = UIImage(data: imageData) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 35, height: 35)
+                                .clipShape(Circle())
+                        } else {
+                            Image(systemName: "person.crop.circle")
+                                .resizable()
+                                .frame(width: 35, height: 35)
+                                .aspectRatio(contentMode: .fill)
                         }
                     }
                 }
                 
-                // hovering button in the ZStack
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            showingAddItemView = true
-                        }) {
-                            Image(systemName: "plus")
-                                .font(.title)
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(Color("AccentColor"))
-                                .cornerRadius(28)
-                                .shadow(radius: 4)
-                                .padding(.trailing, 16)
-                                .padding(.bottom, 16)
-                        }
-                    }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    optionsMenu
                 }
             }
-        }
-        
-        .actionSheet(isPresented: $showingOptions) {
-            ActionSheet(
-                title: Text("Options"),
-                buttons: [
-                    .default(Text(hideCompleted ? "Show Completed" : "Hide Completed")) {
-                        hideCompleted.toggle()
-                    },
-                    .default(Text(showImages ? "Hide Images" : "Show Images")) {
-                        showImages.toggle()
-                    },
-                    .default(Text("Edit List")) {
-                        // Your edit list action
-                    },
-                    .cancel()
-                ]
-            )
-        }
-        
-        .sheet(isPresented: $showingProfileView) {
-                    ProfileView()
-                }
-        
-        .sheet(isPresented: $showingAddItemView) {
-            AddItemView { item, imageData in
-                bucketListViewModel.addItem(item: item, imageData: imageData)
-                showingAddItemView = false
+            // Floating button for adding a new item
+            .overlay(alignment: .bottomTrailing) {
+                addButton
             }
-        }
-        .sheet(item: $selectedItem) { item in
-            EditItemView(item: item) { updatedItem, imageData in
-                if !updatedItem.name.trimmingCharacters(in: .whitespaces).isEmpty {
+            .navigationDestination(for: ItemModel.self) { item in
+                EditItemView(item: item) { updatedItem, imageData in
                     bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed, imageData: imageData)
-                    // Save images locally
-                    // ...
                 }
-                selectedItem = nil
-                showingEditItemView = false
             }
         }
-
+    }
+    
+    @ViewBuilder
+    private var addButton: some View {
+        Button(action: {
+            // Handle add item action
+        }) {
+            Image(systemName: "plus")
+                .font(.title)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.accentColor)
+                .cornerRadius(28)
+                .shadow(radius: 4)
+                .padding(16)
+        }
+    }
+    
+    @ViewBuilder
+    private var optionsMenu: some View {
+        Menu {
+            Button(hideCompleted ? "Show Completed" : "Hide Completed") {
+                hideCompleted.toggle()
+            }
+            Button(showImages ? "Hide Images" : "Show Images") {
+                showImages.toggle()
+            }
+            Button("Edit List") {
+                // Your edit list action
+            }
+        } label: {
+            Image(systemName: "list.bullet.circle")
+                .font(.title)
+        }
     }
 }
-
-
-
 
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
-        let viewModel = ListViewModel()
-        viewModel.loadItems()
-        return ListView()
-            .environmentObject(viewModel)
+        ListView()
+            .environmentObject(ListViewModel())
+            .environmentObject(OnboardingViewModel())
     }
 }
+
 
 
 
