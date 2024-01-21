@@ -15,7 +15,7 @@ struct EditItemView: View {
     @State private var description: String
     @State private var completed: Bool
     @State private var imageData: Data?
-    @StateObject var imagePicker = ImagePicker()
+    @StateObject var imagePicker = ImagePicker() // Initialize directly here
     
     let item: ItemModel
     let onSave: (ItemModel, Data?) -> Void
@@ -27,11 +27,7 @@ struct EditItemView: View {
         _completed = State(initialValue: item.completed)
         _imageData = State(initialValue: item.imageData)
         self.onSave = onSave
-        
-        _imagePicker = StateObject(wrappedValue: ImagePicker())
-        if let imageData = item.imageData, let image = UIImage(data: imageData) {
-            _imagePicker.wrappedValue.uiImage = image
-        }
+        // Removed the imagePicker initialization from here
     }
 
     var body: some View {
@@ -50,7 +46,8 @@ struct EditItemView: View {
 
                     HStack {
                         Spacer()
-                        if let uiImage = imagePicker.uiImage {
+                        // Display the current or selected image if it exists
+                        if let uiImage = imagePicker.uiImage ?? (item.imageData.flatMap(UIImage.init)) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFit()
@@ -62,12 +59,12 @@ struct EditItemView: View {
             }
         }
         .onDisappear {
-            // Convert the selected image to Data
-            let updatedImageData = imagePicker.uiImage?.jpegData(compressionQuality: 1.0)
-
-            // Create a new instance of ItemModel
-            var updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
-            updatedItem.imageData = updatedImageData ?? imageData  // Update imageData separately
+            let updatedImageData = imagePicker.uiImage?.jpegData(compressionQuality: 1.0) ?? item.imageData
+            var updatedItem = item
+            updatedItem.name = name
+            updatedItem.description = description
+            updatedItem.completed = completed
+            updatedItem.imageData = updatedImageData
 
             onSave(updatedItem, updatedImageData)
         }
@@ -75,6 +72,8 @@ struct EditItemView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
+
 
 
 struct EditItemView_Previews: PreviewProvider {
