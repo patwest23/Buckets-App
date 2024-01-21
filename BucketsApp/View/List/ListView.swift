@@ -13,6 +13,7 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @State private var navigationPath = NavigationPath()
     @State private var selectedItem: ItemModel?
+    @State private var showingAddItemView = false  // State to control navigation to AddItemView
     
     // Additional states for list options
     @State private var hideCompleted = false
@@ -21,8 +22,8 @@ struct ListView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             List {
-                // List of Items
-                ForEach(bucketListViewModel.items) { item in
+                // Filtered List of Items
+                ForEach(bucketListViewModel.items.filter { !hideCompleted || !$0.completed }) { item in
                     NavigationLink(value: item) {
                         ItemRow(item: item, onCompleted: { completed in
                             bucketListViewModel.onCompleted(for: item, completed: completed)
@@ -33,20 +34,7 @@ struct ListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: ProfileView()) {
-                        if let imageData = onboardingViewModel.profileImageData, let image = UIImage(data: imageData) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 35, height: 35)
-                                .clipShape(Circle())
-                        } else {
-                            Image(systemName: "person.crop.circle")
-                                .resizable()
-                                .frame(width: 35, height: 35)
-                                .aspectRatio(contentMode: .fill)
-                        }
-                    }
+                    profileNavigationLink
                 }
                 
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -62,13 +50,18 @@ struct ListView: View {
                     bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed, imageData: imageData)
                 }
             }
+            .navigationDestination(isPresented: $showingAddItemView) {
+                AddItemView() { newItem, imageData in
+                    bucketListViewModel.addItem(item: newItem, imageData: imageData)
+                }
+            }
         }
     }
     
     @ViewBuilder
     private var addButton: some View {
         Button(action: {
-            // Handle add item action
+            showingAddItemView = true
         }) {
             Image(systemName: "plus")
                 .font(.title)
@@ -82,23 +75,51 @@ struct ListView: View {
     }
     
     @ViewBuilder
+    private var profileNavigationLink: some View {
+        NavigationLink(destination: ProfileView()) {
+            if let imageData = onboardingViewModel.profileImageData, let image = UIImage(data: imageData) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 35, height: 35)
+                    .clipShape(Circle())
+            } else {
+                Image(systemName: "person.crop.circle")
+                    .resizable()
+                    .frame(width: 35, height: 35)
+                    .aspectRatio(contentMode: .fill)
+            }
+        }
+    }
+    
+    @ViewBuilder
     private var optionsMenu: some View {
         Menu {
-            Button(hideCompleted ? "Show Completed" : "Hide Completed") {
+            Button(action: {
                 hideCompleted.toggle()
+            }) {
+                Label(hideCompleted ? "Show Completed" : "Hide Completed", systemImage: "eye")
             }
-            Button(showImages ? "Hide Images" : "Show Images") {
+
+            Button(action: {
                 showImages.toggle()
+            }) {
+                Label(showImages ? "Hide Images" : "Show Images", systemImage: "photo")
             }
-            Button("Edit List") {
+
+            Button(action: {
                 // Your edit list action
+            }) {
+                Label("Edit List", systemImage: "pencil")
             }
         } label: {
             Image(systemName: "list.bullet.circle")
                 .font(.title)
         }
     }
+
 }
+
 
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {

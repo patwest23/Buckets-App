@@ -5,68 +5,47 @@
 //  Created by Patrick Westerkamp on 5/13/23.
 //
 
+
 import SwiftUI
 import PhotosUI
 
 struct ProfileView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
-    @State private var navigationPath = NavigationPath()
     @State private var isImagePickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
 
     var body: some View {
-        VStack {
-            ZStack {
-                Color.white
-                    .edgesIgnoringSafeArea(.top)
-                    .frame(height: 220)
-                    .padding(.bottom, 10)
-
-                VStack(spacing: 16) {
-                    Button(action: {
-                        isImagePickerPresented = true
-                    }) {
-                        if let imageData = viewModel.profileImageData, let image = UIImage(data: imageData) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill() // Changed from scaledToFit to scaledToFill
-                                .frame(width: 150, height: 150)
-                                .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
-                                .shadow(radius: 10)
-                        } else {
-                            Image(systemName: "person.crop.circle.badge.plus")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 150, height: 150)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.top, 44)
-                    .padding(.bottom)
-                    .sheet(isPresented: $isImagePickerPresented) {
-                        PhotosPicker(selection: $selectedImageItem, matching: .images, photoLibrary: .shared()) {
-                            Text("Select Profile Picture")
-                        }
-                    }
-                    .onChange(of: selectedImageItem) { newItem in
-                        guard let newItem = newItem else { return }
-                        Task {
-                            do {
-                                if let data = try await newItem.loadTransferable(type: Data.self) {
-                                    viewModel.updateProfileImage(with: data)
-                                }
-                            } catch {
-                                print("Error loading image data: \(error)")
-                            }
-                        }
+        NavigationView {
+            VStack {
+                // Profile Image Button
+                Button(action: {
+                    isImagePickerPresented = true
+                }) {
+                    if let imageData = viewModel.profileImageData, let image = UIImage(data: imageData) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 150, height: 150)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
+                            .shadow(radius: 10)
+                    } else {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 150, height: 150)
+                            .foregroundColor(.gray)
                     }
                 }
-                .padding(.bottom, -10)
-            }
+                .buttonStyle(PlainButtonStyle())
+                .sheet(isPresented: $isImagePickerPresented) {
+                    PhotosPicker(selection: $selectedImageItem, matching: .images, photoLibrary: .shared()) {}
+                }
+                .onChange(of: selectedImageItem) { newItem in
+                    loadProfileImage(newItem)
+                }
 
-            NavigationStack(path: $navigationPath) {
+                // Rest of your view content...
                 List {
                     Section(header: Text("Account Settings")) {
                         navigationLinkButton("Update Email", destination: UpdateEmailView())
@@ -82,6 +61,21 @@ struct ProfileView: View {
                 .onAppear {
                     viewModel.checkIfUserIsAuthenticated()
                 }
+            }
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func loadProfileImage(_ newItem: PhotosPickerItem?) {
+        guard let newItem = newItem else { return }
+        Task {
+            do {
+                if let data = try await newItem.loadTransferable(type: Data.self) {
+                    viewModel.updateProfileImage(with: data)
+                }
+            } catch {
+                print("Error loading image data: \(error)")
             }
         }
     }
@@ -99,6 +93,7 @@ struct ProfileView_Previews: PreviewProvider {
         ProfileView().environmentObject(OnboardingViewModel())
     }
 }
+
 
 
 

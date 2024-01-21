@@ -14,52 +14,22 @@ struct AddItemView: View {
     let onSave: (ItemModel, Data?) -> Void
 
     var body: some View {
-        VStack {
-            Form {
-                Section(header: Text("What do you want to do before you die?")){
-                    TextField("Name", text: $newItem.name)
-                    TextField("Description", text: $newItem.description)
-                    Toggle("Completed", isOn: $newItem.completed)
-                }
-                
-            }
-            
-            HStack {
-                Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Text("Cancel")
-                        .foregroundColor(Color.red)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.white)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.red, lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                }
-                Button(action: {
-                    onSave(newItem, nil)
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Text("Save")
-                        .foregroundColor(Color("AccentColor"))
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.white)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color("AccentColor"), lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                }
+        Form {
+            Section(header: Text("What do you want to do before you die?")){
+                TextField("Name", text: $newItem.name)
+                TextField("Description", text: $newItem.description)
+                Toggle("Completed", isOn: $newItem.completed)
             }
         }
+        .onDisappear {
+            // When the view disappears, save the data
+            onSave(newItem, nil)
+        }
+        .navigationTitle("Add Item")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
+
 
 
 struct AddItemView_Previews: PreviewProvider {

@@ -19,103 +19,62 @@ struct EditItemView: View {
     
     let item: ItemModel
     let onSave: (ItemModel, Data?) -> Void
-    
+
     init(item: ItemModel, onSave: @escaping (ItemModel, Data?) -> Void) {
         self.item = item
-        self._name = State(initialValue: item.name)
-        self._description = State(initialValue: item.description)
-        self._completed = State(initialValue: item.completed)
+        _name = State(initialValue: item.name)
+        _description = State(initialValue: item.description)
+        _completed = State(initialValue: item.completed)
+        _imageData = State(initialValue: item.imageData)
         self.onSave = onSave
-        self._imageData = State(initialValue: item.imageData)
-
-        // Initialize the imagePicker
+        
         _imagePicker = StateObject(wrappedValue: ImagePicker())
-
-        // Set the uiImage of imagePicker if imageData exists
         if let imageData = item.imageData, let image = UIImage(data: imageData) {
             _imagePicker.wrappedValue.uiImage = image
         }
     }
 
-    
     var body: some View {
-        VStack {
-            Form {
-                Section(header: Text(item.name)) {
-                    TextField("Name", text: $name)
-                    TextField("Description", text: $description)
-                    Toggle("Completed", isOn: $completed)
+        Form {
+            Section(header: Text("Edit Item")) {
+                TextField("Name", text: $name)
+                TextField("Description", text: $description)
+                Toggle("Completed", isOn: $completed)
 
-                    VStack(alignment: .leading) {
-                        PhotosPicker(selection: $imagePicker.imageSelection,
-                                     matching: .images,
-                                     photoLibrary: .shared()) {
-                            Text("Select Photo")
-                        }
-
-                        HStack {
-                            Spacer()
-                            // This is where you display the image if it exists
-                            if let uiImage = imagePicker.uiImage {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .cornerRadius(10)
-                            }
-                                Spacer()
-                            }
-                        }
+                VStack(alignment: .leading) {
+                    PhotosPicker(selection: $imagePicker.imageSelection,
+                                 matching: .images,
+                                 photoLibrary: .shared()) {
+                        Text("Select Photo")
                     }
-                }
-            }
-            
-            // Save and cancel buttons
-            HStack {
-                Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Text("Cancel")
-                        .foregroundColor(Color.red)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.white)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.red, lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                }
-                Button(action: {
-                    if !name.trimmingCharacters(in: .whitespaces).isEmpty {
+
+                    HStack {
+                        Spacer()
                         if let uiImage = imagePicker.uiImage {
-                            if let imageData = uiImage.jpegData(compressionQuality: 1.0) {
-                                let updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
-                                onSave(updatedItem, imageData)
-                                presentationMode.wrappedValue.dismiss()
-                            }
-                        } else {
-                            let updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
-                            onSave(updatedItem, nil)
-                            presentationMode.wrappedValue.dismiss()
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit()
+                                .cornerRadius(10)
                         }
+                        Spacer()
                     }
-                }) {
-                    Text("Save")
-                        .foregroundColor(Color("AccentColor"))
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.white)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color("AccentColor"), lineWidth: 1)
-                        )
-                        .padding(.horizontal)
                 }
             }
         }
+        .onDisappear {
+            // Convert the selected image to Data
+            let updatedImageData = imagePicker.uiImage?.jpegData(compressionQuality: 1.0)
+
+            // Create a new instance of ItemModel
+            var updatedItem = ItemModel(id: item.id, name: name, description: description, completed: completed)
+            updatedItem.imageData = updatedImageData ?? imageData  // Update imageData separately
+
+            onSave(updatedItem, updatedImageData)
+        }
+        .navigationTitle("Edit Item")
+        .navigationBarTitleDisplayMode(.inline)
     }
+}
 
 
 struct EditItemView_Previews: PreviewProvider {
