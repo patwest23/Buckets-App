@@ -32,16 +32,16 @@ struct EditItemView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("Edit Item")) {
-                TextField("Name", text: $name)
-                TextField("Description", text: $description)
-                Toggle("Completed", isOn: $completed)
+            Section() {
+                TextField("what do you wan to do before you die", text: $name)
+                TextField("notes", text: $description)
+                Toggle("completed", isOn: $completed)
 
                 VStack(alignment: .leading) {
                     PhotosPicker(selection: $imagePicker.imageSelection,
                                  matching: .images,
                                  photoLibrary: .shared()) {
-                        Text("Select Photo")
+                        Text("select photo")
                     }
 
                     HStack {
@@ -68,8 +68,6 @@ struct EditItemView: View {
 
             onSave(updatedItem, updatedImageData)
         }
-        .navigationTitle("Edit Item")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

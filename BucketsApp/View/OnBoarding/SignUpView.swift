@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 enum SignUpNavigationDestination {
     case listView
@@ -72,16 +73,20 @@ struct SignUpView: View {
     var termsAndConditionsSection: some View {
         HStack {
             Text("I agree to the")
-            Text("Terms and Conditions")
-                .foregroundColor(.blue)
-                .underline()
-                .onTapGesture {
-                    // Handle Terms and Conditions URL
+            Button("Terms and Conditions") {
+                // Specify the URL you want to open
+                if let url = URL(string: "https://www.bucketsapp.com/") {
+                    // Check if the URL can be opened, then open it
+                    UIApplication.shared.open(url)
                 }
+            }
+            .foregroundColor(.blue)
+            .underline()
             Toggle("", isOn: $agreedToTerms)
         }
         .font(.caption)
     }
+
 
     var signUpButton: some View {
         Button(action: {

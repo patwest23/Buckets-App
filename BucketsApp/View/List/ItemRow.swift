@@ -32,7 +32,7 @@ struct ItemRow: View {
 
                 Text(item.name)
                     .foregroundColor(item.completed ? .gray : .primary)
-                    .font(.title2)
+                    .font(.title3)
             }
 
             // Conditionally display the image based on the showImages binding

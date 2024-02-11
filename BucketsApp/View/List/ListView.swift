@@ -11,20 +11,20 @@ import PhotosUI
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @State private var navigationPath = NavigationPath()
-    @State private var selectedItem: ItemModel?
-    @State private var showingAddItemView = false  // State to control navigation to AddItemView
-    
+    @State private var showingAddItemView = false  // State to control showing the AddItemView as a sheet
+    @State private var selectedItem: ItemModel?  // Used for direct navigation to EditItemView
+
     // Additional states for list options
     @State private var hideCompleted = false
     @State private var showImages = true
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack {
             List {
-                // Filtered List of Items
                 ForEach(bucketListViewModel.items.filter { !hideCompleted || !$0.completed }) { item in
-                    NavigationLink(value: item) {
+                    Button(action: {
+                        self.selectedItem = item  // Set the selected item to trigger navigation
+                    }) {
                         ItemRow(item: item, onCompleted: { completed in
                             bucketListViewModel.onCompleted(for: item, completed: completed)
                         }, showImages: $showImages)
@@ -32,32 +32,33 @@ struct ListView: View {
                 }
                 .onDelete(perform: bucketListViewModel.deleteItems)
             }
+            .navigationTitle("Buckets")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    profileNavigationLink
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
                     optionsMenu
                 }
-            }
-            // Floating button for adding a new item
-            .overlay(alignment: .bottomTrailing) {
-                addButton
-            }
-            .navigationDestination(for: ItemModel.self) { item in
-                EditItemView(item: item) { updatedItem, imageData in
-                    bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed, imageData: imageData)
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    profileNavigationLink
                 }
             }
-            .navigationDestination(isPresented: $showingAddItemView) {
-                AddItemView() { newItem, imageData in
-                    bucketListViewModel.addItem(item: newItem, imageData: imageData)
-                }
+            .overlay(
+                addButton.padding(16),
+                alignment: .bottomTrailing
+            )
+        }
+        .sheet(isPresented: $showingAddItemView) {
+            AddItemView() { newItem, imageData in
+                bucketListViewModel.addItem(item: newItem, imageData: imageData)
+            }
+        }
+        .sheet(item: $selectedItem) { item in
+            EditItemView(item: item) { updatedItem, imageData in
+                bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed, imageData: imageData)
             }
         }
     }
-    
+
     @ViewBuilder
     private var addButton: some View {
         Button(action: {
@@ -70,10 +71,27 @@ struct ListView: View {
                 .background(Color.accentColor)
                 .cornerRadius(28)
                 .shadow(radius: 4)
-                .padding(16)
         }
     }
     
+    private var optionsMenu: some View {
+        Menu {
+            Button(hideCompleted ? "Show Completed" : "Hide Completed") {
+                hideCompleted.toggle()
+            }
+
+            Button(showImages ? "Hide Images" : "Show Images") {
+                showImages.toggle()
+            }
+
+            Button("Edit List") {
+                // Placeholder for future feature
+            }
+        } label: {
+            Image(systemName: "list.bullet.circle")
+        }
+    }
+
     @ViewBuilder
     private var profileNavigationLink: some View {
         NavigationLink(destination: ProfileView()) {
@@ -85,40 +103,11 @@ struct ListView: View {
                     .clipShape(Circle())
             } else {
                 Image(systemName: "person.crop.circle")
-                    .resizable()
-                    .frame(width: 35, height: 35)
-                    .aspectRatio(contentMode: .fill)
             }
         }
     }
-    
-    @ViewBuilder
-    private var optionsMenu: some View {
-        Menu {
-            Button(action: {
-                hideCompleted.toggle()
-            }) {
-                Label(hideCompleted ? "Show Completed" : "Hide Completed", systemImage: "eye")
-            }
-
-            Button(action: {
-                showImages.toggle()
-            }) {
-                Label(showImages ? "Hide Images" : "Show Images", systemImage: "photo")
-            }
-
-            Button(action: {
-                // Your edit list action
-            }) {
-                Label("Edit List", systemImage: "pencil")
-            }
-        } label: {
-            Image(systemName: "list.bullet.circle")
-                .font(.title)
-        }
-    }
-
 }
+
 
 
 struct ListView_Previews: PreviewProvider {

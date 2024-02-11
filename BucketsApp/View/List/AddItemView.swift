@@ -15,18 +15,17 @@ struct AddItemView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("What do you want to do before you die?")){
-                TextField("Name", text: $newItem.name)
-                TextField("Description", text: $newItem.description)
-                Toggle("Completed", isOn: $newItem.completed)
+            Section(){
+                TextField("what do you want to do before you die?", text: $newItem.name)
+                TextField("notes", text: $newItem.description)
+                Toggle("completed", isOn: $newItem.completed)
+                // location
             }
         }
         .onDisappear {
             // When the view disappears, save the data
             onSave(newItem, nil)
         }
-        .navigationTitle("Add Item")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

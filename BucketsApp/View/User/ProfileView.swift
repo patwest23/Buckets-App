@@ -62,8 +62,6 @@ struct ProfileView: View {
                     viewModel.checkIfUserIsAuthenticated()
                 }
             }
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
 

@@ -18,20 +18,20 @@ struct OnboardingView: View {
             VStack(spacing: 40) {
                 Spacer()
 
-                Text("Welcome to the rest of your life")
+                Text("what do you want to do before you die?")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundColor(.black)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40.0)
                 
-                Text("Create, complete, and share your bucket list")
+                Text("create, complete, and share your bucket list")
                     .font(.headline)
                     .foregroundColor(.black)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40.0)
 
-                Image("Image1")
+                Image("Image2")
                     .resizable()
                     .frame(width: 100, height: 100)
 
