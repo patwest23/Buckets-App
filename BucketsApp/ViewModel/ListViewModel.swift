@@ -10,7 +10,8 @@ import Foundation
 class ListViewModel: ObservableObject {
     
     @Published var items: [ItemModel] = []
-
+    @Published var selectedItem: ItemModel? // Property to store the selected item for editing
+    
     func addItem(item: ItemModel, imageData: Data?) {
         var newItem = item
         newItem.imageData = imageData
@@ -47,6 +48,7 @@ class ListViewModel: ObservableObject {
         }
     }
 }
+
 
 
 

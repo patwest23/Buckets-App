@@ -5,76 +5,74 @@
 //  Created by Patrick Westerkamp on 4/10/23.
 //
 
+
 import SwiftUI
 import PhotosUI
-
 
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @State private var selectedItem: ItemModel?  // Used for direct navigation to EditItemView
+    @State private var showingAddItemView = false
+    @State private var newItemName: String = ""
+    @State private var selectedItem: ItemModel?
 
-    // Additional states for list options
     @State private var hideCompleted = false
     @State private var showImages = true
+    @State private var focusedItemID: UUID?
+    @FocusState private var isAddingNewItem: Bool
 
     var body: some View {
         NavigationView {
             List {
                 ForEach(bucketListViewModel.items.filter { !hideCompleted || !$0.completed }) { item in
-                    Button(action: {
-                        self.selectedItem = item  // Set the selected item to trigger navigation
-                    }) {
-                        ItemRow(item: item, onCompleted: { completed in
-                            bucketListViewModel.onCompleted(for: item, completed: completed)
-                        }, showImages: $showImages)
+                    ItemRow(item: item, onCompleted: { completed in
+                        bucketListViewModel.onCompleted(for: item, completed: completed)
+                    }, showImages: $showImages) {
+                        self.selectedItem = item
+                    }
+                    .id(item.id)
+                    .focused($isAddingNewItem)
+                    .onTapGesture {
+                        focusedItemID = item.id
                     }
                 }
-                .onDelete(perform: bucketListViewModel.deleteItems)
-                .id(UUID()) // Ensure each row has a unique identifier
-            }
-            .navigationTitle("Buckets")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    optionsMenu
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    profileNavigationLink
+                .onDelete { indexSet in
+                    bucketListViewModel.deleteItems(at: indexSet)
                 }
             }
-            .overlay(
-                addButton.padding(16),
-                alignment: .bottomTrailing
-            )
-            .onAppear {
-                // Load initial items
-                bucketListViewModel.loadItems()
-            }
-        }
-        .sheet(item: $selectedItem) { item in
-            EditItemView(item: item) { updatedItem, imageData in
-                bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed, imageData: imageData)
-            }
-        }
-    }
 
-    @ViewBuilder
-    private var addButton: some View {
-        Button(action: {
-            let newItem = ItemModel(name: "What do you want to do before you die?", description: "", completed: false)
-            bucketListViewModel.addItem(item: newItem, imageData: nil)
-        }) {
-            Image(systemName: "plus")
-                .font(.title)
-                .foregroundColor(.white)
+            if showingAddItemView {
+                TextField("New item", text: $newItemName, onCommit: {
+                    if !newItemName.isEmpty {
+                        let newItem = ItemModel(name: newItemName, description: "", completed: false)
+                        bucketListViewModel.addItem(item: newItem, imageData: nil)
+                        newItemName = ""
+                        showingAddItemView = false
+                        focusedItemID = newItem.id
+                    }
+                })
+                .font(.title3)
+                .foregroundColor(.primary)
                 .padding()
-                .background(Color.accentColor)
-                .cornerRadius(28)
-                .shadow(radius: 4)
+                .textFieldStyle(PlainTextFieldStyle())
+            }
         }
+        .navigationTitle("Buckets")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                optionsMenu
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                profileNavigationLink
+            }
+        }
+        .overlay(
+            addButton.padding(16),
+            alignment: .bottomTrailing
+        )
     }
-
+    
     private var optionsMenu: some View {
         Menu {
             Button(hideCompleted ? "Show Completed" : "Hide Completed") {
@@ -107,6 +105,21 @@ struct ListView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var addButton: some View {
+        Button(action: {
+            showingAddItemView = true
+        }) {
+            Image(systemName: "plus")
+                .font(.title)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.accentColor)
+                .cornerRadius(28)
+                .shadow(radius: 4)
+        }
+    }
 }
 
 
@@ -121,7 +134,6 @@ struct ListView_Previews: PreviewProvider {
             .environmentObject(OnboardingViewModel())
     }
 }
-
 
 
 

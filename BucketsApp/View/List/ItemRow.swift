@@ -5,17 +5,13 @@
 //  Created by Patrick Westerkamp on 4/11/23.
 //
 
-
 import SwiftUI
 
 struct ItemRow: View {
-    @EnvironmentObject var bucketListViewModel: ListViewModel
-    @State private var showingAddItemView = false
-    @State private var showingEditItemView = false
-    @State private var selectedItem: ItemModel?
     var item: ItemModel
     var onCompleted: (Bool) -> Void
     @Binding var showImages: Bool  // Binding to control image visibility
+    var onEdit: () -> Void // Action for editing the item
 
     var body: some View {
         VStack (alignment: .leading) {
@@ -33,6 +29,13 @@ struct ItemRow: View {
                 Text(item.name)
                     .foregroundColor(item.completed ? .gray : .primary)
                     .font(.title3)
+                
+                // Show edit button when tapped
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(BorderlessButtonStyle())
             }
 
             // Conditionally display the image based on the showImages binding
@@ -47,6 +50,9 @@ struct ItemRow: View {
 }
 
 
+
+
+
 struct ItemRow_Previews: PreviewProvider {
     @State static var showImages = true // Mock state for image visibility
 
@@ -56,7 +62,9 @@ struct ItemRow_Previews: PreviewProvider {
 
         return ItemRow(item: item, onCompleted: { completed in
             // Do something with completed
-        }, showImages: $showImages)
+        }, showImages: $showImages) {
+            // Handle editing action
+        }
         .environmentObject(ListViewModel())
         .previewLayout(.fixed(width: 300, height: 80))
         .padding()
