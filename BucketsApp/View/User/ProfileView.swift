@@ -5,7 +5,6 @@
 //  Created by Patrick Westerkamp on 5/13/23.
 //
 
-
 import SwiftUI
 import PhotosUI
 
@@ -21,21 +20,7 @@ struct ProfileView: View {
                 Button(action: {
                     isImagePickerPresented = true
                 }) {
-                    if let imageData = viewModel.profileImageData, let image = UIImage(data: imageData) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 150, height: 150)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
-                            .shadow(radius: 10)
-                    } else {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 150, height: 150)
-                            .foregroundColor(.gray)
-                    }
+                    profileImageButton
                 }
                 .buttonStyle(PlainButtonStyle())
                 .sheet(isPresented: $isImagePickerPresented) {
@@ -63,8 +48,32 @@ struct ProfileView: View {
                 }
             }
         }
+        .environmentObject(viewModel) // Provide the environment object here
     }
 
+    private var profileImageButton: some View {
+        if let imageData = viewModel.profileImageData, let image = UIImage(data: imageData) {
+            return AnyView(
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 150, height: 150)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
+                    .shadow(radius: 10)
+            )
+        } else {
+            return AnyView(
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 150, height: 150)
+                    .foregroundColor(.gray)
+            )
+        }
+    }
+    
+    
     private func loadProfileImage(_ newItem: PhotosPickerItem?) {
         guard let newItem = newItem else { return }
         Task {
@@ -91,6 +100,8 @@ struct ProfileView_Previews: PreviewProvider {
         ProfileView().environmentObject(OnboardingViewModel())
     }
 }
+
+
 
 
 

@@ -6,34 +6,25 @@
 //
 
 import Foundation
-import SwiftUI
 
 class ListViewModel: ObservableObject {
     
-    @Published var items: [ItemModel] = [] {
-        didSet {
-            saveItems()
-        }
-    }
-    
-    let itemsKey: String = "items_list"
-    
-    init() {
-        loadItems()
-    }
-    
-    func loadItems() {
-        // Since you're no longer using UserDefaults, this method will remain empty.
-        // You will load items directly in the ListView using this ViewModel.
-    }
-    
+    @Published var items: [ItemModel] = []
+
     func addItem(item: ItemModel, imageData: Data?) {
-        guard !item.name.isEmpty else { return }
         var newItem = item
         newItem.imageData = imageData
         items.append(newItem)
+        removeEmptyItems()
     }
     
+    func removeEmptyItems() {
+        // Filter out empty items
+        let nonEmptyItems = items.filter { !$0.name.isEmpty }
+        // Update the items array with non-empty items
+        items = nonEmptyItems
+    }
+
     func updateItem(_ item: ItemModel, withName name: String, description: String, completed: Bool, imageData: Data?) {
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             var updatedItem = item
@@ -42,6 +33,7 @@ class ListViewModel: ObservableObject {
             updatedItem.completed = completed
             updatedItem.imageData = imageData
             items[index] = updatedItem
+            removeEmptyItems()
         }
     }
     
@@ -54,12 +46,9 @@ class ListViewModel: ObservableObject {
             items[index].completed = completed
         }
     }
-    
-    func saveItems() {
-        // Since items are now managed directly within the ListView,
-        // the saveItems method is no longer needed in this ViewModel.
-    }
 }
+
+
 
 
  

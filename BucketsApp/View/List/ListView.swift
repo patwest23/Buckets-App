@@ -8,6 +8,7 @@
 import SwiftUI
 import PhotosUI
 
+
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
@@ -30,6 +31,7 @@ struct ListView: View {
                     }
                 }
                 .onDelete(perform: bucketListViewModel.deleteItems)
+                .id(UUID()) // Ensure each row has a unique identifier
             }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
@@ -45,6 +47,10 @@ struct ListView: View {
                 addButton.padding(16),
                 alignment: .bottomTrailing
             )
+            .onAppear {
+                // Load initial items
+                bucketListViewModel.loadItems()
+            }
         }
         .sheet(item: $selectedItem) { item in
             EditItemView(item: item) { updatedItem, imageData in
@@ -56,7 +62,7 @@ struct ListView: View {
     @ViewBuilder
     private var addButton: some View {
         Button(action: {
-            let newItem = ItemModel(name: "", description: "", completed: false)
+            let newItem = ItemModel(name: "What do you want to do before you die?", description: "", completed: false)
             bucketListViewModel.addItem(item: newItem, imageData: nil)
         }) {
             Image(systemName: "plus")
@@ -68,7 +74,7 @@ struct ListView: View {
                 .shadow(radius: 4)
         }
     }
-    
+
     private var optionsMenu: some View {
         Menu {
             Button(hideCompleted ? "Show Completed" : "Hide Completed") {
@@ -102,6 +108,9 @@ struct ListView: View {
         }
     }
 }
+
+
+
 
 
 
