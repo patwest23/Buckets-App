@@ -23,13 +23,8 @@ class ListViewModel: ObservableObject {
     }
     
     func loadItems() {
-        guard let data = UserDefaults.standard.data(forKey: itemsKey),
-              let savedItems = try? JSONDecoder().decode([ItemModel].self, from: data)
-        else {
-            return
-        }
-        
-        self.items = savedItems
+        // Since you're no longer using UserDefaults, this method will remain empty.
+        // You will load items directly in the ListView using this ViewModel.
     }
     
     func addItem(item: ItemModel, imageData: Data?) {
@@ -61,11 +56,11 @@ class ListViewModel: ObservableObject {
     }
     
     func saveItems() {
-        if let encodedData = try? JSONEncoder().encode(items) {
-            UserDefaults.standard.set(encodedData, forKey: itemsKey)
-        }
+        // Since items are now managed directly within the ListView,
+        // the saveItems method is no longer needed in this ViewModel.
     }
 }
+
 
  
  

@@ -11,7 +11,6 @@ import PhotosUI
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @State private var showingAddItemView = false  // State to control showing the AddItemView as a sheet
     @State private var selectedItem: ItemModel?  // Used for direct navigation to EditItemView
 
     // Additional states for list options
@@ -19,7 +18,7 @@ struct ListView: View {
     @State private var showImages = true
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
                 ForEach(bucketListViewModel.items.filter { !hideCompleted || !$0.completed }) { item in
                     Button(action: {
@@ -35,10 +34,10 @@ struct ListView: View {
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     optionsMenu
                 }
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     profileNavigationLink
                 }
             }
@@ -46,11 +45,6 @@ struct ListView: View {
                 addButton.padding(16),
                 alignment: .bottomTrailing
             )
-        }
-        .sheet(isPresented: $showingAddItemView) {
-            AddItemView() { newItem, imageData in
-                bucketListViewModel.addItem(item: newItem, imageData: imageData)
-            }
         }
         .sheet(item: $selectedItem) { item in
             EditItemView(item: item) { updatedItem, imageData in
@@ -62,7 +56,8 @@ struct ListView: View {
     @ViewBuilder
     private var addButton: some View {
         Button(action: {
-            showingAddItemView = true
+            let newItem = ItemModel(name: "", description: "", completed: false)
+            bucketListViewModel.addItem(item: newItem, imageData: nil)
         }) {
             Image(systemName: "plus")
                 .font(.title)

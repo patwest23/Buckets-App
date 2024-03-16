@@ -19,11 +19,13 @@ struct ItemModel: Identifiable, Codable, Hashable {
         case id, imageData, name, description, completed // Include imageData in coding keys
     }
     
-    init(id: UUID = UUID(), name: String, description: String, completed: Bool) {
+    // Ensure there's an initializer that can handle all these parameters
+    init(id: UUID = UUID(), name: String, description: String, completed: Bool, imageData: Data? = nil) {
         self.id = id
         self.name = name
         self.description = description
         self.completed = completed
+        self.imageData = imageData
     }
 }
 
