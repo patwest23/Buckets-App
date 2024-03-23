@@ -8,22 +8,21 @@
 import Foundation
 import SwiftUI
 
-struct ItemModel: Identifiable, Codable, Hashable {
+
+struct ItemModel: Identifiable, Codable, Hashable, Equatable {
     let id: UUID
-    var imageData: Data? // New property to store image data
+    var imageData: Data?
     var name: String
     var description: String
     var completed: Bool
-    var isEmpty: Bool { name.isEmpty && description.isEmpty }
-    
+
+    // Ensure imageData is included in coding keys
     private enum CodingKeys: String, CodingKey {
-        case id, imageData, name, description, completed // Include imageData in coding keys
+        case id, imageData, name, description, completed
     }
-    
-    
-    
-    // Ensure there's an initializer that can handle all these parameters
-    init(id: UUID = UUID(), name: String, description: String, completed: Bool, imageData: Data? = nil) {
+
+    // Ensure there's an initializer to handle all parameters with default values
+    init(id: UUID = UUID(), name: String = "", description: String = "", completed: Bool = false, imageData: Data? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -31,6 +30,7 @@ struct ItemModel: Identifiable, Codable, Hashable {
         self.imageData = imageData
     }
 }
+
 
 
 
