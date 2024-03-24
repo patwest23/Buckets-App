@@ -11,26 +11,42 @@ import PhotosUI
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @State private var showingAddItemView = false  // State to control showing the AddItemView as a sheet
-    @State private var selectedItem: ItemModel?  // Used for direct navigation to EditItemView
-
-    // Additional states for list options
+    
+    @FocusState private var focusedItem: Focusable?
+    @State private var selectedItem: ItemModel?
+    @State private var showingAddItemView = false
+    @State private var newItemName = ""
     @State private var hideCompleted = false
     @State private var showImages = true
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
-                ForEach(bucketListViewModel.items.filter { !hideCompleted || !$0.completed }) { item in
+                ForEach($bucketListViewModel.items) { $item in
                     Button(action: {
-                        self.selectedItem = item  // Set the selected item to trigger navigation
+                        selectedItem = item
                     }) {
-                        ItemRow(item: item, onCompleted: { completed in
-                            bucketListViewModel.onCompleted(for: item, completed: completed)
-                        }, showImages: $showImages)
+                        ItemRow(
+                            item: item,
+                            onCompleted: { completed in
+                                bucketListViewModel.onCompleted(for: item, completed: completed)
+                            },
+                            showImages: $showImages
+                        )
+                    }
+                    .id(item.id)
+                    .focused($focusedItem, equals: .row(id: item.id))
+                    .swipeActions {
+                        Button(role: .destructive) {
+                            bucketListViewModel.deleteItems(at: IndexSet(arrayLiteral: bucketListViewModel.items.firstIndex(of: item)!))
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     }
                 }
-                .onDelete(perform: bucketListViewModel.deleteItems)
+                .onDelete { indexSet in
+                    bucketListViewModel.deleteItems(at: indexSet)
+                }
             }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
@@ -47,33 +63,15 @@ struct ListView: View {
                 alignment: .bottomTrailing
             )
         }
-        .sheet(isPresented: $showingAddItemView) {
-            AddItemView() { newItem, imageData in
-                bucketListViewModel.addItem(item: newItem, imageData: imageData)
-            }
-        }
-        .sheet(item: $selectedItem) { item in
-            EditItemView(item: item) { updatedItem, imageData in
-                bucketListViewModel.updateItem(updatedItem, withName: updatedItem.name, description: updatedItem.description, completed: updatedItem.completed, imageData: imageData)
+        .onChange(of: focusedItem) { newValue in
+            if case .row(let id) = newValue {
+                if let id = id, let item = bucketListViewModel.items.first(where: { $0.id == id }) {
+                    selectedItem = item
+                }
             }
         }
     }
 
-    @ViewBuilder
-    private var addButton: some View {
-        Button(action: {
-            showingAddItemView = true
-        }) {
-            Image(systemName: "plus")
-                .font(.title)
-                .foregroundColor(.white)
-                .padding()
-                .background(Color.accentColor)
-                .cornerRadius(28)
-                .shadow(radius: 4)
-        }
-    }
-    
     private var optionsMenu: some View {
         Menu {
             Button(hideCompleted ? "Show Completed" : "Hide Completed") {
@@ -92,7 +90,6 @@ struct ListView: View {
         }
     }
 
-    @ViewBuilder
     private var profileNavigationLink: some View {
         NavigationLink(destination: ProfileView()) {
             if let imageData = onboardingViewModel.profileImageData, let image = UIImage(data: imageData) {
@@ -106,6 +103,20 @@ struct ListView: View {
             }
         }
     }
+
+    private var addButton: some View {
+        Button(action: {
+            showingAddItemView = true
+        }) {
+            Image(systemName: "plus")
+                .font(.title)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.accentColor)
+                .cornerRadius(28)
+                .shadow(radius: 4)
+        }
+    }
 }
 
 
@@ -117,7 +128,3 @@ struct ListView_Previews: PreviewProvider {
             .environmentObject(OnboardingViewModel())
     }
 }
-
-
-
-
