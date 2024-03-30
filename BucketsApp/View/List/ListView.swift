@@ -9,115 +9,80 @@ import SwiftUI
 import PhotosUI
 
 struct ListView: View {
-    @EnvironmentObject var bucketListViewModel: ListViewModel
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var viewModel: ListViewModel
     
-    @FocusState private var focusedItem: Focusable?
-    @State private var selectedItem: ItemModel?
-    @State private var showingAddItemView = false
-    @State private var newItemName = ""
-    @State private var hideCompleted = false
-    @State private var showImages = true
-
     var body: some View {
-        NavigationView {
-            List {
-                ForEach($bucketListViewModel.items) { $item in
-                    Button(action: {
-                        selectedItem = item
-                    }) {
-                        ItemRow(
-                            item: item,
-                            onCompleted: { completed in
-                                bucketListViewModel.onCompleted(for: item, completed: completed)
-                            },
-                            showImages: $showImages
-                        )
-                    }
-                    .id(item.id)
-                    .focused($focusedItem, equals: .row(id: item.id))
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            bucketListViewModel.deleteItems(at: IndexSet(arrayLiteral: bucketListViewModel.items.firstIndex(of: item)!))
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
-                .onDelete { indexSet in
-                    bucketListViewModel.deleteItems(at: indexSet)
-                }
+        List {
+            ForEach(viewModel.items.indices, id: \.self) { index in
+                ItemRowView(item: $viewModel.items[index])
+                    .id(viewModel.items[index].id ?? UUID()) // Assuming ItemModel's id is UUID
             }
-            .navigationTitle("Buckets")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItemGroup(placement: .navigationBarLeading) {
-                    optionsMenu
-                }
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    profileNavigationLink
-                }
+            .onDelete { indexSet in
+                viewModel.deleteItems(at: indexSet) // Removed $
             }
-            .overlay(
-                addButton.padding(16),
-                alignment: .bottomTrailing
-            )
+            .listRowSeparatorTint(.clear)
         }
-        .onChange(of: focusedItem) { newValue in
-            if case .row(let id) = newValue {
-                if let id = id, let item = bucketListViewModel.items.first(where: { $0.id == id }) {
-                    selectedItem = item
-                }
+
+
+
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                //optionsMenu
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                profileNavigationLink
             }
         }
+        .navigationTitle("Buckets")
+        .navigationBarTitleDisplayMode(.inline)
+        .overlay(addButton, alignment: .bottomTrailing)
     }
 
-    private var optionsMenu: some View {
-        Menu {
-            Button(hideCompleted ? "Show Completed" : "Hide Completed") {
-                hideCompleted.toggle()
-            }
-
-            Button(showImages ? "Hide Images" : "Show Images") {
-                showImages.toggle()
-            }
-
-            Button("Edit List") {
-                // Placeholder for future feature
-            }
-        } label: {
-            Image(systemName: "list.bullet.circle")
-        }
-    }
+//    private var optionsMenu: some View {
+//        Menu {
+//            Toggle(isOn: $viewModel.hideCompleted) {
+//                Label(viewModel.hideCompleted ? "Show Completed" : "Hide Completed", systemImage: "checkmark.circle")
+//            }
+//            Toggle(isOn: $viewModel.showImages) {
+//                Label(viewModel.showImages ? "Hide Images" : "Show Images", systemImage: "photo")
+//            }
+//            Button("Edit List") {
+//                // Placeholder for future feature
+//            }
+//        } label: {
+//            Image(systemName: "ellipsis.circle")
+//        }
+//        .onChange(of: $viewModel.hideCompleted) { _ in
+//            viewModel.sortItems()
+//        }
+//        .onChange(of: viewModel.showImages) { _ in
+//            // Handle showImages change if needed
+//        }
+//    }
 
     private var profileNavigationLink: some View {
         NavigationLink(destination: ProfileView()) {
-            if let imageData = onboardingViewModel.profileImageData, let image = UIImage(data: imageData) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 35, height: 35)
-                    .clipShape(Circle())
-            } else {
-                Image(systemName: "person.crop.circle")
-            }
+            Image(systemName: "person.crop.circle")
         }
     }
 
     private var addButton: some View {
         Button(action: {
-            showingAddItemView = true
+            if viewModel.items.isEmpty || !(viewModel.items.last?.name.isEmpty ?? true) {
+                viewModel.items.append(ItemModel(name: ""))
+            }
         }) {
-            Image(systemName: "plus")
-                .font(.title)
-                .foregroundColor(.white)
-                .padding()
-                .background(Color.accentColor)
-                .cornerRadius(28)
-                .shadow(radius: 4)
+            Image(systemName: "plus.circle")
         }
+        .padding()
     }
+
 }
+
+
+
+
+
 
 
 

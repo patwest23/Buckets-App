@@ -6,22 +6,42 @@
 //
 
 import Foundation
+import Combine
+import SwiftUI
+
+enum SortingMode {
+    case manual
+    case byDeadline
+    case byCreationDate
+    case byPriority
+    case byTitle
+}
 
 class ListViewModel: ObservableObject {
-    
     @Published var items: [ItemModel] = [] {
         didSet {
             saveItems()
         }
     }
     
-    let itemsKey: String = "items_list"
+    private let itemsKey: String = "items_list"
+    
+//    @Published var sortingMode: SortingMode = .manual {
+//        didSet {
+//            sortItems()
+//        }
+//    }
+    
+    @Published private var showingAddItemView = false
+    @Published private var selectedItem: ItemModel?
+    
+    private var cancellables = Set<AnyCancellable>()
     
     init() {
         loadItems()
     }
     
-    func loadItems() {
+    private func loadItems() {
         guard let data = UserDefaults.standard.data(forKey: itemsKey) else {
             return
         }
@@ -33,35 +53,7 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    func addItem(item: ItemModel, imageData: Data?) {
-        guard !item.name.isEmpty else { return }
-        var newItem = item
-        newItem.imageData = imageData
-        items.append(newItem)
-    }
-    
-    func updateItem(_ item: ItemModel, withName name: String, description: String, completed: Bool, imageData: Data?) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            var updatedItem = item
-            updatedItem.name = name
-            updatedItem.description = description
-            updatedItem.completed = completed
-            updatedItem.imageData = imageData
-            items[index] = updatedItem
-        }
-    }
-    
-    func deleteItems(at offsets: IndexSet) {
-        items.remove(atOffsets: offsets)
-    }
-    
-    func onCompleted(for item: ItemModel, completed: Bool) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            items[index].completed = completed
-        }
-    }
-    
-    func saveItems() {
+    private func saveItems() {
         do {
             let encodedData = try JSONEncoder().encode(items)
             UserDefaults.standard.set(encodedData, forKey: itemsKey)
@@ -69,10 +61,31 @@ class ListViewModel: ObservableObject {
             print("Error encoding items: \(error)")
         }
     }
+    
+    func deleteItems(at indexSet: IndexSet) {
+        items.remove(atOffsets: indexSet)
+    }
+    
+//    private func sortItems() {
+//        switch sortingMode {
+//        case .manual:
+//            // No sorting needed for manual mode
+//            break
+//        case .byDeadline:
+//            items.sort { $0.dueDate ?? Date.distantPast < $1.dueDate ?? Date.distantPast }
+//        case .byCreationDate:
+//            items.sort { $0.creationDate.timeIntervalSinceReferenceDate < $1.creationDate.timeIntervalSinceReferenceDate }
+//        case .byPriority:
+//            items.sort { $0.priority.rawValue < $1.priority.rawValue }
+//        case .byTitle:
+//            items.sort { $0.name < $1.name }
+//        }
+//    }
+
+    
+    // Other methods...
 }
 
-
- 
  
 
 
