@@ -12,30 +12,25 @@ struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
     
     var body: some View {
-        List {
-            ForEach(viewModel.items.indices, id: \.self) { index in
-                ItemRowView(item: $viewModel.items[index])
-                    .id(viewModel.items[index].id ?? UUID()) // Assuming ItemModel's id is UUID
+        NavigationView {
+            List {
+                ForEach(viewModel.items.indices, id: \.self) { index in
+                    let item = $viewModel.items[index] // Binding to item
+                    ItemRowView(item: item)
+                        .id(viewModel.items[index].id ?? UUID())
+                        .onAppear {
+                            viewModel.focusItem(with: item.wrappedValue.id) // Focus the item when it appears
+                        }
+                }
+                .onDelete { indexSet in
+                    viewModel.deleteItems(at: indexSet)
+                }
+                .listRowSeparatorTint(.clear)
             }
-            .onDelete { indexSet in
-                viewModel.deleteItems(at: indexSet) // Removed $
-            }
-            .listRowSeparatorTint(.clear)
+            .navigationTitle("Buckets")
+            .navigationBarTitleDisplayMode(.inline)
+            .overlay(addButton, alignment: .bottomTrailing)
         }
-
-
-
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                //optionsMenu
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                profileNavigationLink
-            }
-        }
-        .navigationTitle("Buckets")
-        .navigationBarTitleDisplayMode(.inline)
-        .overlay(addButton, alignment: .bottomTrailing)
     }
 
 //    private var optionsMenu: some View {
@@ -52,9 +47,15 @@ struct ListView: View {
 //        } label: {
 //            Image(systemName: "ellipsis.circle")
 //        }
-//        .onChange(of: $viewModel.hideCompleted) { _ in
-//            viewModel.sortItems()
+//        .onChange(of: viewModel.hideCompleted) { newValue in
+//            guard let oldValue = viewModel.hideCompleted else {
+//                return // Exit if the old value is nil
+//            }
+//            if newValue != oldValue {
+//                viewModel.sortItems()
+//            }
 //        }
+//
 //        .onChange(of: viewModel.showImages) { _ in
 //            // Handle showImages change if needed
 //        }
@@ -76,11 +77,7 @@ struct ListView: View {
         }
         .padding()
     }
-
 }
-
-
-
 
 
 

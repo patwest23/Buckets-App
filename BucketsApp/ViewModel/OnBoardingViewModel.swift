@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import FirebaseAuth
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
@@ -17,124 +16,53 @@ final class OnboardingViewModel: ObservableObject {
     @Published var showErrorAlert: Bool = false
     @Published var profileImageData: Data? // Store the profile image data
 
-
     init() {
-        isAuthenticated = Auth.auth().currentUser != nil
+        // Simulate authentication status, as Firebase Auth is removed
+        isAuthenticated = false
     }
 
-    func signIn() async {
-        do {
-            _ = try await Auth.auth().signIn(withEmail: email, password: password)
-            isAuthenticated = true
-            errorMessage = nil
-            // Handle successful sign in, e.g., navigate to the next screen
-            print("User signed in successfully")
-        } catch {
-            errorMessage = error.localizedDescription
-            isAuthenticated = false
-        }
+    func signIn() {
+        // Removed Firebase signIn logic
     }
 
     func signOut() {
-        do {
-            try Auth.auth().signOut()
-            isAuthenticated = false
-            email = ""
-            password = ""
-            errorMessage = nil
-        } catch {
-            errorMessage = "Error signing out: \(error.localizedDescription)"
-        }
+        // Removed Firebase signOut logic
     }
 
-    func createUser() async {
-        do {
-            _ = try await Auth.auth().createUser(withEmail: email, password: password)
-            isAuthenticated = true
-            errorMessage = nil
-            // Handle successful user creation
-            print("User created successfully")
-        } catch {
-            errorMessage = error.localizedDescription
-            isAuthenticated = false
-        }
+    func createUser() {
+        // Removed Firebase createUser logic
     }
 
     func checkIfUserIsAuthenticated() {
-        isAuthenticated = Auth.auth().currentUser != nil
+        // Simulate authentication status, as Firebase Auth is removed
+        isAuthenticated = false
     }
-    
+
     func resetPassword() {
-        Auth.auth().sendPasswordReset(withEmail: self.email) { error in
-            if error != nil {
-                // Handle the error - maybe update an error message state variable
-                return
-            }
-            // Handle success - maybe update a success message state variable
-        }
+        // Removed Firebase resetPassword logic
     }
-    
+
     func updateEmail(newEmail: String) {
-        Auth.auth().currentUser?.updateEmail(to: newEmail) { error in
-            if error != nil {
-                // Handle the error - maybe update an error message state variable
-                return
-            }
-            // Update the email in your ViewModel and handle success
-            self.email = newEmail
-        }
+        // Removed Firebase updateEmail logic
     }
-    
+
     func resetPassword(for email: String, completion: @escaping (Result<String, Error>) -> Void) {
-        Auth.auth().sendPasswordReset(withEmail: email) { error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            completion(.success("A link to reset your password has been sent to \(email)."))
-        }
+        // Removed Firebase resetPassword logic
     }
-    
+
     func updateEmail(newEmail: String, completion: @escaping (Result<String, Error>) -> Void) {
-        Auth.auth().currentUser?.updateEmail(to: newEmail) { error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            // Optionally, update the email in the ViewModel if needed
-            self.email = newEmail
-            completion(.success("Your email has been updated to \(newEmail)."))
-        }
+        // Removed Firebase updateEmail logic
     }
-    
+
     func updatePassword(currentPassword: String, newPassword: String, completion: @escaping (Result<String, Error>) -> Void) {
-        reauthenticateUser(currentPassword: currentPassword) { reauthResult in
-            switch reauthResult {
-            case .success:
-                Auth.auth().currentUser?.updatePassword(to: newPassword) { error in
-                    if let error = error {
-                        completion(.failure(error))
-                        return
-                    }
-                    completion(.success("Your password has been updated successfully."))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+        // Removed Firebase updatePassword logic
     }
-    
+
     // Method to update the profile image
     func updateProfileImage(with data: Data?) {
         profileImageData = data
     }
 
-
-    // Implement reauthentication logic here
-    private func reauthenticateUser(currentPassword: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        // Firebase reauthentication logic
-    }
-
-
-
+    // Removed reauthentication method
 }
+
