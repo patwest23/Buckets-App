@@ -12,31 +12,64 @@ struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
     
     var body: some View {
-        List {
-            ForEach(viewModel.items.indices, id: \.self) { index in
-                ItemRowView(item: $viewModel.items[index])
-                    .id(viewModel.items[index].id ?? UUID()) // Assuming ItemModel's id is UUID
+        NavigationView {
+            List {
+                ForEach(viewModel.items.indices, id: \.self) { index in
+                    let itemBinding = $viewModel.items[index]
+                    ItemRowView(item: itemBinding, showImages: $viewModel.showImages)
+                        .id(viewModel.items[index].id ?? UUID())
+                }
+                .onDelete { indexSet in
+                    viewModel.deleteItems(at: indexSet)
+                }
+                .listRowSeparatorTint(.clear)
             }
-            .onDelete { indexSet in
-                viewModel.deleteItems(at: indexSet) // Removed $
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    // optionsMenu
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    profileNavigationLink
+                }
             }
-            .listRowSeparatorTint(.clear)
+            .navigationTitle("Buckets")
+            .navigationBarTitleDisplayMode(.inline)
+            .overlay(addButton, alignment: .bottomTrailing)
         }
-
-
-
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                //optionsMenu
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                profileNavigationLink
-            }
-        }
-        .navigationTitle("Buckets")
-        .navigationBarTitleDisplayMode(.inline)
-        .overlay(addButton, alignment: .bottomTrailing)
     }
+
+    private var profileNavigationLink: some View {
+        NavigationLink(destination: ProfileView()) {
+            Image(systemName: "person.crop.circle")
+        }
+    }
+
+    private var addButton: some View {
+        Button(action: {
+            if viewModel.items.isEmpty || !(viewModel.items.last?.name.isEmpty ?? true) {
+                viewModel.items.append(ItemModel(name: ""))
+            }
+        }) {
+            Image(systemName: "plus.circle")
+        }
+        .padding()
+    }
+}
+
+struct ListView_Previews: PreviewProvider {
+    static var previews: some View {
+        ListView()
+            .environmentObject(ListViewModel())
+            .environmentObject(OnboardingViewModel())
+    }
+}
+
+
+
+
+
+
+
 
 //    private var optionsMenu: some View {
 //        Menu {
@@ -59,37 +92,3 @@ struct ListView: View {
 //            // Handle showImages change if needed
 //        }
 //    }
-
-    private var profileNavigationLink: some View {
-        NavigationLink(destination: ProfileView()) {
-            Image(systemName: "person.crop.circle")
-        }
-    }
-
-    private var addButton: some View {
-        Button(action: {
-            if viewModel.items.isEmpty || !(viewModel.items.last?.name.isEmpty ?? true) {
-                viewModel.items.append(ItemModel(name: ""))
-            }
-        }) {
-            Image(systemName: "plus.circle")
-        }
-        .padding()
-    }
-
-}
-
-
-
-
-
-
-
-
-struct ListView_Previews: PreviewProvider {
-    static var previews: some View {
-        ListView()
-            .environmentObject(ListViewModel())
-            .environmentObject(OnboardingViewModel())
-    }
-}

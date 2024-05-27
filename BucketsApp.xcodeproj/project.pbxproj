@@ -23,7 +23,6 @@
 		1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */; };
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
 		1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */; };
-		1FC418542BB0B76D00C12018 /* View+Focus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC418532BB0B76D00C12018 /* View+Focus.swift */; };
 		1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE006E72A10541200B0A6D7 /* ProfileView.swift */; };
 		1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
 		1FE6B36B29E65E5200C6B59A /* ItemRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */; };
@@ -50,7 +49,6 @@
 		1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 		1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateEmailView.swift; sourceTree = "<group>"; };
 		1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePasswordView.swift; sourceTree = "<group>"; };
-		1FC418532BB0B76D00C12018 /* View+Focus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Focus.swift"; sourceTree = "<group>"; };
 		1FE006E72A10541200B0A6D7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingViewModel.swift; sourceTree = "<group>"; };
 		1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowView.swift; sourceTree = "<group>"; };
@@ -91,14 +89,6 @@
 			path = User;
 			sourceTree = "<group>";
 		};
-		1FC418522BB0B74B00C12018 /* Extensions */ = {
-			isa = PBXGroup;
-			children = (
-				1FC418532BB0B76D00C12018 /* View+Focus.swift */,
-			);
-			path = Extensions;
-			sourceTree = "<group>";
-		};
 		1FDE823A2B3E286C0078862C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -126,9 +116,8 @@
 		1FED1A0B29E20B2E00868BAC /* BucketsApp */ = {
 			isa = PBXGroup;
 			children = (
-				1FC418522BB0B74B00C12018 /* Extensions */,
-				1F8EB9592B5379E5009CC18E /* Info.plist */,
 				1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */,
+				1F8EB9592B5379E5009CC18E /* Info.plist */,
 				1FED1A1C29E20B6000868BAC /* Model */,
 				1FED1A1B29E20B5700868BAC /* ViewModel */,
 				1FED1A1A29E20B4D00868BAC /* View */,
@@ -288,7 +277,6 @@
 				1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */,
 				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
 				1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
-				1FC418542BB0B76D00C12018 /* View+Focus.swift in Sources */,
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,

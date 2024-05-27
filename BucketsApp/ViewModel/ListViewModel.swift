@@ -24,16 +24,19 @@ class ListViewModel: ObservableObject {
         }
     }
     
+    @Published var showImages: Bool = true
+    @Published var hideCompleted: Bool = false
+
     private let itemsKey: String = "items_list"
     
-//    @Published var sortingMode: SortingMode = .manual {
-//        didSet {
-//            sortItems()
-//        }
-//    }
+    @Published var sortingMode: SortingMode = .manual {
+        didSet {
+            sortItems()
+        }
+    }
     
-    @Published private var showingAddItemView = false
-    @Published private var selectedItem: ItemModel?
+    @Published var showingAddItemView = false
+    @Published var selectedItem: ItemModel?
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -62,29 +65,38 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    func deleteItems(at indexSet: IndexSet) {
-        items.remove(atOffsets: indexSet)
+    func sortItems() {
+        switch sortingMode {
+        case .manual:
+            // No sorting needed for manual mode
+            break
+        case .byDeadline:
+            items.sort {
+                guard let date1 = $0.dueDate, let date2 = $1.dueDate else { return false }
+                return date1 < date2
+            }
+        case .byCreationDate:
+            items.sort {
+                guard let date1 = $0.creationDate, let date2 = $1.creationDate else { return false }
+                return date1 < date2
+            }
+        case .byPriority:
+            items.sort { $0.priority.rawValue < $1.priority.rawValue }
+        case .byTitle:
+            items.sort { $0.name < $1.name }
+        }
     }
     
-//    private func sortItems() {
-//        switch sortingMode {
-//        case .manual:
-//            // No sorting needed for manual mode
-//            break
-//        case .byDeadline:
-//            items.sort { $0.dueDate ?? Date.distantPast < $1.dueDate ?? Date.distantPast }
-//        case .byCreationDate:
-//            items.sort { $0.creationDate.timeIntervalSinceReferenceDate < $1.creationDate.timeIntervalSinceReferenceDate }
-//        case .byPriority:
-//            items.sort { $0.priority.rawValue < $1.priority.rawValue }
-//        case .byTitle:
-//            items.sort { $0.name < $1.name }
-//        }
-//    }
-
-    
-    // Other methods...
+    func deleteItems(at indexSet: IndexSet) {
+        // Resign first responder before deleting the items
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        
+        // Delete the items
+        items.remove(atOffsets: indexSet)
+    }
 }
+
+
 
  
 

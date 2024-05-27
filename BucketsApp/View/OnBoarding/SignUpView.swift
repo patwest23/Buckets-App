@@ -23,6 +23,14 @@ struct SignUpView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack {
+                Spacer().frame(height: 40) // Add some space at the top
+
+                Image("Image2")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 80, maxHeight: 80)
+                    .padding(.bottom, 20) // Add some space below the image
+                    .padding(.top, 20)
 
                 VStack(spacing: 20) {
                     emailTextField
@@ -33,11 +41,13 @@ struct SignUpView: View {
                 .padding(.horizontal)
 
                 signUpButton
+                    .padding(.top, 20) // Add some space above the button
 
                 NavigationLink(value: SignUpNavigationDestination.listView) {
                     Text("Navigate to List View")
                         .hidden()
                 }
+                Spacer()
             }
             .padding(.top)
         }
@@ -87,7 +97,6 @@ struct SignUpView: View {
         .font(.caption)
     }
 
-
     var signUpButton: some View {
         Button(action: {
             if validateInput() {
@@ -99,11 +108,11 @@ struct SignUpView: View {
             }
         }) {
             Text("Sign Up")
-                .buttonModifiers(isEnabled: agreedToTerms)
+                .buttonStyle()
         }
         .disabled(!agreedToTerms)
     }
-    
+
     // validate inputs in the email
     private func validateInput() -> Bool {
         // Check if the email is not empty and is in a valid format
@@ -137,10 +146,9 @@ struct SignUpView: View {
     // Helper function to validate email format
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Z0-9a-z.-]+\\.[A-Za-z]{2,}"
-        let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        let emailPred = NSPredicate(format: "SELF MATCHES %@", emailRegEx)
         return emailPred.evaluate(with: email)
     }
-
 
     private func signUpUser() async {
         await viewModel.createUser()
@@ -153,7 +161,6 @@ struct SignUpView: View {
             showErrorAlert = true
         }
     }
-
 }
 
 // MARK: - View Modifiers
@@ -167,28 +174,21 @@ private extension View {
             .disableAutocorrection(true)
     }
 
-    func buttonModifiers(isEnabled: Bool) -> some View {
+    func buttonStyle() -> some View {
         self
             .fontWeight(.bold)
             .padding()
-            .frame(maxWidth: .infinity)
-            .background(isEnabled ? Color.blue : Color.gray)
-            .foregroundColor(.white)
+            .background(Color.white)
             .cornerRadius(10)
-            .padding(.horizontal)
-            .opacity(isEnabled ? 1.0 : 0.5)
+            .shadow(radius: 10)
     }
 }
-
-
-
-
-
-
 
 struct SignUpView_Previews: PreviewProvider {
     static var previews: some View {
         SignUpView().environmentObject(OnboardingViewModel())
     }
 }
+
+
 

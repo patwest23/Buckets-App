@@ -9,21 +9,22 @@
 import Foundation
 import SwiftUI
 
-enum Priority: String {
+enum Priority: String, Codable {
     case none
     case low
     case medium
     case high
 }
 
-struct Tag {
+struct Tag: Codable {
     var title: String
 }
 
-struct Location {
+struct Location: Codable {
+    // Define properties of Location as needed
 }
 
-struct ItemModel {
+struct ItemModel: Codable, Identifiable {
     var id: UUID? // Changed to optional to match Reminder's docId
     var name: String
     var description: String?
@@ -38,51 +39,18 @@ struct ItemModel {
     var order: Int = 0
     var userId: String? // Not present in Reminder, added for consistency
     var creationDate: Date? // Add creationDate property
+    var imageData: Data? // Add imageData property
 
     // Initialize with a name and optional description
     init(name: String, description: String? = nil) {
+        self.id = UUID()
         self.name = name
         self.description = description
         self.creationDate = Date() // Set the creation date to the current date when initializing
     }
 }
 
-extension Priority: Codable, Equatable, Identifiable {
-    var id: Priority { self }
-}
 
-//extension Priority: Comparable {
-//    static func < (lhs: Priority, rhs: Priority) -> Bool {
-//        guard let l = lhs.index, let r = rhs.index else { return false }
-//        return l < r
-//    }
-//}
-
-extension CaseIterable where Self: Equatable {
-    var index: Self.AllCases.Index? {
-        return Self.allCases.firstIndex { self == $0 }
-    }
-}
-
-extension Tag: Codable, Equatable {
-}
-
-extension Location: Codable, Equatable {
-}
-
-extension ItemModel: Codable, Identifiable, Equatable {
-}
-
-// Updated the samples to use the new initializer
-extension ItemModel {
-    static let samples = [
-        ItemModel(name: "Build sample app"),
-        ItemModel(name: "Tweet about surprising findings", description: "Include interesting stats"),
-        ItemModel(name: "Write newsletter"),
-        ItemModel(name: "Run YouTube video series", description: "Plan content and schedule"),
-        ItemModel(name: "???"),
-    ]
-}
 
 
 

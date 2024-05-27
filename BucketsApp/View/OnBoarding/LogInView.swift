@@ -12,7 +12,14 @@ struct LogInView: View {
 
     var body: some View {
         VStack {
-
+            Spacer().frame(height: 40) // Add some space at the top
+            
+            Image("Image2")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 80, maxHeight: 80)
+                .padding(.bottom, 20) // Add some space below the image
+            
             VStack(spacing: 20) {
                 TextField("Email", text: $viewModel.email)
                     .padding()
@@ -28,7 +35,7 @@ struct LogInView: View {
                     .cornerRadius(8)
             }
             .padding(.horizontal)
-
+            
             Button(action: {
                 if validateInput() {
                     Task {
@@ -39,17 +46,19 @@ struct LogInView: View {
                 Text("Log In")
                     .fontWeight(.bold)
                     .padding()
-                    .frame(maxWidth: .infinity)
                     .background(Color.white)
                     .cornerRadius(10)
-                    .padding(.horizontal)
-
+                    .shadow(radius: 10)
             }
+            .padding(.horizontal)
+            .padding(.top, 20) // Add some space above the button
             .alert("Error", isPresented: $viewModel.showErrorAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(viewModel.errorMessage ?? "Unknown error")
             }
+            
+            Spacer() // Add space to push content to the top
         }
         .padding(.top)
     }
@@ -72,3 +81,5 @@ struct LogInView_Previews: PreviewProvider {
         LogInView().environmentObject(OnboardingViewModel())
     }
 }
+
+
