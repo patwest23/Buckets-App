@@ -63,5 +63,3 @@ struct DetailItemView_Previews: PreviewProvider {
 
 
 
-
-

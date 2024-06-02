@@ -10,82 +10,41 @@ import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    
-    @FocusState private var focusedItemID: UUID?
-    
+    @FocusState private var focusedItemID: Focusable?
+
     var body: some View {
         NavigationView {
             List {
                 ForEach(viewModel.items.indices, id: \.self) { index in
-                    HStack {
-                        Button(action: {
-                            viewModel.items[index].completed.toggle()
-                        }) {
-                            Image(systemName: viewModel.items[index].completed ? "checkmark.circle.fill" : "circle")
-                                .imageScale(.large)
-                                .font(.title2)
-                                .foregroundColor(viewModel.items[index].completed ? Color("AccentColor") : .gray)
-                        }
-                        .buttonStyle(BorderlessButtonStyle())
-                        
-                        TextField("New Item", text: $viewModel.items[index].name)
-                            .focused($focusedItemID, equals: viewModel.items[index].id)
-                            .foregroundColor(viewModel.items[index].completed ? .gray : .primary)
-                            .font(.title3)
-                            .onSubmit {
-                                focusedItemID = nil
-                            }
-                        
-                        NavigationLink(destination: DetailItemView(item: $viewModel.items[index])) {
-                            EmptyView() // NavigationLink is hidden, the TextField handles navigation
-                        }
-                        .frame(width: 0)
-                        .opacity(0)
-                    }
+                    ItemRowView(item: $viewModel.items[index], focusedItemID: $focusedItemID, showImages: $viewModel.showImages)
+                        .focused($focusedItemID, equals: .row(id: viewModel.items[index].id!))
                 }
                 .onDelete { indexSet in
                     viewModel.deleteItems(at: indexSet)
                 }
                 .listRowSeparatorTint(.clear)
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    // optionsMenu
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    profileNavigationLink
-                }
-            }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
             .overlay(addButton, alignment: .bottomTrailing)
         }
-    }
-
-    private var profileNavigationLink: some View {
-        NavigationLink(destination: ProfileView()) {
-            Image(systemName: "person.crop.circle")
+        .onChange(of: focusedItemID) { newValue in
+            viewModel.focusedItemID = newValue
         }
     }
 
     private var addButton: some View {
         Button(action: {
-            // Trigger haptic feedback
+            let newItem = ItemModel(name: "")
+            viewModel.items.append(newItem)
+            focusedItemID = .row(id: newItem.id ?? UUID())
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
-
-            // Only add a new item if the list is empty or the last item is not empty
-            if viewModel.items.isEmpty || !(viewModel.items.last?.name.isEmpty ?? true) {
-                let newItem = ItemModel(name: "")
-                viewModel.items.append(newItem)
-                focusedItemID = newItem.id
-            }
         }) {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
-                
                 Image(systemName: "plus")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundColor(.white)
@@ -103,6 +62,31 @@ struct ListView_Previews: PreviewProvider {
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//    .position(x: UIScreen.main.bounds.width - 70, y: UIScreen.main.bounds.height - 180)
 
 
 

@@ -16,16 +16,16 @@ enum Priority: String, Codable {
     case high
 }
 
-struct Tag: Codable {
+struct Tag: Codable, Hashable {
     var title: String
 }
 
-struct Location: Codable {
+struct Location: Codable, Hashable {
     // Define properties of Location as needed
 }
 
-struct ItemModel: Codable, Identifiable {
-    var id: UUID? // Changed to optional to match Reminder's docId
+struct ItemModel: Codable, Identifiable, Hashable {
+    var id: UUID?
     var name: String
     var description: String?
     var url: String?
@@ -37,18 +37,22 @@ struct ItemModel: Codable, Identifiable {
     var priority: Priority = .none
     var completed: Bool = false
     var order: Int = 0
-    var userId: String? // Not present in Reminder, added for consistency
-    var creationDate: Date? // Add creationDate property
-    var imageData: Data? // Add imageData property
+    var userId: String?
+    var creationDate: Date?
+    var imageData: Data?
 
-    // Initialize with a name and optional description
     init(name: String, description: String? = nil) {
         self.id = UUID()
         self.name = name
         self.description = description
-        self.creationDate = Date() // Set the creation date to the current date when initializing
+        self.creationDate = Date()
     }
 }
+
+
+
+
+
 
 
 
