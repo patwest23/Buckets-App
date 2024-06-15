@@ -9,8 +9,7 @@ import SwiftUI
 
 struct ItemRowView: View {
     @Binding var item: ItemModel
-    @FocusState.Binding var focusedItemID: Focusable?
-    @Binding var showImages: Bool
+    @Binding var focusedItemID: Focusable?
 
     var body: some View {
         HStack {
@@ -27,23 +26,40 @@ struct ItemRowView: View {
             TextField("Item Name", text: $item.name)
                 .foregroundColor(item.completed ? .gray : .primary)
                 .font(.title3)
-                .focused($focusedItemID, equals: .row(id: item.id!))
+                .onTapGesture {
+                    focusedItemID = .row(id: item.id!)
+                }
                 .onSubmit {
-                    focusedItemID = Focusable.none
+                    focusedItemID = .none
                 }
-
-            if let imageData = item.imageData, showImages {
-                if let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 40)
-                        .cornerRadius(5)
-                }
-            }
         }
+        .background(focusedItemID == .row(id: item.id!) ? Color.gray.opacity(0.2) : Color.clear)
     }
 }
+
+struct ItemRowView_Previews: PreviewProvider {
+    @State static var showImages = true
+    @State static var focusedItemID: Focusable?
+
+    static var previews: some View {
+        let item = ItemModel(name: "Example Item", description: "An example item description")
+        
+        return ItemRowView(
+            item: .constant(item),
+            focusedItemID: $focusedItemID
+        )
+        .previewLayout(.sizeThatFits)
+        .padding()
+        .previewDisplayName("Item Row Preview")
+    }
+}
+
+
+
+
+
+
+
 
 //struct ItemRowView_Previews: PreviewProvider {
 //    @State static var showImages = true

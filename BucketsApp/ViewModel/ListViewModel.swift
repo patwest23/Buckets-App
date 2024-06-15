@@ -28,9 +28,10 @@ class ListViewModel: ObservableObject {
             saveItems()
         }
     }
+    
     @Published var showImages: Bool = true
     @Published var hideCompleted: Bool = false
-    @Published var focusedItemID: Focusable? = Focusable.none
+    @Published var focusedItemID: Focusable? // Add this line
 
     private let itemsKey: String = "items_list"
     
@@ -73,6 +74,7 @@ class ListViewModel: ObservableObject {
     func sortItems() {
         switch sortingMode {
         case .manual:
+            // No sorting needed for manual mode
             break
         case .byDeadline:
             items.sort {
@@ -92,10 +94,20 @@ class ListViewModel: ObservableObject {
     }
     
     func deleteItems(at indexSet: IndexSet) {
+        // Resign first responder before deleting the items
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        
+        // Delete the items
         items.remove(atOffsets: indexSet)
     }
 }
+
+
+
+
+
+
+
 
 
 
