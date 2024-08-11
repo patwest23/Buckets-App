@@ -10,25 +10,18 @@ import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var focusedItemID: Focusable?
 
     var body: some View {
         NavigationView {
             List {
                 ForEach(viewModel.items.indices, id: \.self) { index in
-                    ItemRowView(item: $viewModel.items[index], focusedItemID: $focusedItemID)
+                    ItemRowView(item: $viewModel.items[index])
                         .id(viewModel.items[index].id ?? UUID())
                 }
                 .onDelete { indexSet in
                     viewModel.deleteItems(at: indexSet)
                 }
                 .listRowSeparatorTint(.clear)
-            }
-            .onChange(of: focusedItemID) { newValue in
-                viewModel.focusedItemID = newValue
-            }
-            .onChange(of: viewModel.focusedItemID) { newValue in
-                focusedItemID = newValue
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -60,7 +53,7 @@ struct ListView: View {
             if viewModel.items.isEmpty || !(viewModel.items.last?.name.isEmpty ?? true) {
                 let newItem = ItemModel(name: "")
                 viewModel.items.append(newItem)
-                focusedItemID = .row(id: newItem.id!)
+                // No need to set focus state here, just append the item
             }
         }) {
             ZStack {
@@ -85,6 +78,7 @@ struct ListView_Previews: PreviewProvider {
             .environmentObject(OnboardingViewModel())
     }
 }
+
 
 
 

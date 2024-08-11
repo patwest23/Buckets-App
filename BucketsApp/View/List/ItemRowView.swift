@@ -9,7 +9,6 @@ import SwiftUI
 
 struct ItemRowView: View {
     @Binding var item: ItemModel
-    @Binding var focusedItemID: Focusable?
 
     var body: some View {
         HStack {
@@ -23,36 +22,31 @@ struct ItemRowView: View {
             }
             .buttonStyle(BorderlessButtonStyle())
 
-            TextField("Item Name", text: $item.name)
-                .foregroundColor(item.completed ? .gray : .primary)
-                .font(.title3)
-                .onTapGesture {
-                    focusedItemID = .row(id: item.id!)
-                }
-                .onSubmit {
-                    focusedItemID = .none
-                }
+            NavigationLink(destination: DetailItemView(item: $item)) {
+                TextField("Item Name", text: $item.name)
+                    .foregroundColor(item.completed ? .gray : .primary)
+                    .font(.title3)
+                    .disabled(true) // Disable editing since tapping should navigate
+            }
         }
-        .background(focusedItemID == .row(id: item.id!) ? Color.gray.opacity(0.2) : Color.clear)
     }
 }
 
 struct ItemRowView_Previews: PreviewProvider {
     @State static var showImages = true
-    @State static var focusedItemID: Focusable?
 
     static var previews: some View {
         let item = ItemModel(name: "Example Item", description: "An example item description")
         
         return ItemRowView(
-            item: .constant(item),
-            focusedItemID: $focusedItemID
+            item: .constant(item)
         )
         .previewLayout(.sizeThatFits)
         .padding()
         .previewDisplayName("Item Row Preview")
     }
 }
+
 
 
 
