@@ -10,13 +10,37 @@ import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
+    @State private var editingIndex: Int?
 
     var body: some View {
         NavigationView {
             List {
                 ForEach(viewModel.items.indices, id: \.self) { index in
-                    ItemRowView(item: $viewModel.items[index])
-                        .id(viewModel.items[index].id ?? UUID())
+                    HStack {
+                        Button(action: {
+                            viewModel.items[index].completed.toggle()
+                        }) {
+                            Image(systemName: viewModel.items[index].completed ? "checkmark.circle.fill" : "circle")
+                                .imageScale(.large)
+                                .font(.title2)
+                                .foregroundColor(viewModel.items[index].completed ? Color("AccentColor") : .gray)
+                        }
+                        .buttonStyle(BorderlessButtonStyle())
+
+                        if editingIndex == index {
+                            TextField("Item Name", text: $viewModel.items[index].name, onCommit: {
+                                editingIndex = nil
+                            })
+                            .foregroundColor(viewModel.items[index].completed ? .gray : .primary)
+                            .font(.title3)
+                        } else {
+                            NavigationLink(destination: DetailItemView(item: $viewModel.items[index])) {
+                                Text(viewModel.items[index].name.isEmpty ? "Untitled" : viewModel.items[index].name)
+                                    .foregroundColor(viewModel.items[index].completed ? .gray : .primary)
+                                    .font(.title3)
+                            }
+                        }
+                    }
                 }
                 .onDelete { indexSet in
                     viewModel.deleteItems(at: indexSet)
@@ -49,12 +73,9 @@ struct ListView: View {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
 
-            // Only add a new item if the list is empty or the last item is not empty
-            if viewModel.items.isEmpty || !(viewModel.items.last?.name.isEmpty ?? true) {
-                let newItem = ItemModel(name: "")
-                viewModel.items.append(newItem)
-                // No need to set focus state here, just append the item
-            }
+            // Add a new item and immediately start editing it
+            viewModel.addItem()
+            editingIndex = viewModel.items.count - 1
         }) {
             ZStack {
                 Circle()
@@ -70,7 +91,6 @@ struct ListView: View {
     }
 }
 
-
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
         ListView()
@@ -78,6 +98,7 @@ struct ListView_Previews: PreviewProvider {
             .environmentObject(OnboardingViewModel())
     }
 }
+
 
 
 

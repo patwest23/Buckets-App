@@ -17,11 +17,6 @@ enum SortingMode {
     case byTitle
 }
 
-enum Focusable: Hashable {
-    case none
-    case row(id: UUID)
-}
-
 class ListViewModel: ObservableObject {
     @Published var items: [ItemModel] = [] {
         didSet {
@@ -31,8 +26,7 @@ class ListViewModel: ObservableObject {
     
     @Published var showImages: Bool = true
     @Published var hideCompleted: Bool = false
-    @Published var focusedItemID: Focusable? // Add this line
-
+    
     private let itemsKey: String = "items_list"
     
     @Published var sortingMode: SortingMode = .manual {
@@ -100,7 +94,13 @@ class ListViewModel: ObservableObject {
         // Delete the items
         items.remove(atOffsets: indexSet)
     }
+    
+    func addItem() {
+        let newItem = ItemModel(name: "")
+        items.append(newItem)
+    }
 }
+
 
 
 
