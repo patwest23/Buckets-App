@@ -39,7 +39,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var order: Int = 0
     var userId: String?
     var creationDate: Date?
-    var imageData: Data?
+    var imagesData: [Data] = [] // Array to hold multiple image data
 
     init(name: String, description: String? = nil) {
         self.id = UUID()

@@ -23,40 +23,68 @@ struct DetailItemView: View {
                 Toggle("Completed", isOn: $item.completed)
             }
 
-            Section(header: Text("Image")) {
-                if let imageData = item.imageData, let uiImage = UIImage(data: imageData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 200)
-                        .cornerRadius(10)
+            Section(header: Text("Photos")) {
+                if !item.imagesData.isEmpty {
+                    TabView {
+                        ForEach(item.imagesData, id: \.self) { imageData in
+                            if let uiImage = UIImage(data: imageData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .cornerRadius(10)
+                                    .padding()
+                                    .frame(height: 200)
+                                    .clipped()
+                            }
+                        }
+                    }
+                    .tabViewStyle(PageTabViewStyle())
+                    .frame(height: 200)
                 } else {
-                    Text("No Image Selected")
+                    Text("No Photos Selected")
                         .foregroundColor(.gray)
                 }
-                PhotosPicker(selection: $imagePickerViewModel.imageSelection, matching: .images, photoLibrary: .shared()) {
-                    Text("Select Photo")
+                
+                PhotosPicker(selection: $imagePickerViewModel.imageSelections, maxSelectionCount: 3, matching: .images, photoLibrary: .shared()) {
+                    Text("Select Photos")
                 }
             }
         }
         .navigationTitle("Edit Item")
-        .onChange(of: imagePickerViewModel.uiImage) { newImage in
-            if let newImage = newImage {
-                item.imageData = newImage.jpegData(compressionQuality: 1.0)
+        .onChange(of: imagePickerViewModel.uiImages) { newImages in
+            for newImage in newImages {
+                if let newImageData = newImage.jpegData(compressionQuality: 1.0) {
+                    item.imagesData.append(newImageData)
+                }
             }
+        }
+        .onAppear {
+            imagePickerViewModel.loadExistingImages(from: item.imagesData)
         }
     }
 }
 
 struct DetailItemView_Previews: PreviewProvider {
     @State static var item = ItemModel(name: "Sample Item", description: "Sample Description")
-
+    
     static var previews: some View {
         NavigationView {
             DetailItemView(item: $item)
+                .onAppear {
+                    // Simulate three selected images by setting them directly in item.imagesData
+                    item.imagesData = [
+                        UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
+                        UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
+                        UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
+                    ]
+                }
         }
     }
 }
+
+
+
+
 
 
 
