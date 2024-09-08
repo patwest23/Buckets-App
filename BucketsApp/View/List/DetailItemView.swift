@@ -11,9 +11,18 @@ import PhotosUI
 struct DetailItemView: View {
     @Binding var item: ItemModel
     @StateObject private var imagePickerViewModel = ImagePickerViewModel()
+    
+    @State private var isEditMode = false // To track if we are in "edit" mode for image deletion
+
+    // Define a flexible grid layout
+    let columns = [
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
 
     var body: some View {
         Form {
+            // Item Details Section
             Section(header: Text("Item Details")) {
                 TextField("Name", text: $item.name)
                 TextField("Description", text: Binding(
@@ -23,34 +32,62 @@ struct DetailItemView: View {
                 Toggle("Completed", isOn: $item.completed)
             }
 
+            // Photos Grid Section
             Section(header: Text("Photos")) {
                 if !item.imagesData.isEmpty {
-                    TabView {
-                        ForEach(item.imagesData, id: \.self) { imageData in
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        ForEach(Array(item.imagesData.enumerated()), id: \.element) { index, imageData in
                             if let uiImage = UIImage(data: imageData) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .cornerRadius(10)
-                                    .padding()
-                                    .frame(height: 200)
-                                    .clipped()
+                                ZStack {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 100, height: 100) // Adjust size as needed
+                                        .cornerRadius(10)
+                                        .clipped()
+                                        .onLongPressGesture {
+                                            // Enable edit mode on long press
+                                            withAnimation {
+                                                isEditMode = true
+                                            }
+                                        }
+
+                                    // Show subtract icon when in edit mode
+                                    if isEditMode {
+                                        VStack {
+                                            Spacer()
+                                            HStack {
+                                                Spacer()
+                                                Button(action: {
+                                                    deleteImage(at: index)
+                                                }) {
+                                                    Image(systemName: "minus.circle.fill")
+                                                        .foregroundColor(.red)
+                                                        .font(.title)
+                                                        .background(Circle().fill(Color.white))
+                                                }
+                                                .offset(x: 10, y: -10) // Adjust the position
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                    .tabViewStyle(PageTabViewStyle())
-                    .frame(height: 200)
                 } else {
                     Text("No Photos Selected")
                         .foregroundColor(.gray)
                 }
-                
+
+                // Photos Picker to select new images
                 PhotosPicker(selection: $imagePickerViewModel.imageSelections, maxSelectionCount: 3, matching: .images, photoLibrary: .shared()) {
                     Text("Select Photos")
                 }
             }
         }
         .navigationTitle("Edit Item")
+        
+        // When new images are selected, save them to item.imagesData
         .onChange(of: imagePickerViewModel.uiImages) { newImages in
             for newImage in newImages {
                 if let newImageData = newImage.jpegData(compressionQuality: 1.0) {
@@ -61,6 +98,17 @@ struct DetailItemView: View {
         .onAppear {
             imagePickerViewModel.loadExistingImages(from: item.imagesData)
         }
+        .onTapGesture {
+            // Exit edit mode when tapping outside
+            withAnimation {
+                isEditMode = false
+            }
+        }
+    }
+
+    // Function to delete an image at a given index
+    private func deleteImage(at index: Int) {
+        item.imagesData.remove(at: index)
     }
 }
 
@@ -72,11 +120,13 @@ struct DetailItemView_Previews: PreviewProvider {
             DetailItemView(item: $item)
                 .onAppear {
                     // Simulate three selected images by setting them directly in item.imagesData
-                    item.imagesData = [
-                        UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
-                        UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
-                        UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
-                    ]
+                    if item.imagesData.isEmpty {
+                        item.imagesData = [
+                            UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
+                            UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
+                            UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
+                        ]
+                    }
                 }
         }
     }

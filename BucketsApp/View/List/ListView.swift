@@ -14,44 +14,18 @@ struct ListView: View {
 
     var body: some View {
         NavigationView {
-            List {
-                ForEach(viewModel.items.indices, id: \.self) { index in
-                    HStack {
-                        Button(action: {
-                            viewModel.items[index].completed.toggle()
-                        }) {
-                            Image(systemName: viewModel.items[index].completed ? "checkmark.circle.fill" : "circle")
-                                .imageScale(.large)
-                                .font(.title2)
-                                .foregroundColor(viewModel.items[index].completed ? Color("AccentColor") : .gray)
-                        }
-                        .buttonStyle(BorderlessButtonStyle())
-
-                        if editingIndex == index {
-                            TextField("Item Name", text: $viewModel.items[index].name, onCommit: {
-                                editingIndex = nil
-                            })
-                            .foregroundColor(viewModel.items[index].completed ? .gray : .primary)
-                            .font(.title3)
-                        } else {
-                            NavigationLink(destination: DetailItemView(item: $viewModel.items[index])) {
-                                Text(viewModel.items[index].name.isEmpty ? "Untitled" : viewModel.items[index].name)
-                                    .foregroundColor(viewModel.items[index].completed ? .gray : .primary)
-                                    .font(.title3)
-                            }
-                        }
+            ScrollView {
+                VStack(spacing: 20) {
+                    ForEach(viewModel.items.indices, id: \.self) { index in
+                        ItemRowView(item: $viewModel.items[index])
+                            .padding(.horizontal)
+                            .background(Color(UIColor.systemBackground).cornerRadius(10).shadow(radius: 5))
                     }
                 }
-                .onDelete { indexSet in
-                    viewModel.deleteItems(at: indexSet)
-                }
-                .listRowSeparatorTint(.clear)
+                .padding()
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    // optionsMenu
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
                     profileNavigationLink
                 }
             }
@@ -69,11 +43,9 @@ struct ListView: View {
 
     private var addButton: some View {
         Button(action: {
-            // Trigger haptic feedback
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
 
-            // Add a new item and immediately start editing it
             viewModel.addItem()
             editingIndex = viewModel.items.count - 1
         }) {
@@ -98,68 +70,3 @@ struct ListView_Previews: PreviewProvider {
             .environmentObject(OnboardingViewModel())
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//    .position(x: UIScreen.main.bounds.width - 70, y: UIScreen.main.bounds.height - 180)
-
-
-
-
-
-
-
-
-
-
-//    private var optionsMenu: some View {
-//        Menu {
-//            Toggle(isOn: $viewModel.hideCompleted) {
-//                Label(viewModel.hideCompleted ? "Show Completed" : "Hide Completed", systemImage: "checkmark.circle")
-//            }
-//            Toggle(isOn: $viewModel.showImages) {
-//                Label(viewModel.showImages ? "Hide Images" : "Show Images", systemImage: "photo")
-//            }
-//            Button("Edit List") {
-//                // Placeholder for future feature
-//            }
-//        } label: {
-//            Image(systemName: "ellipsis.circle")
-//        }
-//        .onChange(of: $viewModel.hideCompleted) { _ in
-//            viewModel.sortItems()
-//        }
-//        .onChange(of: viewModel.showImages) { _ in
-//            // Handle showImages change if needed
-//        }
-//    }
