@@ -10,6 +10,8 @@ import PhotosUI
 
 struct ItemRowView: View {
     @Binding var item: ItemModel
+    @Binding var isEditing: Bool
+    @FocusState private var isFocused: Bool
     @State private var selectedPhotos: [PhotosPickerItem] = []
 
     var body: some View {
@@ -26,53 +28,49 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(BorderlessButtonStyle())
 
-                // Navigation to DetailItemView
+                // Editable text field for item name (Left aligned)
+                TextField("Item Name", text: $item.name)
+                    .foregroundColor(item.completed ? .gray : .primary)
+                    .font(.title3)
+                    .focused($isFocused)
+                    .disabled(!isEditing) // Only editable in edit mode
+                    .onChange(of: isEditing) { newValue in
+                        // Automatically focus when editing starts
+                        if newValue {
+                            isFocused = true
+                        } else {
+                            isFocused = false
+                        }
+                    }
+
+                // Button to navigate to detail view, stays in-line with the item name
                 NavigationLink(destination: DetailItemView(item: $item)) {
-                    TextField("Item Name", text: $item.name)
-                        .foregroundColor(item.completed ? .gray : .primary)
+                    Image(systemName: "arrow.right")
                         .font(.title3)
-                        .disabled(true) // Disable inline editing
+                        .foregroundColor(.accentColor)
+                        .contentShape(Rectangle()) // Ensure the entire area is tappable
+                        .padding(.leading, 10)
+                        .frame(width: 44, height: 44, alignment: .center) // Adding a frame for consistent tappable area
                 }
             }
 
-            // Displaying selected images
+            // Displaying selected images in a larger carousel (TabView)
             if !item.imagesData.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(item.imagesData, id: \.self) { imageData in
-                            if let uiImage = UIImage(data: imageData) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 80, height: 80)
-                                    .cornerRadius(10)
-                                    .onLongPressGesture {
-                                        // Add logic for long press to delete the image
-                                        if let index = item.imagesData.firstIndex(of: imageData) {
-                                            item.imagesData.remove(at: index)
-                                        }
-                                    }
-                            }
+                TabView {
+                    ForEach(item.imagesData, id: \.self) { imageData in
+                        if let uiImage = UIImage(data: imageData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()  // Scale to fill the entire frame
+                                .frame(maxWidth: .infinity, maxHeight: 400) // Extend to the full width of the screen
+                                .cornerRadius(10)
+                                .clipped() // Clip the overflowing content
                         }
                     }
                 }
-                .frame(height: 80)
-            }
-
-            // PhotosPicker to add images
-            PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
-                Label("Add Image", systemImage: "photo.on.rectangle")
-                    .font(.callout)
-                    .foregroundColor(.blue)
-            }
-            .onChange(of: selectedPhotos) { newItems in
-                for newItem in newItems {
-                    Task {
-                        if let data = try? await newItem.loadTransferable(type: Data.self) {
-                                item.imagesData.append(data)
-                        }
-                    }
-                }
+                .tabViewStyle(PageTabViewStyle())
+                .frame(height: 400) // Match the image height
+                .edgesIgnoringSafeArea(.horizontal) // Extend to the edges of the screen
             }
         }
         .padding(.vertical, 10)
@@ -80,43 +78,26 @@ struct ItemRowView: View {
 }
 
 struct ItemRowView_Previews: PreviewProvider {
-    @State static var item = ItemModel(name: "Example Item", description: "An example item description")
-    
+    @State static var item = ItemModel(
+        name: "Example Item",
+        description: "An example item description",
+        imagesData: [
+            UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
+            UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
+            UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
+        ]
+    )
+    @State static var isEditing = true
+
     static var previews: some View {
-        ItemRowView(item: .constant(item))
-            .previewLayout(.sizeThatFits)
-            .padding()
-            .previewDisplayName("Item Row Preview")
+        NavigationView {
+            ItemRowView(item: $item, isEditing: $isEditing)
+                .previewLayout(.sizeThatFits)
+                .padding()
+                .previewDisplayName("Item Row Preview with Images")
+        }
     }
 }
-
-
-
-
-
-
-
-
-
-//struct ItemRowView_Previews: PreviewProvider {
-//    @State static var showImages = true
-//    @State static var focusedItemID: Focusable?
-//
-//    static var previews: some View {
-//        let item = ItemModel(name: "Example Item", description: "An example item description")
-//        
-//        return ItemRowView(
-//            item: .constant(item),
-//            focusedItemID: $focusedItemID,
-//            showImages: $showImages
-//        )
-//        .previewLayout(.sizeThatFits)
-//        .padding()
-//        .previewDisplayName("Item Row Preview")
-//    }
-//}
-
-
 
 
 

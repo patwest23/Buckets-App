@@ -41,11 +41,12 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var creationDate: Date?
     var imagesData: [Data] = [] // Array to hold multiple image data
 
-    init(name: String, description: String? = nil) {
+    init(name: String, description: String? = nil, imagesData: [Data] = []) {
         self.id = UUID()
         self.name = name
         self.description = description
         self.creationDate = Date()
+        self.imagesData = imagesData
     }
 }
 

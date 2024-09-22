@@ -13,71 +13,71 @@ struct OnboardingView: View {
     @State private var showLogIn = false
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                VStack(spacing: 40) {
-                    Spacer()
+        ZStack {
+            VStack(spacing: 40) {
+                Spacer()
 
-                    Image("Image2")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 100, maxHeight: 100)
-                    
-                    Spacer()
-                    
-                    Text("What do you want to do before you die?")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(.black)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40.0)
+                Image("Image2")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 100, maxHeight: 100)
 
-                    Spacer()
+                Spacer()
 
-                    HStack(spacing: 20) {
-                        Button(action: {
-                            showSignUp.toggle()
-                        }) {
-                            Text("Sign Up")
-                                .fontWeight(.bold)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(10)
-                                .shadow(radius: 10)
-                        }
-                        .sheet(isPresented: $showSignUp) {
-                            SignUpView()
-                        }
+                Text("What do you want to do before you die?")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40.0)
 
-                        Button(action: {
-                            showLogIn.toggle()
-                        }) {
-                            Text("Log In")
-                                .fontWeight(.bold)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(10)
-                                .shadow(radius: 10)
-                        }
-                        .sheet(isPresented: $showLogIn) {
-                            LogInView()
-                        }
-                    }
+                Spacer()
 
-                    NavigationLink(destination: ListView().environmentObject(bucketListViewModel)) {
-                        Text("Go to My List")
+                HStack(spacing: 20) {
+                    Button(action: {
+                        showSignUp.toggle()
+                    }) {
+                        Text("Sign Up")
                             .fontWeight(.bold)
                             .padding()
                             .background(Color.white)
                             .cornerRadius(10)
                             .shadow(radius: 10)
                     }
+                    .sheet(isPresented: $showSignUp) {
+                        SignUpView()
+                    }
 
-                    Spacer()
+                    Button(action: {
+                        showLogIn.toggle()
+                    }) {
+                        Text("Log In")
+                            .fontWeight(.bold)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .shadow(radius: 10)
+                    }
+                    .sheet(isPresented: $showLogIn) {
+                        LogInView()
+                    }
                 }
+
+                Button(action: {
+                    // Handle navigation manually if needed
+                }) {
+                    Text("Go to My List")
+                        .fontWeight(.bold)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 10)
+                }
+
+                Spacer()
             }
-            .environmentObject(bucketListViewModel)
         }
+        .environmentObject(bucketListViewModel)
     }
 }
 

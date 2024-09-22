@@ -13,26 +13,30 @@ struct ListView: View {
     @State private var editingIndex: Int?
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    ForEach(viewModel.items.indices, id: \.self) { index in
-                        ItemRowView(item: $viewModel.items[index])
-                            .padding(.horizontal)
-                            .background(Color(UIColor.systemBackground).cornerRadius(10).shadow(radius: 5))
+        ScrollView {
+            VStack(spacing: 20) {
+                ForEach(viewModel.items.indices, id: \.self) { index in
+                    ItemRowView(item: $viewModel.items[index], isEditing: Binding(
+                        get: { editingIndex == index },
+                        set: { newValue in
+                            editingIndex = newValue ? index : nil
+                        }
+                    ))
+//                    .padding(.horizontal)
+                    .onTapGesture {
+                        editingIndex = (editingIndex == index) ? nil : index
                     }
                 }
-                .padding()
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    profileNavigationLink
-                }
-            }
-            .navigationTitle("Buckets")
-            .navigationBarTitleDisplayMode(.inline)
-            .overlay(addButton, alignment: .bottomTrailing)
         }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                profileNavigationLink
+            }
+        }
+        .navigationTitle("Buckets")
+        .navigationBarTitleDisplayMode(.inline)
+        .overlay(addButton, alignment: .bottomTrailing)
     }
 
     private var profileNavigationLink: some View {
@@ -65,8 +69,30 @@ struct ListView: View {
 
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
-        ListView()
-            .environmentObject(ListViewModel())
-            .environmentObject(OnboardingViewModel())
+        let mockOnboardingViewModel = MockOnboardingViewModel()
+        let mockListViewModel = ListViewModel()
+
+        // Simulate some mock items
+        mockListViewModel.items = [
+            ItemModel(
+                name: "Sample Item 1",
+                description: "Description 1",
+                imagesData: [
+                    UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
+                    UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
+                    UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
+                ]
+            ),
+            ItemModel(name: "Sample Item 2", description: "Description 2")
+        ]
+        
+        return NavigationView {
+            ListView()
+                .environmentObject(mockListViewModel)
+                .environmentObject(mockOnboardingViewModel) // Use the mock view model here
+        }
+        .previewLayout(.sizeThatFits)
+        .padding()
+        .previewDisplayName("List View Preview with Mock Items and Images")
     }
 }
