@@ -42,22 +42,12 @@ struct ItemRowView: View {
                             isFocused = false
                         }
                     }
-
-                // Button to navigate to detail view, stays in-line with the item name
-                NavigationLink(destination: DetailItemView(item: $item)) {
-                    Image(systemName: "arrow.right")
-                        .font(.title3)
-                        .foregroundColor(.accentColor)
-                        .contentShape(Rectangle()) // Ensure the entire area is tappable
-                        .padding(.leading, 10)
-                        .frame(width: 44, height: 44, alignment: .center) // Adding a frame for consistent tappable area
-                }
             }
 
             // Displaying selected images in a larger carousel (TabView)
             if !item.imagesData.isEmpty {
                 TabView {
-                    ForEach(item.imagesData, id: \.self) { imageData in
+                    ForEach(Array(item.imagesData.enumerated()), id: \.offset) { index,  imageData in
                         if let uiImage = UIImage(data: imageData) {
                             Image(uiImage: uiImage)
                                 .resizable()

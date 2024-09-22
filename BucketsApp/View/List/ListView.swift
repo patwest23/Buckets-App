@@ -10,33 +10,41 @@ import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var editingIndex: Int?
+    @State private var newItem: ItemModel? // Store the new item to navigate to
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                ForEach(viewModel.items.indices, id: \.self) { index in
-                    ItemRowView(item: $viewModel.items[index], isEditing: Binding(
-                        get: { editingIndex == index },
-                        set: { newValue in
-                            editingIndex = newValue ? index : nil
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    ForEach(viewModel.items.indices, id: \.self) { index in
+                        NavigationLink(value: viewModel.items[index]) {
+                            ItemRowView(item: $viewModel.items[index], isEditing: .constant(false))
+                                .padding(.horizontal)
+                                .background(Color(UIColor.systemBackground).cornerRadius(10).shadow(radius: 5))
                         }
-                    ))
-//                    .padding(.horizontal)
-                    .onTapGesture {
-                        editingIndex = (editingIndex == index) ? nil : index
                     }
                 }
+                .padding()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    profileNavigationLink
+                }
+            }
+            .navigationTitle("Buckets")
+            .navigationBarTitleDisplayMode(.inline)
+            .overlay(addButton, alignment: .bottomTrailing)
+            .navigationDestination(for: ItemModel.self) { item in
+                DetailItemView(item: Binding(
+                    get: { viewModel.items.first { $0.id == item.id } ?? item },
+                    set: { newItem in
+                        if let index = viewModel.items.firstIndex(where: { $0.id == item.id }) {
+                            viewModel.items[index] = newItem
+                        }
+                    }
+                ))
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                profileNavigationLink
-            }
-        }
-        .navigationTitle("Buckets")
-        .navigationBarTitleDisplayMode(.inline)
-        .overlay(addButton, alignment: .bottomTrailing)
     }
 
     private var profileNavigationLink: some View {
@@ -51,19 +59,22 @@ struct ListView: View {
             impactMed.impactOccurred()
 
             viewModel.addItem()
-            editingIndex = viewModel.items.count - 1
+            newItem = viewModel.items.last
         }) {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
-                
+
                 Image(systemName: "plus")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundColor(.white)
             }
         }
         .padding()
+        .background(
+            NavigationLink("", value: newItem).opacity(0) // Navigate to the new item
+        )
     }
 }
 

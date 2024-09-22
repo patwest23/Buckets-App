@@ -10,8 +10,9 @@ import PhotosUI
 
 struct DetailItemView: View {
     @Binding var item: ItemModel
+    @EnvironmentObject var viewModel: ListViewModel
+    @Environment(\.presentationMode) var presentationMode // For dismissing the view
     @StateObject private var imagePickerViewModel = ImagePickerViewModel()
-    
     @State private var isEditMode = false // To track if we are in "edit" mode for image deletion
 
     // Define a flexible grid layout
@@ -84,10 +85,17 @@ struct DetailItemView: View {
                     Text("Select Photos")
                 }
             }
+
+            // Delete Button Section
+            Section {
+                Button(action: {
+                    deleteItem()
+                }) {
+                    Text("Delete Item")
+                        .foregroundColor(.red)
+                }
+            }
         }
-        .navigationTitle("Edit Item")
-        
-        // When new images are selected, save them to item.imagesData
         .onChange(of: imagePickerViewModel.uiImages) { newImages in
             for newImage in newImages {
                 if let newImageData = newImage.jpegData(compressionQuality: 1.0) {
@@ -109,6 +117,14 @@ struct DetailItemView: View {
     // Function to delete an image at a given index
     private func deleteImage(at index: Int) {
         item.imagesData.remove(at: index)
+    }
+
+    // Function to delete the item and return to the previous view
+    private func deleteItem() {
+        if let index = viewModel.items.firstIndex(where: { $0.id == item.id }) {
+            viewModel.items.remove(at: index)
+            presentationMode.wrappedValue.dismiss()
+        }
     }
 }
 
