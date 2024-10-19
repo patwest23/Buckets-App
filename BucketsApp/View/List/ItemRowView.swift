@@ -11,7 +11,6 @@ import PhotosUI
 struct ItemRowView: View {
     @Binding var item: ItemModel
     @Binding var isEditing: Bool
-    @FocusState private var isFocused: Bool
     @State private var selectedPhotos: [PhotosPickerItem] = []
 
     var body: some View {
@@ -28,33 +27,29 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(BorderlessButtonStyle())
 
-                // Editable text field for item name (Left aligned)
-                TextField("Item Name", text: $item.name)
-                    .foregroundColor(item.completed ? .gray : .primary)
-                    .font(.title3)
-                    .focused($isFocused)
-                    .disabled(!isEditing) // Only editable in edit mode
-                    .onChange(of: isEditing) { newValue in
-                        // Automatically focus when editing starts
-                        if newValue {
-                            isFocused = true
-                        } else {
-                            isFocused = false
-                        }
-                    }
+                // Left-align the text by using Spacer
+                NavigationLink(destination: DetailItemView(item: $item)) {
+                    Text(item.name.isEmpty ? "Untitled Item" : item.name)
+                        .foregroundColor(item.completed ? .gray : .primary)
+                        .font(.title3)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading) // Ensure text is left-aligned
+                }
             }
 
             // Displaying selected images in a larger carousel (TabView)
             if !item.imagesData.isEmpty {
                 TabView {
-                    ForEach(Array(item.imagesData.enumerated()), id: \.offset) { index,  imageData in
+                    ForEach(Array(item.imagesData.enumerated()), id: \.offset) { index, imageData in
                         if let uiImage = UIImage(data: imageData) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFill()  // Scale to fill the entire frame
                                 .frame(maxWidth: .infinity, maxHeight: 400) // Extend to the full width of the screen
-                                .cornerRadius(10)
+                                .cornerRadius(20) // Apply corner radius for rounded corners
                                 .clipped() // Clip the overflowing content
+                                .padding(.horizontal, 16) // Add padding to avoid hitting screen edges
                         }
                     }
                 }

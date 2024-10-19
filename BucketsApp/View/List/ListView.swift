@@ -19,8 +19,6 @@ struct ListView: View {
                     ForEach(viewModel.items.indices, id: \.self) { index in
                         NavigationLink(value: viewModel.items[index]) {
                             ItemRowView(item: $viewModel.items[index], isEditing: .constant(false))
-                                .padding(.horizontal)
-                                .background(Color(UIColor.systemBackground).cornerRadius(10).shadow(radius: 5))
                         }
                     }
                 }
@@ -47,19 +45,21 @@ struct ListView: View {
         }
     }
 
+    // MARK: Profile Navigation Link
     private var profileNavigationLink: some View {
         NavigationLink(destination: ProfileView()) {
             Image(systemName: "person.crop.circle")
         }
     }
 
+    // MARK: Add Button
     private var addButton: some View {
         Button(action: {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
 
-            viewModel.addItem()
-            newItem = viewModel.items.last
+            let addedItem = viewModel.addItem() // Capture the newly added item
+            newItem = addedItem // Set new item to navigate to
         }) {
             ZStack {
                 Circle()
@@ -72,12 +72,28 @@ struct ListView: View {
             }
         }
         .padding()
+        // Navigation when adding a new item
         .background(
-            NavigationLink("", value: newItem).opacity(0) // Navigate to the new item
+            newItem.map { item in
+                NavigationLink(
+                    destination: DetailItemView(item: Binding(
+                        get: { item },   // Fix the error here by wrapping in Binding
+                        set: { updatedItem in
+                            if let index = viewModel.items.firstIndex(where: { $0.id == updatedItem.id }) {
+                                viewModel.items[index] = updatedItem
+                            }
+                        }
+                    )),
+                    isActive: .constant(newItem != nil),
+                    label: { EmptyView() }
+                )
+            }
+            .hidden()
         )
     }
 }
 
+// MARK: Preview
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
         let mockOnboardingViewModel = MockOnboardingViewModel()
@@ -96,8 +112,8 @@ struct ListView_Previews: PreviewProvider {
             ),
             ItemModel(name: "Sample Item 2", description: "Description 2")
         ]
-        
-        return NavigationView {
+
+        return NavigationStack {
             ListView()
                 .environmentObject(mockListViewModel)
                 .environmentObject(mockOnboardingViewModel) // Use the mock view model here
