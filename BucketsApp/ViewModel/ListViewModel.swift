@@ -19,93 +19,85 @@ enum SortingMode {
 
 class ListViewModel: ObservableObject {
     @Published var items: [ItemModel] = [] {
-        didSet {
-            saveItems()
-        }
+        didSet { saveItems() }
     }
     
     @Published var showImages: Bool = true
     @Published var hideCompleted: Bool = false
-    
-    private let itemsKey: String = "items_list"
-    
     @Published var sortingMode: SortingMode = .manual {
-        didSet {
-            sortItems()
-        }
+        didSet { sortItems() }
     }
-    
     @Published var showingAddItemView = false
     @Published var selectedItem: ItemModel?
     
+    private let itemsKey = "items_list"
     private var cancellables = Set<AnyCancellable>()
     
     init() {
-        loadItems()
+        // Schedule item loading instead of performing it directly in init.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.loadItems()
+        }
     }
     
+    /// Asynchronously load items from persistent storage
     private func loadItems() {
-        guard let data = UserDefaults.standard.data(forKey: itemsKey) else {
-            return
-        }
+        guard let data = UserDefaults.standard.data(forKey: itemsKey) else { return }
         
-        do {
-            self.items = try JSONDecoder().decode([ItemModel].self, from: data)
-        } catch {
-            print("Error decoding items: \(error)")
+        DispatchQueue.main.async {
+            do {
+                self.items = try JSONDecoder().decode([ItemModel].self, from: data)
+            } catch {
+                print("Error decoding items: \(error)")
+            }
         }
     }
     
-    // Change saveItems to internal or public
+    /// Save items to persistent storage
     func saveItems() {
-        do {
-            let encodedData = try JSONEncoder().encode(items)
-            UserDefaults.standard.set(encodedData, forKey: "items_list")
-        } catch {
-            print("Error encoding items: \(error)")
+        DispatchQueue.global(qos: .background).async {
+            do {
+                let encodedData = try JSONEncoder().encode(self.items)
+                UserDefaults.standard.set(encodedData, forKey: self.itemsKey)
+            } catch {
+                print("Error encoding items: \(error)")
+            }
         }
     }
     
+    /// Sort items based on the current sorting mode
     func sortItems() {
-        switch sortingMode {
-        case .manual:
-            // No sorting needed for manual mode
-            break
-        case .byDeadline:
-            items.sort {
-                guard let date1 = $0.dueDate, let date2 = $1.dueDate else { return false }
-                return date1 < date2
+        DispatchQueue.main.async {
+            switch self.sortingMode {
+            case .manual:
+                // No action needed
+                break
+            case .byDeadline:
+                self.items.sort { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
+            case .byCreationDate:
+                self.items.sort { ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast) }
+            case .byPriority:
+                self.items.sort { $0.priority.rawValue < $1.priority.rawValue }
+            case .byTitle:
+                self.items.sort { $0.name < $1.name }
             }
-        case .byCreationDate:
-            items.sort {
-                guard let date1 = $0.creationDate, let date2 = $1.creationDate else { return false }
-                return date1 < date2
-            }
-        case .byPriority:
-            items.sort { $0.priority.rawValue < $1.priority.rawValue }
-        case .byTitle:
-            items.sort { $0.name < $1.name }
         }
     }
     
-    /// Function to delete items using an index set (used in ListView swipe to delete)
+    /// Delete items at specified indices (used in list swipe-to-delete)
     func deleteItems(at indexSet: IndexSet) {
-        // Resign first responder before deleting the items
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        
-        // Remove the items from the list
         items.remove(atOffsets: indexSet)
     }
-
-    /// Function to delete an individual item (used in DetailItemView)
+    
+    /// Delete a specific item
     func deleteItem(_ item: ItemModel) {
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             items.remove(at: index)
-            saveItems() // Persist changes after deletion
         }
     }
     
-    /// Function to add a new item
+    /// Add a new item and return it
     func addItem() -> ItemModel {
         let newItem = ItemModel(name: "")
         items.append(newItem)

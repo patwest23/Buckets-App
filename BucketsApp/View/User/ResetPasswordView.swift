@@ -26,7 +26,7 @@ struct ResetPasswordView: View {
                 .padding()
 
             Button("Send Reset Link") {
-                resetPassword()
+                sendResetLink()
             }
             .foregroundColor(.white)
             .padding()
@@ -39,7 +39,7 @@ struct ResetPasswordView: View {
         }
     }
 
-    private func resetPassword() {
+    private func sendResetLink() {
         viewModel.resetPassword(for: email) { result in
             switch result {
             case .success(let message):
@@ -52,9 +52,10 @@ struct ResetPasswordView: View {
     }
 }
 
-struct ResetPassowrdView_Previews: PreviewProvider {
+struct ResetPasswordView_Previews: PreviewProvider {
     static var previews: some View {
         ResetPasswordView()
+            .environmentObject(MockOnboardingViewModel()) // Use mock data for preview
     }
 }
 

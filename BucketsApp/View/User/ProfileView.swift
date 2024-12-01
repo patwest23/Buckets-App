@@ -15,7 +15,9 @@ struct ProfileView: View {
     @State private var selectedImageItem: PhotosPickerItem?
 
     var body: some View {
-        NavigationView {
+        ZStack {
+            Color.white.edgesIgnoringSafeArea(.all) // Set the entire background to white
+
             VStack {
                 // Profile Image Button
                 Button(action: {
@@ -45,9 +47,8 @@ struct ProfileView: View {
                     loadProfileImage(newItem)
                 }
 
-                // Rest of your view content...
+                // Account Settings List
                 List {
-                    Section(header: Text("Account Settings")) {
                         navigationLinkButton("Update Email", destination: UpdateEmailView())
                         navigationLinkButton("Reset Password", destination: ResetPasswordView())
                         navigationLinkButton("Update Password", destination: UpdatePasswordView())
@@ -55,13 +56,13 @@ struct ProfileView: View {
                         Button("Log Out", role: .destructive) {
                             viewModel.signOut()
                         }
-                    }
                 }
-                .listStyle(GroupedListStyle())
+                .background(Color.white) // Ensure the list background is white
                 .onAppear {
                     viewModel.checkIfUserIsAuthenticated()
                 }
             }
+            .padding()
         }
     }
 
@@ -88,7 +89,8 @@ struct ProfileView: View {
 
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
-        ProfileView().environmentObject(OnboardingViewModel())
+        ProfileView()
+            .environmentObject(MockOnboardingViewModel())
     }
 }
 

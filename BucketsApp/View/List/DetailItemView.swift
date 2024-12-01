@@ -13,10 +13,9 @@ struct DetailItemView: View {
     @EnvironmentObject var viewModel: ListViewModel
     @Environment(\.presentationMode) var presentationMode
     @StateObject private var imagePickerViewModel = ImagePickerViewModel()
-    @State private var isEditMode = false
     @State private var showDeleteConfirmation = false
 
-    // Define a flexible grid layout that fits exactly three photos per row
+    // Define a flexible grid layout for photos
     let columns = [
         GridItem(.flexible()),
         GridItem(.flexible()),
@@ -29,124 +28,80 @@ struct DetailItemView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     // Item Details Section
                     VStack(alignment: .leading, spacing: 12) {
-
                         TextField("What do you want to do before you die?", text: $item.name)
                             .padding()
                             .background(Color.white)
                             .cornerRadius(10)
                             .shadow(radius: 2)
+                            .onChange(of: item.name) { _ in saveItem() }
 
-                        TextField("Notes", text: Binding(
+                        TextEditor(text: Binding(
                             get: { item.description ?? "" },
                             set: { item.description = $0 }
                         ))
+                        .frame(minHeight: 150) // Adjust height for the description box
                         .padding()
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
+                        .onChange(of: item.description) { _ in saveItem() }
 
                         Toggle("Completed", isOn: $item.completed)
                             .padding()
                             .background(Color.white)
                             .cornerRadius(10)
                             .shadow(radius: 2)
+                            .onChange(of: item.completed) { _ in saveItem() }
                     }
                     .padding(.horizontal)
 
                     // Photos Grid Section
                     if !item.imagesData.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Photos")
-                                .font(.headline)
-                                .foregroundColor(.black)
-
-                            LazyVGrid(columns: columns, spacing: 10) {
-                                ForEach(Array(item.imagesData.enumerated()), id: \.element) { index, imageData in
-                                    if let uiImage = UIImage(data: imageData) {
-                                        ZStack {
-                                            Image(uiImage: uiImage)
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 100, height: 100)
-                                                .cornerRadius(10)
-                                                .clipped()
-                                                .onLongPressGesture {
-                                                    withAnimation {
-                                                        isEditMode = true
-                                                    }
-                                                }
-
-                                            if isEditMode {
-                                                VStack {
-                                                    Spacer()
-                                                    HStack {
-                                                        Spacer()
-                                                        Button(action: {
-                                                            deleteImage(at: index)
-                                                        }) {
-                                                            Image(systemName: "minus.circle.fill")
-                                                                .foregroundColor(.red)
-                                                                .font(.title)
-                                                                .background(Circle().fill(Color.white))
-                                                        }
-                                                        .offset(x: 10, y: -10)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                        LazyVGrid(columns: columns, spacing: 10) {
+                            ForEach(Array(item.imagesData.enumerated()), id: \.element) { _, imageData in
+                                if let uiImage = UIImage(data: imageData) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 100, height: 100)
+                                        .cornerRadius(10)
+                                        .clipped()
                                 }
                             }
                         }
                         .padding(.horizontal)
                     }
 
-                    // Photos Picker Section
-                    PhotosPicker(selection: $imagePickerViewModel.imageSelections, maxSelectionCount: 3, matching: .images, photoLibrary: .shared()) {
+                    // Photos Picker Button
+                    Button(action: {
+                        // Trigger the photo picker
+                    }) {
                         Text("Select Photos")
                             .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity)
                             .padding()
                             .background(Color.white)
                             .cornerRadius(10)
                             .shadow(radius: 2)
                     }
                     .padding(.horizontal)
-
-                    // Spacer to push buttons to the bottom
-                    Spacer()
-
-                    // Save and Delete Buttons
-                    HStack {
-                        Button(action: {
-                            showDeleteConfirmation = true
-                        }) {
-                            Text("Delete Item")
-                                .foregroundColor(.red)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(10)
-                                .shadow(radius: 5)
-                        }
-
-                        Spacer()
-
-                        Button(action: {
-                            saveItem()
-                        }) {
-                            Text("Save")
-                                .foregroundColor(.blue)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(10)
-                                .shadow(radius: 5)
-                        }
-                    }
-                    .padding([.horizontal, .bottom])
                 }
                 .padding(.top)
             }
+
+            // Delete Button at the Bottom
+            Button(action: {
+                showDeleteConfirmation = true
+            }) {
+                Text("Delete")
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                    .shadow(radius: 5)
+            }
+            .padding()
         }
         .background(Color.white.edgesIgnoringSafeArea(.all)) // Set full background to white
         .alert(isPresented: $showDeleteConfirmation) {
@@ -159,25 +114,14 @@ struct DetailItemView: View {
             )
         }
         .onChange(of: imagePickerViewModel.uiImages) { newImages in
-            for newImage in newImages {
-                if let newImageData = newImage.jpegData(compressionQuality: 1.0) {
-                    item.imagesData.append(newImageData)
-                }
+            if !newImages.isEmpty {
+                item.imagesData = newImages.compactMap { $0.jpegData(compressionQuality: 1.0) }
+                saveItem()
             }
         }
         .onAppear {
             imagePickerViewModel.loadExistingImages(from: item.imagesData)
         }
-        .onTapGesture {
-            withAnimation {
-                isEditMode = false
-            }
-        }
-    }
-
-    // Function to delete an image at a given index
-    private func deleteImage(at index: Int) {
-        item.imagesData.remove(at: index)
     }
 
     // Function to delete the item and return to the previous view
@@ -189,29 +133,92 @@ struct DetailItemView: View {
         }
     }
 
-    // Function to save changes and return to ListView
+    // Function to save changes
     private func saveItem() {
         viewModel.saveItems()
-        presentationMode.wrappedValue.dismiss()
     }
 }
 
 struct DetailItemView_Previews: PreviewProvider {
-    @State static var item = ItemModel(name: "Sample Item", description: "Sample Description")
-    
     static var previews: some View {
         NavigationView {
-            DetailItemView(item: $item)
-                .onAppear {
-                    // Simulate three selected images by setting them directly in item.imagesData
-                    if item.imagesData.isEmpty {
-                        item.imagesData = [
-                            UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
-                            UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
-                            UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
-                        ]
+            VStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Mock Item Details Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            TextField("What do you want to do before you die?", text: .constant("Mock Item Name"))
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 2)
+                            
+                            TextEditor(text: .constant("Mock Item Description"))
+                                .frame(minHeight: 150) // Set a larger height for notes
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 2)
+                            
+                            Toggle("Completed", isOn: .constant(false))
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 2)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Mock Photos Picker Button
+                        Button(action: {}) {
+                            Text("Select Photos")
+                                .foregroundColor(.blue)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.white)
+                                .cornerRadius(10)
+                                .shadow(radius: 2)
+                        }
+                        .padding(.horizontal)
+                        
+                        // Mock Photos Grid Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            LazyVGrid(columns: [
+                                GridItem(.flexible()),
+                                GridItem(.flexible()),
+                                GridItem(.flexible())
+                            ], spacing: 10) {
+                                ForEach(["MockImage1", "MockImage2", "MockImage3"], id: \.self) { imageName in
+                                    Image(imageName)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 100, height: 100)
+                                        .cornerRadius(10)
+                                        .clipped()
+                                }
+                            }
+                            .padding(.horizontal)
+                            
+                            // Spacer to push delete button to the bottom
+                            Spacer()
+                        }
+                        .padding(.top)
                     }
+                    // Mock Delete Button
+                    Button(action: {}) {
+                        Text("Delete")
+                            .foregroundColor(.red)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom) // Additional padding for safe area
                 }
+                .background(Color.white.edgesIgnoringSafeArea(.all))
+            }
+            .previewDisplayName("Detail Item View Preview with Mock Images")
         }
     }
 }

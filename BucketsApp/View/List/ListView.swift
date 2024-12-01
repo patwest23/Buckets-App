@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import PhotosUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
@@ -18,7 +17,10 @@ struct ListView: View {
                 VStack(spacing: 20) {
                     ForEach(viewModel.items.indices, id: \.self) { index in
                         NavigationLink(value: viewModel.items[index]) {
-                            ItemRowView(item: $viewModel.items[index], isEditing: .constant(false))
+                            ItemRowView(
+                                viewModel: ItemRowViewModel(item: $viewModel.items[index]), // Pass the binding directly
+                                isEditing: .constant(false)
+                            )
                         }
                     }
                 }
@@ -35,9 +37,9 @@ struct ListView: View {
             .navigationDestination(for: ItemModel.self) { item in
                 DetailItemView(item: Binding(
                     get: { viewModel.items.first { $0.id == item.id } ?? item },
-                    set: { newItem in
+                    set: { updatedItem in
                         if let index = viewModel.items.firstIndex(where: { $0.id == item.id }) {
-                            viewModel.items[index] = newItem
+                            viewModel.items[index] = updatedItem
                         }
                     }
                 ))
@@ -47,8 +49,13 @@ struct ListView: View {
 
     // MARK: Profile Navigation Link
     private var profileNavigationLink: some View {
-        NavigationLink(destination: ProfileView()) {
+        NavigationLink(value: "Profile") {
             Image(systemName: "person.crop.circle")
+        }
+        .navigationDestination(for: String.self) { value in
+            if value == "Profile" {
+                ProfileView()
+            }
         }
     }
 
@@ -67,59 +74,43 @@ struct ListView: View {
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
 
                 Image(systemName: "plus")
+                    .foregroundColor(Color("AccentColor")) // Replace "AccentColor" with your custom color name
                     .font(.system(size: 30, weight: .bold))
                     .foregroundColor(.white)
             }
         }
         .padding()
-        // Navigation when adding a new item
         .background(
             newItem.map { item in
-                NavigationLink(
-                    destination: DetailItemView(item: Binding(
-                        get: { item },   // Fix the error here by wrapping in Binding
-                        set: { updatedItem in
-                            if let index = viewModel.items.firstIndex(where: { $0.id == updatedItem.id }) {
-                                viewModel.items[index] = updatedItem
-                            }
-                        }
-                    )),
-                    isActive: .constant(newItem != nil),
-                    label: { EmptyView() }
-                )
+                NavigationLink(value: item, label: { EmptyView() }).hidden()
             }
-            .hidden()
         )
     }
 }
 
-// MARK: Preview
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockOnboardingViewModel = MockOnboardingViewModel()
-        let mockListViewModel = ListViewModel()
-
-        // Simulate some mock items
-        mockListViewModel.items = [
+        let mockViewModel = ListViewModel()
+        mockViewModel.items = [
             ItemModel(
-                name: "Sample Item 1",
-                description: "Description 1",
+                name: "Mock Item 1",
+                description: "Description for mock item 1",
                 imagesData: [
-                    UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
-                    UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
-                    UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
+                    UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!,
+                    UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!,
+                    UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!
                 ]
             ),
-            ItemModel(name: "Sample Item 2", description: "Description 2")
+            ItemModel(
+                name: "Mock Item 2",
+                description: "Description for mock item 2"
+            )
         ]
 
         return NavigationStack {
             ListView()
-                .environmentObject(mockListViewModel)
-                .environmentObject(mockOnboardingViewModel) // Use the mock view model here
+                .environmentObject(mockViewModel)
         }
-        .previewLayout(.sizeThatFits)
-        .padding()
-        .previewDisplayName("List View Preview with Mock Items and Images")
+        .previewDisplayName("ListView Preview")
     }
 }

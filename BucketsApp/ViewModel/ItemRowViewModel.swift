@@ -7,30 +7,16 @@
 
 import SwiftUI
 
-
 class ItemRowViewModel: ObservableObject {
     @Binding var item: ItemModel
-    
+
     init(item: Binding<ItemModel>) {
         self._item = item
     }
     
-    var itemName: String {
-        get {
-            item.name
-        }
-        set {
-            item.name = newValue
-        }
-    }
-    
-    var isCompleted: Bool {
-        item.completed
-    }
-    
-    func onToggleCompleted() {
+    /// Toggle the completed state of the item
+    func toggleCompleted() {
         item.completed.toggle()
     }
 }
-
 

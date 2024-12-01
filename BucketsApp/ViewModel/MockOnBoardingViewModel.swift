@@ -13,21 +13,49 @@ class MockOnboardingViewModel: ObservableObject {
     @Published var email: String = "mockuser@example.com"
     @Published var password: String = "password"
     @Published var profileImageData: Data? = nil
+    @Published var errorMessage: String? = nil
+    @Published var showErrorAlert: Bool = false
 
+    /// Simulate sign-in process
     func signIn() {
-        // Simulate sign-in without Firebase
-        self.isAuthenticated = true
+        // Simulate a successful sign-in
+        if email == "mockuser@example.com" && password == "password" {
+            isAuthenticated = true
+            errorMessage = nil
+        } else {
+            // Simulate an error
+            isAuthenticated = false
+            errorMessage = "Invalid email or password."
+            showErrorAlert = true
+        }
     }
 
+    /// Simulate sign-out process
     func signOut() {
-        // Simulate sign-out
-        self.isAuthenticated = false
+        isAuthenticated = false
+        clearState()
     }
 
+    /// Simulate updating the profile image
     func updateProfileImage(with data: Data?) {
-        // Simulate updating the profile image
-        self.profileImageData = data
+        profileImageData = data
     }
 
-    // You can simulate other methods here if needed, e.g., for password reset, user creation, etc.
+    /// Simulate resetting the password
+    func resetPassword() {
+        if email == "mockuser@example.com" {
+            errorMessage = "A password reset link has been sent to \(email)."
+            showErrorAlert = true
+        } else {
+            errorMessage = "Email not found."
+            showErrorAlert = true
+        }
+    }
+
+    /// Clear user state
+    private func clearState() {
+        email = "mockuser@example.com"
+        password = "password"
+        profileImageData = nil
+    }
 }
