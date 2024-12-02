@@ -9,7 +9,8 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var newItem: ItemModel? // Store the new item to navigate to
+    @State private var newItem: ItemModel? // Temporary item for editing
+    @State private var isAddingNewItem: Bool = false // Track navigation state for new items
 
     var body: some View {
         NavigationStack {
@@ -18,7 +19,7 @@ struct ListView: View {
                     ForEach(viewModel.items.indices, id: \.self) { index in
                         NavigationLink(value: viewModel.items[index]) {
                             ItemRowView(
-                                viewModel: ItemRowViewModel(item: $viewModel.items[index]), // Pass the binding directly
+                                viewModel: ItemRowViewModel(item: $viewModel.items[index]),
                                 isEditing: .constant(false)
                             )
                         }
@@ -26,14 +27,10 @@ struct ListView: View {
                 }
                 .padding()
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    profileNavigationLink
-                }
-            }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
             .overlay(addButton, alignment: .bottomTrailing)
+            // Navigation for existing items
             .navigationDestination(for: ItemModel.self) { item in
                 DetailItemView(item: Binding(
                     get: { viewModel.items.first { $0.id == item.id } ?? item },
@@ -44,17 +41,20 @@ struct ListView: View {
                     }
                 ))
             }
-        }
-    }
-
-    // MARK: Profile Navigation Link
-    private var profileNavigationLink: some View {
-        NavigationLink(value: "Profile") {
-            Image(systemName: "person.crop.circle")
-        }
-        .navigationDestination(for: String.self) { value in
-            if value == "Profile" {
-                ProfileView()
+            // Navigation for adding a new item
+            .navigationDestination(isPresented: $isAddingNewItem) {
+                if let newItemBinding = Binding($newItem) {
+                    DetailItemView(item: newItemBinding)
+                        .onDisappear {
+                            // Append the new item to the list when navigating back
+                            if let validNewItem = newItem, !validNewItem.name.isEmpty {
+                                viewModel.addItem(validNewItem)
+                                newItem = nil // Reset the temporary item
+                            }
+                        }
+                } else {
+                    EmptyView() // Fallback in case `newItem` is nil
+                }
             }
         }
     }
@@ -64,9 +64,9 @@ struct ListView: View {
         Button(action: {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
-
-            let addedItem = viewModel.addItem() // Capture the newly added item
-            newItem = addedItem // Set new item to navigate to
+            // Create a temporary new item and trigger navigation
+            newItem = ItemModel(name: "")
+            isAddingNewItem = true
         }) {
             ZStack {
                 Circle()
@@ -74,17 +74,11 @@ struct ListView: View {
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
 
                 Image(systemName: "plus")
-                    .foregroundColor(Color("AccentColor")) // Replace "AccentColor" with your custom color name
-                    .font(.system(size: 30, weight: .bold))
                     .foregroundColor(.white)
+                    .font(.system(size: 30, weight: .bold))
             }
         }
         .padding()
-        .background(
-            newItem.map { item in
-                NavigationLink(value: item, label: { EmptyView() }).hidden()
-            }
-        )
     }
 }
 
@@ -114,3 +108,5 @@ struct ListView_Previews: PreviewProvider {
         .previewDisplayName("ListView Preview")
     }
 }
+
+
