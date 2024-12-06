@@ -18,12 +18,20 @@ struct BucketsApp: App {
     var body: some Scene {
         WindowGroup {
             if onboardingViewModel.isAuthenticated {
-                MainTabView() // TabView structure for the authenticated user
+                MainTabView()
                     .environmentObject(bucketListViewModel)
                     .environmentObject(onboardingViewModel)
+                    .onAppear {
+                        // Debugging logs
+                        print("Authenticated user: \(onboardingViewModel.email)")
+                    }
             } else {
-                OnboardingView() // Onboarding view for unauthenticated users
+                OnboardingView()
                     .environmentObject(onboardingViewModel)
+                    .onAppear {
+                        // Debugging logs
+                        print("Unauthenticated user loading onboarding")
+                    }
             }
         }
     }

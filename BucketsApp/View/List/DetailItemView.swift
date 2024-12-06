@@ -11,152 +11,125 @@ import PhotosUI
 struct DetailItemView: View {
     @Binding var item: ItemModel
     @EnvironmentObject var viewModel: ListViewModel
-    @Environment(\.presentationMode) var presentationMode
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var showDeleteConfirmation = false
-
-    // Define a flexible grid layout for photos
-    let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
 
     var body: some View {
         VStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Item Details Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        // TextField for Item Name
-                        TextField("What do you want to do before you die?", text: $item.name)
-                            .padding()
-                            .background(Color.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 2)
-                            .onChange(of: item.name) { _ in saveItem() }
+                    // TextField for Item Name
+                    TextField("What do you want to do before you die?", text: $item.name)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 2)
 
-                        // TextEditor with "Notes" Placeholder
-                        ZStack(alignment: .topLeading) {
-                            if item.description?.isEmpty ?? true {
-                                Text("Notes")
-                                    .foregroundColor(.gray)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 12)
-                            }
-                            TextEditor(text: Binding(
-                                get: { item.description ?? "" },
-                                set: { item.description = $0 }
-                            ))
-                            .frame(minHeight: 150) // Adjust height for the description box
-                            .padding(4)
-                            .background(Color.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 2)
-                            .onChange(of: item.description) { _ in saveItem() }
+                    // Notes TextEditor
+                    ZStack(alignment: .topLeading) {
+                        if item.description?.isEmpty ?? true {
+                            Text("Notes")
+                                .foregroundColor(.gray)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 12)
                         }
-
-                        // Toggle for Completed
-                        Toggle("Completed", isOn: $item.completed)
-                            .padding()
-                            .background(Color.white)
-                            .cornerRadius(10)
-                            .shadow(radius: 2)
-                            .onChange(of: item.completed) { _ in saveItem() }
+                        TextEditor(text: Binding(
+                            get: { item.description ?? "" },
+                            set: { item.description = $0 }
+                        ))
+                        .frame(minHeight: 150)
+                        .padding(4)
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 2)
                     }
-                    .padding(.horizontal)
 
-                    // Photos Grid Section
+                    // Completed Toggle
+                    Toggle("Completed", isOn: $item.completed)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 2)
+
+                    // Photos Grid
                     if !item.imagesData.isEmpty {
-                        LazyVGrid(columns: columns, spacing: 10) {
-                            ForEach(Array(item.imagesData.enumerated()), id: \.offset) { _, imageData in
-                                if let uiImage = UIImage(data: imageData) {
-                                    Image(uiImage: uiImage)
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 10) {
+                            ForEach(Array(item.imagesData.enumerated()), id: \.offset) { index, imageData in
+                                if let image = UIImage(data: imageData) {
+                                    Image(uiImage: image)
                                         .resizable()
                                         .scaledToFill()
                                         .frame(width: 100, height: 100)
                                         .cornerRadius(10)
                                         .clipped()
+                                } else {
+                                    // Fallback for invalid image data
+                                    ZStack {
+                                        Color.white
+                                            .frame(width: 100, height: 100)
+                                            .cornerRadius(10)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .stroke(Color.gray, lineWidth: 1) // Light gray outline
+                                            )
+                                    }
                                 }
                             }
                         }
                         .padding(.horizontal)
+                    } else {
+                        // Show a placeholder when there are no images
+                        HStack {
+                            Spacer()
+                            VStack {
+                                ZStack {
+                                    Color.white
+                                        .frame(width: 100, height: 100)
+                                        .cornerRadius(10)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color.gray, lineWidth: 1) // Light gray outline
+                                        )
+                                }
+                                Text("No Photos Added")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                            Spacer()
+                        }
+                        .frame(height: 120) // Adjust the height as needed for placeholder
                     }
 
-                    // Photos Picker Button
-                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images, photoLibrary: .shared()) {
+                    // Photos Picker
+                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
                         Text("Select Photos")
-                            .foregroundColor(.blue)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.white)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
                             .cornerRadius(10)
-                            .shadow(radius: 2)
                     }
-                    .padding(.horizontal)
-                    .onChange(of: selectedPhotos) { newSelections in
-                        handlePhotoSelection(newSelections)
+                    .onChange(of: selectedPhotos) { selections in
+                        handlePhotoSelection(selections)
                     }
                 }
-                .padding(.top)
+                .padding()
             }
-
-            // Delete Button at the Bottom
-            Button(action: {
-                showDeleteConfirmation = true
-            }) {
-                Text("Delete")
-                    .foregroundColor(.red)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(10)
-                    .shadow(radius: 5)
-            }
-            .padding()
         }
-        .background(Color.white.edgesIgnoringSafeArea(.all)) // Set full background to white
-        .alert(isPresented: $showDeleteConfirmation) {
-            Alert(
-                title: Text("Are you sure you want to delete this item?"),
-                primaryButton: .destructive(Text("Yes"), action: {
-                    deleteItem()
-                }),
-                secondaryButton: .cancel(Text("No"))
-            )
-        }
+        .background(Color.white)
     }
 
-    private func handlePhotoSelection(_ newSelections: [PhotosPickerItem]) {
+    private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
-            var newImagesData: [Data] = []
-
-            for item in newSelections {
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    newImagesData.append(data)
+            for selection in selections {
+                if let data = try? await selection.loadTransferable(type: Data.self) {
+                    item.imagesData.append(data)
                 }
             }
-
-            if !newImagesData.isEmpty {
-                // Replace the current set of photos with the newly selected ones
-                item.imagesData = newImagesData
-                saveItem()
-            }
         }
-    }
-
-    // Function to delete the item and return to the previous view
-    private func deleteItem() {
-        if let index = viewModel.items.firstIndex(where: { $0.id == item.id }) {
-            viewModel.items.remove(at: index)
-            viewModel.saveItems()
-            presentationMode.wrappedValue.dismiss()
-        }
-    }
-
-    // Function to save changes
-    private func saveItem() {
-        viewModel.saveItems()
     }
 }
 

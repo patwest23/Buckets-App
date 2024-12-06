@@ -10,7 +10,6 @@ import SwiftUI
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
     @State private var newItem: ItemModel? // Temporary item for editing
-    @State private var isAddingNewItem: Bool = false // Track navigation state for new items
 
     var body: some View {
         NavigationStack {
@@ -42,18 +41,19 @@ struct ListView: View {
                 ))
             }
             // Navigation for adding a new item
-            .navigationDestination(isPresented: $isAddingNewItem) {
+            .navigationDestination(isPresented: Binding(
+                get: { newItem != nil },
+                set: { if !$0 { newItem = nil } }
+            )) {
                 if let newItemBinding = Binding($newItem) {
                     DetailItemView(item: newItemBinding)
                         .onDisappear {
-                            // Append the new item to the list when navigating back
+                            // Add the new item to the list if valid
                             if let validNewItem = newItem, !validNewItem.name.isEmpty {
                                 viewModel.addItem(validNewItem)
                                 newItem = nil // Reset the temporary item
                             }
                         }
-                } else {
-                    EmptyView() // Fallback in case `newItem` is nil
                 }
             }
         }
@@ -64,9 +64,8 @@ struct ListView: View {
         Button(action: {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
-            // Create a temporary new item and trigger navigation
+            // Create a temporary new item
             newItem = ItemModel(name: "")
-            isAddingNewItem = true
         }) {
             ZStack {
                 Circle()
