@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var newItem: ItemModel? = nil // Temporary item for adding new entries
+    @State private var newItem = ItemModel(name: "")// non-optional type
     @State private var isAddingNewItem = false   // Controls navigation to DetailItemView for new items
 
     var body: some View {
@@ -42,24 +42,17 @@ struct ListView: View {
                 ))
             }
             // Navigation for adding a new item
-            .navigationDestination(isPresented: $isAddingNewItem) {
-                if let newItem = newItem {
-                    DetailItemView(item: Binding(
-                        get: { newItem },
-                        set: { updatedItem in
-                            self.newItem = updatedItem
+                        .navigationDestination(isPresented: $isAddingNewItem) {
+                            DetailItemView(item: $newItem)
+                                .onDisappear {
+                                    if !newItem.name.isEmpty {
+                                        viewModel.addOrUpdateItem(newItem) // Add or update item
+                                    }
+                                    self.newItem = ItemModel(name: "") // Reset newItem
+                                }
                         }
-                    ))
-                    .onDisappear {
-                        if !newItem.name.isEmpty {
-                            viewModel.addOrUpdateItem(newItem)
-                        }
-                        self.newItem = nil // Clear temporary item
                     }
                 }
-            }
-        }
-    }
 
     // MARK: Add Button
     private var addButton: some View {
@@ -81,30 +74,36 @@ struct ListView: View {
         .padding()
     }
 }
+
+
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
+        // Create a mock view model with sample data
         let mockViewModel = ListViewModel()
         mockViewModel.items = [
             ItemModel(
                 name: "Mock Item 1",
                 description: "Description for mock item 1",
-                imagesData: [
-                    UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!,
-                    UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!,
-                    UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!
-                ]
+                imagesData: [UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!]
             ),
             ItemModel(
                 name: "Mock Item 2",
-                description: "Description for mock item 2"
+                description: "Description for mock item 2",
+                imagesData: [UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!]
+            ),
+            ItemModel(
+                name: "Mock Item 3",
+                description: nil,
+                imagesData: [UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!]
             )
         ]
 
+        // Render the ListView with the mock environment object
         return NavigationStack {
             ListView()
-                .environmentObject(mockViewModel)
+                .environmentObject(mockViewModel) // Inject mock data
         }
-        .previewDisplayName("ListView Preview")
+        .previewDisplayName("ListView Preview with Mock Data")
     }
 }
 

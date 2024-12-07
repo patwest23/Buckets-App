@@ -61,7 +61,7 @@ class ListViewModel: ObservableObject {
         case .byDeadline:
             items.sort { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
         case .byCreationDate:
-            items.sort { ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast) }
+            items.sort { ($0.creationDate) < ($1.creationDate) }
         case .byPriority:
             items.sort { $0.priority.rawValue < $1.priority.rawValue }
         case .byTitle:

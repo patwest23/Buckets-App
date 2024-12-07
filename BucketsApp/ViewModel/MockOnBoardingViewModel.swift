@@ -18,15 +18,11 @@ class MockOnboardingViewModel: ObservableObject {
 
     /// Simulate sign-in process
     func signIn() {
-        // Simulate a successful sign-in
         if email == "mockuser@example.com" && password == "password" {
             isAuthenticated = true
             errorMessage = nil
         } else {
-            // Simulate an error
-            isAuthenticated = false
-            errorMessage = "Invalid email or password."
-            showErrorAlert = true
+            simulateError("Invalid email or password.")
         }
     }
 
@@ -34,6 +30,16 @@ class MockOnboardingViewModel: ObservableObject {
     func signOut() {
         isAuthenticated = false
         clearState()
+    }
+
+    /// Simulate user creation
+    func createUser() {
+        if email.isEmpty || password.isEmpty {
+            simulateError("Email and password cannot be empty.")
+        } else {
+            isAuthenticated = true
+            errorMessage = nil
+        }
     }
 
     /// Simulate updating the profile image
@@ -47,15 +53,43 @@ class MockOnboardingViewModel: ObservableObject {
             errorMessage = "A password reset link has been sent to \(email)."
             showErrorAlert = true
         } else {
-            errorMessage = "Email not found."
+            simulateError("Email not found.")
+        }
+    }
+
+    /// Simulate updating email
+    func updateEmail(newEmail: String) {
+        if newEmail.isEmpty {
+            simulateError("Email cannot be empty.")
+        } else {
+            email = newEmail
+            errorMessage = "Your email has been updated to \(newEmail)."
             showErrorAlert = true
         }
     }
 
-    /// Clear user state
+    /// Simulate updating password
+    func updatePassword(newPassword: String) {
+        if newPassword.isEmpty {
+            simulateError("Password cannot be empty.")
+        } else {
+            password = newPassword
+            errorMessage = "Your password has been updated."
+            showErrorAlert = true
+        }
+    }
+
+    /// Simulate clearing the user state
     private func clearState() {
         email = "mockuser@example.com"
         password = "password"
         profileImageData = nil
+    }
+
+    /// Helper method to simulate an error
+    private func simulateError(_ message: String) {
+        isAuthenticated = false
+        errorMessage = message
+        showErrorAlert = true
     }
 }
