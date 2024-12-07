@@ -8,15 +8,23 @@
 import SwiftUI
 
 class ItemRowViewModel: ObservableObject {
-    @Binding var item: ItemModel
+    @Published var item: ItemModel
+    private weak var listViewModel: ListViewModel?
 
-    init(item: Binding<ItemModel>) {
-        self._item = item
+    init(item: ItemModel, listViewModel: ListViewModel?) {
+        self.item = item
+        self.listViewModel = listViewModel
     }
-    
+
     /// Toggle the completed state of the item
     func toggleCompleted() {
         item.completed.toggle()
+        updateItem()
+    }
+
+    /// Update the item in the centralized ListViewModel
+    private func updateItem() {
+        listViewModel?.updateItem(item)
     }
 }
 

@@ -9,16 +9,16 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var newItem: ItemModel? // Temporary item for editing
+    @State private var newItem: ItemModel? // Temporary item for adding a new entry
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    ForEach(viewModel.items.indices, id: \.self) { index in
-                        NavigationLink(value: viewModel.items[index]) {
+                    ForEach(viewModel.items, id: \.id) { item in
+                        NavigationLink(value: item) {
                             ItemRowView(
-                                viewModel: ItemRowViewModel(item: $viewModel.items[index]),
+                                viewModel: ItemRowViewModel(item: item, listViewModel: viewModel),
                                 isEditing: .constant(false)
                             )
                         }
@@ -29,7 +29,6 @@ struct ListView: View {
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
             .overlay(addButton, alignment: .bottomTrailing)
-            // Navigation for existing items
             .navigationDestination(for: ItemModel.self) { item in
                 DetailItemView(item: Binding(
                     get: { viewModel.items.first { $0.id == item.id } ?? item },
@@ -40,19 +39,17 @@ struct ListView: View {
                     }
                 ))
             }
-            // Navigation for adding a new item
             .navigationDestination(isPresented: Binding(
                 get: { newItem != nil },
                 set: { if !$0 { newItem = nil } }
             )) {
-                if let newItemBinding = Binding($newItem) {
-                    DetailItemView(item: newItemBinding)
+                if let newItem = newItem {
+                    DetailItemView(item: .constant(newItem))
                         .onDisappear {
-                            // Add the new item to the list if valid
-                            if let validNewItem = newItem, !validNewItem.name.isEmpty {
-                                viewModel.addItem(validNewItem)
-                                newItem = nil // Reset the temporary item
+                            if !newItem.name.isEmpty {
+                                viewModel.addItem(newItem)
                             }
+                            self.newItem = nil // Clear the temporary item
                         }
                 }
             }
@@ -64,7 +61,7 @@ struct ListView: View {
         Button(action: {
             let impactMed = UIImpactFeedbackGenerator(style: .medium)
             impactMed.impactOccurred()
-            // Create a temporary new item
+            // Initialize a new item for navigation
             newItem = ItemModel(name: "")
         }) {
             ZStack {

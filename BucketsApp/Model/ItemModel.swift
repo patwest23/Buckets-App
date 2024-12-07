@@ -10,10 +10,7 @@ import Foundation
 import SwiftUI
 
 enum Priority: String, Codable {
-    case none
-    case low
-    case medium
-    case high
+    case none, low, medium, high
 }
 
 struct Tag: Codable, Hashable {
@@ -25,7 +22,7 @@ struct Location: Codable, Hashable {
 }
 
 struct ItemModel: Codable, Identifiable, Hashable {
-    var id: UUID?
+    var id: UUID = UUID()
     var name: String
     var description: String?
     var url: String?
@@ -38,14 +35,12 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var completed: Bool = false
     var order: Int = 0
     var userId: String?
-    var creationDate: Date?
+    var creationDate: Date = Date()
     var imagesData: [Data] = [] // Array to hold multiple image data
 
-    init(name: String, description: String? = nil, imagesData: [Data] = []) {
-        self.id = UUID()
+    init(name: String = "", description: String? = nil, imagesData: [Data] = []) {
         self.name = name
         self.description = description
-        self.creationDate = Date()
         self.imagesData = imagesData
     }
 }

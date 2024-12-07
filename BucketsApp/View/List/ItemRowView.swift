@@ -11,14 +11,13 @@ import PhotosUI
 struct ItemRowView: View {
     @ObservedObject var viewModel: ItemRowViewModel // Use the revised view model
     @Binding var isEditing: Bool
-    @State private var selectedPhotos: [PhotosPickerItem] = []
 
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
                 // Toggle completion status
                 Button(action: {
-                    viewModel.toggleCompleted() // Use the view model method
+                    viewModel.toggleCompleted() // Update using view model logic
                 }) {
                     Image(systemName: viewModel.item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
@@ -27,8 +26,8 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(BorderlessButtonStyle())
 
-                // Left-align the text with navigation to detail view
-                NavigationLink(destination: DetailItemView(item: .constant(viewModel.item))) {
+                // Navigation link to DetailItemView
+                NavigationLink(destination: DetailItemView(item: $viewModel.item)) {
                     Text(viewModel.item.name.isEmpty ? "Untitled Item" : viewModel.item.name)
                         .foregroundColor(viewModel.item.completed ? .gray : .primary)
                         .font(.title3)
@@ -38,7 +37,7 @@ struct ItemRowView: View {
                 }
             }
 
-            // Displaying selected images in a carousel (TabView)
+            // Displaying a photo carousel if images exist
             if !viewModel.item.imagesData.isEmpty {
                 TabView {
                     ForEach(Array(viewModel.item.imagesData.enumerated()), id: \.offset) { _, imageData in
