@@ -13,48 +13,63 @@ struct UpdatePasswordView: View {
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
     @State private var updateMessage: String = ""
-    @State private var showAlert = false
+    @State private var showAlert: Bool = false
 
     var body: some View {
         VStack(spacing: 20) {
+            // Title
             Text("Update Password")
                 .font(.title)
                 .fontWeight(.bold)
 
+            // Current Password Field
             SecureField("Current Password", text: $currentPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
 
+            // New Password Field
             SecureField("New Password", text: $newPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
 
+            // Confirm New Password Field
             SecureField("Confirm New Password", text: $confirmPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding()
 
-            Button("Update Password") {
-                updatePassword()
+            // Update Password Button
+            Button(action: { Task { await updatePassword() } }) {
+                Text("Update Password")
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(newPassword.isEmpty || confirmPassword.isEmpty || currentPassword.isEmpty ? Color.gray : Color.blue)
+                    .cornerRadius(8)
             }
-            .foregroundColor(.white)
+            .disabled(newPassword.isEmpty || confirmPassword.isEmpty || currentPassword.isEmpty)
             .padding()
-            .background(Color.blue)
-            .cornerRadius(8)
+
+            Spacer()
         }
         .padding()
         .alert(isPresented: $showAlert) {
-            Alert(title: Text("Password Update"), message: Text(updateMessage), dismissButton: .default(Text("OK")))
+            Alert(
+                title: Text("Password Update"),
+                message: Text(updateMessage),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
-    private func updatePassword() {
+    private func updatePassword() async {
         guard newPassword == confirmPassword else {
             updateMessage = "New passwords do not match."
             showAlert = true
             return
         }
 
-        viewModel.updatePassword(currentPassword: currentPassword, newPassword: newPassword) { result in
+        let result = await viewModel.updatePassword(currentPassword: currentPassword, newPassword: newPassword)
+        DispatchQueue.main.async {
             switch result {
             case .success(let message):
                 updateMessage = message
@@ -66,9 +81,9 @@ struct UpdatePasswordView: View {
     }
 }
 
-
 struct UpdatePasswordView_Previews: PreviewProvider {
     static var previews: some View {
         UpdatePasswordView()
+            .environmentObject(MockOnboardingViewModel()) // Use mock data for preview
     }
 }
