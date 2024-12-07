@@ -23,6 +23,7 @@ struct DetailItemView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
+                        .onChange(of: item.name) { _ in updateItem() }
 
                     // Notes TextEditor
                     ZStack(alignment: .topLeading) {
@@ -41,6 +42,7 @@ struct DetailItemView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
+                        .onChange(of: item.description) { _ in updateItem() }
                     }
 
                     // Completed Toggle
@@ -49,6 +51,7 @@ struct DetailItemView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
+                        .onChange(of: item.completed) { _ in updateItem() }
 
                     // Photos Grid
                     if !item.imagesData.isEmpty {
@@ -57,7 +60,7 @@ struct DetailItemView: View {
                             GridItem(.flexible()),
                             GridItem(.flexible())
                         ], spacing: 10) {
-                            ForEach(Array(item.imagesData.enumerated()), id: \.offset) { index, imageData in
+                            ForEach(Array(item.imagesData.enumerated()), id: \.offset) { _, imageData in
                                 if let image = UIImage(data: imageData) {
                                     Image(uiImage: image)
                                         .resizable()
@@ -67,40 +70,14 @@ struct DetailItemView: View {
                                         .clipped()
                                 } else {
                                     // Fallback for invalid image data
-                                    ZStack {
-                                        Color.white
-                                            .frame(width: 100, height: 100)
-                                            .cornerRadius(10)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 10)
-                                                    .stroke(Color.gray, lineWidth: 1) // Light gray outline
-                                            )
-                                    }
+                                    placeholderImage()
                                 }
                             }
                         }
                         .padding(.horizontal)
                     } else {
-                        // Show a placeholder when there are no images
-                        HStack {
-                            Spacer()
-                            VStack {
-                                ZStack {
-                                    Color.white
-                                        .frame(width: 100, height: 100)
-                                        .cornerRadius(10)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(Color.gray, lineWidth: 1) // Light gray outline
-                                        )
-                                }
-                                Text("No Photos Added")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                            }
-                            Spacer()
-                        }
-                        .frame(height: 120) // Adjust the height as needed for placeholder
+                        // Placeholder for no photos
+                        placeholderView()
                     }
 
                     // Photos Picker
@@ -122,14 +99,51 @@ struct DetailItemView: View {
         .background(Color.white)
     }
 
+    // MARK: Helper Functions
+
+    private func updateItem() {
+        viewModel.updateItem(item)
+    }
+
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
+            var newImages: [Data] = []
             for selection in selections {
                 if let data = try? await selection.loadTransferable(type: Data.self) {
-                    item.imagesData.append(data)
+                    newImages.append(data)
                 }
             }
+            if !newImages.isEmpty {
+                item.imagesData.append(contentsOf: newImages)
+                updateItem()
+            }
         }
+    }
+
+    private func placeholderImage() -> some View {
+        ZStack {
+            Color.white
+                .frame(width: 100, height: 100)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.gray, lineWidth: 1)
+                )
+        }
+    }
+
+    private func placeholderView() -> some View {
+        HStack {
+            Spacer()
+            VStack {
+                placeholderImage()
+                Text("No Photos Added")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+        }
+        .frame(height: 120)
     }
 }
 

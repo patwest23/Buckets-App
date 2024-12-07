@@ -9,16 +9,17 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var newItem: ItemModel? // Temporary item for adding a new entry
+    @State private var newItem: ItemModel? = nil // Temporary item for adding new entries
+    @State private var isAddingNewItem = false   // Controls navigation to DetailItemView for new items
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    ForEach(viewModel.items, id: \.id) { item in
-                        NavigationLink(value: item) {
+                    ForEach(viewModel.items.indices, id: \.self) { index in
+                        NavigationLink(value: viewModel.items[index]) {
                             ItemRowView(
-                                viewModel: ItemRowViewModel(item: item, listViewModel: viewModel),
+                                viewModel: ItemRowViewModel(item: viewModel.items[index], listViewModel: viewModel),
                                 isEditing: .constant(false)
                             )
                         }
@@ -29,28 +30,32 @@ struct ListView: View {
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
             .overlay(addButton, alignment: .bottomTrailing)
+            // Navigation for existing items
             .navigationDestination(for: ItemModel.self) { item in
                 DetailItemView(item: Binding(
                     get: { viewModel.items.first { $0.id == item.id } ?? item },
                     set: { updatedItem in
-                        if let index = viewModel.items.firstIndex(where: { $0.id == item.id }) {
+                        if let index = viewModel.items.firstIndex(where: { $0.id == updatedItem.id }) {
                             viewModel.items[index] = updatedItem
                         }
                     }
                 ))
             }
-            .navigationDestination(isPresented: Binding(
-                get: { newItem != nil },
-                set: { if !$0 { newItem = nil } }
-            )) {
+            // Navigation for adding a new item
+            .navigationDestination(isPresented: $isAddingNewItem) {
                 if let newItem = newItem {
-                    DetailItemView(item: .constant(newItem))
-                        .onDisappear {
-                            if !newItem.name.isEmpty {
-                                viewModel.addItem(newItem)
-                            }
-                            self.newItem = nil // Clear the temporary item
+                    DetailItemView(item: Binding(
+                        get: { newItem },
+                        set: { updatedItem in
+                            self.newItem = updatedItem
                         }
+                    ))
+                    .onDisappear {
+                        if !newItem.name.isEmpty {
+                            viewModel.addOrUpdateItem(newItem)
+                        }
+                        self.newItem = nil // Clear temporary item
+                    }
                 }
             }
         }
@@ -59,14 +64,13 @@ struct ListView: View {
     // MARK: Add Button
     private var addButton: some View {
         Button(action: {
-            let impactMed = UIImpactFeedbackGenerator(style: .medium)
-            impactMed.impactOccurred()
-            // Initialize a new item for navigation
             newItem = ItemModel(name: "")
+            isAddingNewItem = true
         }) {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
+                    .foregroundColor(.blue)
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
 
                 Image(systemName: "plus")
@@ -77,7 +81,6 @@ struct ListView: View {
         .padding()
     }
 }
-
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
         let mockViewModel = ListViewModel()

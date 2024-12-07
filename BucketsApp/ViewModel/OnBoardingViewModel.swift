@@ -10,16 +10,15 @@ import FirebaseAuth
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
-    // Published properties
+    // Published properties for UI state
     @Published var email: String = ""
     @Published var password: String = ""
     @Published var isAuthenticated: Bool = false
-    @Published var errorMessage: String?
+    @Published var errorMessage: String? = nil
     @Published var showErrorAlert: Bool = false
     @Published var profileImageData: Data? // Store the profile image data
 
     init() {
-        // Only check authentication state; avoid heavy Firebase operations
         checkIfUserIsAuthenticated()
     }
 
@@ -31,9 +30,9 @@ final class OnboardingViewModel: ObservableObject {
     // Sign-in functionality
     func signIn() async {
         do {
-            _ = try await Auth.auth().signIn(withEmail: email, password: password)
+            try await Auth.auth().signIn(withEmail: email, password: password)
             isAuthenticated = true
-            errorMessage = nil
+            clearErrorState()
             print("User signed in successfully")
         } catch {
             handleError(error)
@@ -54,9 +53,9 @@ final class OnboardingViewModel: ObservableObject {
     // User creation functionality
     func createUser() async {
         do {
-            _ = try await Auth.auth().createUser(withEmail: email, password: password)
+            try await Auth.auth().createUser(withEmail: email, password: password)
             isAuthenticated = true
-            errorMessage = nil
+            clearErrorState()
             print("User created successfully")
         } catch {
             handleError(error)
@@ -64,43 +63,39 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     // Reset password
-    func resetPassword(for email: String, completion: @escaping (Result<String, Error>) -> Void) {
-        Auth.auth().sendPasswordReset(withEmail: email) { error in
-            if let error = error {
-                completion(.failure(error))
-            } else {
-                completion(.success("A link to reset your password has been sent to \(email)."))
-            }
+    func resetPassword(for email: String) async -> Result<String, Error> {
+        do {
+            try await Auth.auth().sendPasswordReset(withEmail: email)
+            return .success("A link to reset your password has been sent to \(email).")
+        } catch {
+            return .failure(error)
         }
     }
 
     // Update email
-    func updateEmail(newEmail: String, completion: @escaping (Result<String, Error>) -> Void) {
-        Auth.auth().currentUser?.updateEmail(to: newEmail) { error in
-            if let error = error {
-                completion(.failure(error))
-            } else {
-                self.email = newEmail
-                completion(.success("Your email has been updated to \(newEmail)."))
-            }
+    func updateEmail(to newEmail: String) async -> Result<String, Error> {
+        do {
+            try await Auth.auth().currentUser?.updateEmail(to: newEmail)
+            self.email = newEmail
+            return .success("Your email has been updated to \(newEmail).")
+        } catch {
+            return .failure(error)
         }
     }
 
     // Update password
-    func updatePassword(currentPassword: String, newPassword: String, completion: @escaping (Result<String, Error>) -> Void) {
-        reauthenticateUser(currentPassword: currentPassword) { reauthResult in
-            switch reauthResult {
-            case .success:
-                Auth.auth().currentUser?.updatePassword(to: newPassword) { error in
-                    if let error = error {
-                        completion(.failure(error))
-                    } else {
-                        completion(.success("Your password has been updated successfully."))
-                    }
-                }
-            case .failure(let error):
-                completion(.failure(error))
+    func updatePassword(currentPassword: String, newPassword: String) async -> Result<String, Error> {
+        let reauthResult = await reauthenticateUser(currentPassword: currentPassword)
+        switch reauthResult {
+        case .success:
+            do {
+                try await Auth.auth().currentUser?.updatePassword(to: newPassword)
+                return .success("Your password has been updated successfully.")
+            } catch {
+                return .failure(error)
             }
+        case .failure(let error):
+            return .failure(error)
         }
     }
 
@@ -110,33 +105,37 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     // Reauthentication logic
-    private func reauthenticateUser(currentPassword: String, completion: @escaping (Result<Void, Error>) -> Void) {
+    private func reauthenticateUser(currentPassword: String) async -> Result<Void, Error> {
         guard let user = Auth.auth().currentUser, let email = user.email else {
-            completion(.failure(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not found."])))
-            return
+            return .failure(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not found."]))
         }
-
         let credential = EmailAuthProvider.credential(withEmail: email, password: currentPassword)
-        user.reauthenticate(with: credential) { _, error in
-            if let error = error {
-                completion(.failure(error))
-            } else {
-                completion(.success(()))
-            }
+        do {
+            try await user.reauthenticate(with: credential)
+            return .success(())
+        } catch {
+            return .failure(error)
         }
     }
 
-    // Handle errors
+    // Handle errors and update UI state
     private func handleError(_ error: Error) {
         errorMessage = error.localizedDescription
         showErrorAlert = true
         print("Error: \(error.localizedDescription)")
     }
 
-    // Clear state on sign out
+    // Clear the state when signing out
     private func clearState() {
         email = ""
         password = ""
+        profileImageData = nil
+        clearErrorState()
+    }
+
+    // Clear error state
+    private func clearErrorState() {
         errorMessage = nil
+        showErrorAlert = false
     }
 }
