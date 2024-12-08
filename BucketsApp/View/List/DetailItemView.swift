@@ -12,7 +12,8 @@ struct DetailItemView: View {
     @Binding var item: ItemModel
     @EnvironmentObject var viewModel: ListViewModel
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    
+    @State private var showDeleteConfirmation: Bool = false // State for delete confirmation alert
+
     var body: some View {
         VStack {
             ScrollView {
@@ -69,14 +70,12 @@ struct DetailItemView: View {
                                         .cornerRadius(10)
                                         .clipped()
                                 } else {
-                                    // Fallback for invalid image data
                                     placeholderImage()
                                 }
                             }
                         }
                         .padding(.horizontal)
                     } else {
-                        // Placeholder for no photos
                         placeholderView()
                     }
                     
@@ -95,16 +94,40 @@ struct DetailItemView: View {
                 }
                 .padding()
             }
-        }
-        .background(Color.white)
-    }
-    
+            Spacer() // push delete button to bottom of screen
+
+                    // Delete Button
+                    Button(action: {
+                        showDeleteConfirmation = true
+                    }) {
+                        Text("Delete")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
+                                .alert(isPresented: $showDeleteConfirmation) {
+                                    Alert(
+                                        title: Text("Delete Item"),
+                                        message: Text("Are you sure you want to delete this item?"),
+                                        primaryButton: .destructive(Text("Delete")) {
+                                            deleteItem()
+                                        },
+                                        secondaryButton: .cancel()
+                                    )
+                                }
+                            }
+                            .background(Color.white)
+                        }
+
     // MARK: Helper Functions
-    
+
     private func updateItem() {
         viewModel.updateItem(item)
     }
-    
+
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
             var newImages: [Data] = []
@@ -114,13 +137,16 @@ struct DetailItemView: View {
                 }
             }
             if !newImages.isEmpty {
-                // Keep only the last selection of images (up to 3)
-                item.imagesData = Array(newImages.prefix(3))
+                item.imagesData = Array(newImages.prefix(3)) // Limit to 3 images
                 updateItem()
             }
         }
     }
-    
+
+    private func deleteItem() {
+        viewModel.deleteItem(item)
+    }
+
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -132,7 +158,7 @@ struct DetailItemView: View {
                 )
         }
     }
-    
+
     private func placeholderView() -> some View {
         VStack {
             HStack {
