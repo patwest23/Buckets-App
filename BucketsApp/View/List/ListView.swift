@@ -9,27 +9,41 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var newItem = ItemModel(name: "")// non-optional type
-    @State private var isAddingNewItem = false   // Controls navigation to DetailItemView for new items
+    @State private var newItem = ItemModel(name: "") // Non-optional type
+    @State private var isAddingNewItem = false       // Controls navigation to DetailItemView for new items
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    ForEach(viewModel.items.indices, id: \.self) { index in
-                        NavigationLink(value: viewModel.items[index]) {
-                            ItemRowView(
-                                viewModel: ItemRowViewModel(item: viewModel.items[index], listViewModel: viewModel),
-                                isEditing: .constant(false)
-                            )
+            ZStack {
+                // Main content: List of items
+                if viewModel.items.isEmpty {
+                    Text("No items yet. Tap + to add a new item.")
+                        .foregroundColor(.gray)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            ForEach(viewModel.items.indices, id: \.self) { index in
+                                NavigationLink(value: viewModel.items[index]) {
+                                    ItemRowView(
+                                        viewModel: ItemRowViewModel(item: viewModel.items[index], listViewModel: viewModel),
+                                        isEditing: .constant(false)
+                                    )
+                                }
+                            }
                         }
+                        .padding()
                     }
                 }
-                .padding()
+
+                // Add button overlay
+                addButton
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
-            .overlay(addButton, alignment: .bottomTrailing)
             // Navigation for existing items
             .navigationDestination(for: ItemModel.self) { item in
                 DetailItemView(item: Binding(
@@ -42,17 +56,17 @@ struct ListView: View {
                 ))
             }
             // Navigation for adding a new item
-                        .navigationDestination(isPresented: $isAddingNewItem) {
-                            DetailItemView(item: $newItem)
-                                .onDisappear {
-                                    if !newItem.name.isEmpty {
-                                        viewModel.addOrUpdateItem(newItem) // Add or update item
-                                    }
-                                    self.newItem = ItemModel(name: "") // Reset newItem
-                                }
+            .navigationDestination(isPresented: $isAddingNewItem) {
+                DetailItemView(item: $newItem)
+                    .onDisappear {
+                        if !newItem.name.isEmpty {
+                            viewModel.addOrUpdateItem(newItem) // Add or update item
                         }
+                        self.newItem = ItemModel(name: "") // Reset newItem
                     }
-                }
+            }
+        }
+    }
 
     // MARK: Add Button
     private var addButton: some View {
@@ -63,7 +77,7 @@ struct ListView: View {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color.accentColor) // Use the app's AccentColor
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
 
                 Image(systemName: "plus")

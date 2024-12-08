@@ -16,15 +16,16 @@ struct ProfileView: View {
 
     var body: some View {
         ZStack {
-            Color.white.edgesIgnoringSafeArea(.all) // Set the entire background to white
+            Color.white.edgesIgnoringSafeArea(.all) // Set background to white
 
-            VStack {
+            VStack(spacing: 20) {
                 // Profile Image Button
                 Button(action: {
                     isImagePickerPresented = true
                 }) {
-                    if let imageData = viewModel.profileImageData, let image = UIImage(data: imageData) {
-                        Image(uiImage: image)
+                    if let imageData = viewModel.profileImageData,
+                       let image = UIImage(data: imageData) {
+                        Image(uiImage: cropToCircle(image: image))
                             .resizable()
                             .scaledToFill()
                             .frame(width: 150, height: 150)
@@ -44,20 +45,19 @@ struct ProfileView: View {
                     PhotosPicker(selection: $selectedImageItem, matching: .images, photoLibrary: .shared()) {}
                 }
                 .onChange(of: selectedImageItem) { newItem in
-                    loadProfileImage(newItem)
+                    loadAndCropProfileImage(newItem)
                 }
 
                 // Account Settings List
                 List {
-                        navigationLinkButton("Update Email", destination: UpdateEmailView())
-                        navigationLinkButton("Reset Password", destination: ResetPasswordView())
-                        navigationLinkButton("Update Password", destination: UpdatePasswordView())
+                    navigationLinkButton("Update Email", destination: UpdateEmailView())
+                    navigationLinkButton("Reset Password", destination: ResetPasswordView())
+                    navigationLinkButton("Update Password", destination: UpdatePasswordView())
 
-                        Button("Log Out", role: .destructive) {
-                            viewModel.signOut()
-                        }
+                    Button("Log Out", role: .destructive) {
+                        viewModel.signOut()
+                    }
                 }
-                .background(Color.white) // Ensure the list background is white
                 .onAppear {
                     viewModel.checkIfUserIsAuthenticated()
                 }
@@ -66,17 +66,52 @@ struct ProfileView: View {
         }
     }
 
-    private func loadProfileImage(_ newItem: PhotosPickerItem?) {
+    /// Load and crop the selected image into a circular shape
+    private func loadAndCropProfileImage(_ newItem: PhotosPickerItem?) {
         guard let newItem = newItem else { return }
         Task {
             do {
-                if let data = try await newItem.loadTransferable(type: Data.self) {
-                    viewModel.updateProfileImage(with: data)
+                if let data = try await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    // Crop to circle and update the profile image
+                    let croppedImage = cropToCircle(image: image)
+                    if let croppedData = croppedImage.jpegData(compressionQuality: 1.0) {
+                        viewModel.updateProfileImage(with: croppedData)
+                    }
                 }
             } catch {
                 print("Error loading image data: \(error)")
             }
         }
+    }
+
+    /// Crop the image to a circular shape
+    private func cropToCircle(image: UIImage) -> UIImage {
+        let squareImage = cropToSquare(image: image) // Crop to square first
+        let size = squareImage.size
+
+        UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+        let rect = CGRect(origin: .zero, size: size)
+
+        // Clip the context to a circle
+        UIBezierPath(ovalIn: rect).addClip()
+        squareImage.draw(in: rect)
+
+        let circularImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        return circularImage ?? squareImage
+    }
+
+    /// Crop the image to a square shape
+    private func cropToSquare(image: UIImage) -> UIImage {
+        let size = min(image.size.width, image.size.height)
+        let originX = (image.size.width - size) / 2
+        let originY = (image.size.height - size) / 2
+        let cropRect = CGRect(x: originX, y: originY, width: size, height: size)
+
+        guard let cgImage = image.cgImage?.cropping(to: cropRect) else { return image }
+        return UIImage(cgImage: cgImage, scale: image.scale, orientation: image.imageOrientation)
     }
 
     @ViewBuilder

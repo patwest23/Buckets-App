@@ -8,11 +8,15 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var listViewModel: ListViewModel
+
     var body: some View {
         TabView {
             // List Tab
             NavigationStack {
                 ListView()
+                    .environmentObject(listViewModel) // Attach ListViewModel to ListView
             }
             .tabItem {
                 Label("List", systemImage: "list.bullet")
@@ -21,18 +25,11 @@ struct MainTabView: View {
             // Profile Tab
             NavigationStack {
                 ProfileView()
+                    .environmentObject(onboardingViewModel) // Attach OnboardingViewModel to ProfileView
             }
             .tabItem {
                 Label("Profile", systemImage: "person.crop.circle")
             }
-
-            // Settings Tab
-//            NavigationStack {
-//                SettingsView()
-//            }
-//            .tabItem {
-//                Label("Settings", systemImage: "gearshape")
-//            }
         }
     }
 }
