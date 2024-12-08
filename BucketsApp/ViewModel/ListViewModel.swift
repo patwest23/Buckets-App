@@ -72,12 +72,14 @@ class ListViewModel: ObservableObject {
     /// Delete items at specified indices
     func deleteItems(at indexSet: IndexSet) {
         items.remove(atOffsets: indexSet)
+        saveItems() // Save updated list
     }
 
     /// Delete a specific item by matching its ID
     func deleteItem(_ item: ItemModel) {
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             items.remove(at: index)
+            saveItems() // Save updated list
         }
     }
 
@@ -89,12 +91,14 @@ class ListViewModel: ObservableObject {
         } else {
             items.append(item) // Add new item
         }
+        saveItems() // Save updated list
     }
 
     /// Update an existing item by replacing it with a new version
     func updateItem(_ updatedItem: ItemModel) {
         if let index = items.firstIndex(where: { $0.id == updatedItem.id }) {
             items[index] = updatedItem
+            saveItems() // Save updated list
         }
     }
 

@@ -11,6 +11,7 @@ import PhotosUI
 struct DetailItemView: View {
     @Binding var item: ItemModel
     @EnvironmentObject var viewModel: ListViewModel
+    @Environment(\.presentationMode) var presentationMode // Access presentation mode for navigation
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var showDeleteConfirmation: Bool = false // State for delete confirmation alert
 
@@ -94,33 +95,33 @@ struct DetailItemView: View {
                 }
                 .padding()
             }
-            Spacer() // push delete button to bottom of screen
+            Spacer() // Push the delete button to the bottom
 
-                    // Delete Button
-                    Button(action: {
-                        showDeleteConfirmation = true
-                    }) {
-                        Text("Delete")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
+            // Delete Button
+            Button(action: {
+                showDeleteConfirmation = true
+            }) {
+                Text("Delete")
+                    .frame(maxWidth: .infinity)
                     .padding()
-                                .alert(isPresented: $showDeleteConfirmation) {
-                                    Alert(
-                                        title: Text("Delete Item"),
-                                        message: Text("Are you sure you want to delete this item?"),
-                                        primaryButton: .destructive(Text("Delete")) {
-                                            deleteItem()
-                                        },
-                                        secondaryButton: .cancel()
-                                    )
-                                }
-                            }
-                            .background(Color.white)
-                        }
+                    .background(Color.red)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+            .padding()
+            .alert(isPresented: $showDeleteConfirmation) {
+                Alert(
+                    title: Text("Delete Item"),
+                    message: Text("Are you sure you want to delete this item?"),
+                    primaryButton: .destructive(Text("Delete")) {
+                        deleteItem()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+        }
+        .background(Color.white)
+    }
 
     // MARK: Helper Functions
 
@@ -137,14 +138,16 @@ struct DetailItemView: View {
                 }
             }
             if !newImages.isEmpty {
-                item.imagesData = Array(newImages.prefix(3)) // Limit to 3 images
+                // Keep only the last selection of images (up to 3)
+                item.imagesData = Array(newImages.prefix(3))
                 updateItem()
             }
         }
     }
 
     private func deleteItem() {
-        viewModel.deleteItem(item)
+        viewModel.deleteItem(item) // Remove the item from the ListViewModel
+        presentationMode.wrappedValue.dismiss() // Navigate back to the ListView
     }
 
     private func placeholderImage() -> some View {
