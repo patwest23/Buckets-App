@@ -12,7 +12,7 @@ struct DetailItemView: View {
     @Binding var item: ItemModel
     @EnvironmentObject var viewModel: ListViewModel
     @State private var selectedPhotos: [PhotosPickerItem] = []
-
+    
     var body: some View {
         VStack {
             ScrollView {
@@ -24,7 +24,7 @@ struct DetailItemView: View {
                         .cornerRadius(10)
                         .shadow(radius: 2)
                         .onChange(of: item.name) { _ in updateItem() }
-
+                    
                     // Notes TextEditor
                     ZStack(alignment: .topLeading) {
                         if item.description?.isEmpty ?? true {
@@ -44,7 +44,7 @@ struct DetailItemView: View {
                         .shadow(radius: 2)
                         .onChange(of: item.description) { _ in updateItem() }
                     }
-
+                    
                     // Completed Toggle
                     Toggle("Completed", isOn: $item.completed)
                         .padding()
@@ -52,7 +52,7 @@ struct DetailItemView: View {
                         .cornerRadius(10)
                         .shadow(radius: 2)
                         .onChange(of: item.completed) { _ in updateItem() }
-
+                    
                     // Photos Grid
                     if !item.imagesData.isEmpty {
                         LazyVGrid(columns: [
@@ -79,7 +79,7 @@ struct DetailItemView: View {
                         // Placeholder for no photos
                         placeholderView()
                     }
-
+                    
                     // Photos Picker
                     PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
                         Text("Select Photos")
@@ -98,13 +98,13 @@ struct DetailItemView: View {
         }
         .background(Color.white)
     }
-
+    
     // MARK: Helper Functions
-
+    
     private func updateItem() {
         viewModel.updateItem(item)
     }
-
+    
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
             var newImages: [Data] = []
@@ -114,12 +114,13 @@ struct DetailItemView: View {
                 }
             }
             if !newImages.isEmpty {
-                item.imagesData.append(contentsOf: newImages)
+                // Keep only the last selection of images (up to 3)
+                item.imagesData = Array(newImages.prefix(3))
                 updateItem()
             }
         }
     }
-
+    
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -131,19 +132,28 @@ struct DetailItemView: View {
                 )
         }
     }
-
+    
     private func placeholderView() -> some View {
-        HStack {
-            Spacer()
-            VStack {
-                placeholderImage()
-                Text("No Photos Added")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+        VStack {
+            HStack {
+                ForEach(0..<3, id: \.self) { index in
+                    if index < item.imagesData.count, let image = UIImage(data: item.imagesData[index]) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .cornerRadius(10)
+                            .clipped()
+                    } else {
+                        placeholderImage()
+                    }
+                }
             }
-            Spacer()
+            Text(item.imagesData.isEmpty ? "No Photos Added" : "Max 3 Photos")
+                .font(.subheadline)
+                .foregroundColor(.gray)
         }
-        .frame(height: 120)
+        .padding()
     }
 }
 
