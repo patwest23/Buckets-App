@@ -19,35 +19,35 @@ struct UpdatePasswordView: View {
         VStack(spacing: 20) {
             // Title
             Text("Update Password")
-                .font(.title)
+                .font(.largeTitle)
                 .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+                .padding()
 
-            // Current Password Field
+            // Input Fields
             SecureField("Current Password", text: $currentPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
+                .padding(.horizontal)
 
-            // New Password Field
             SecureField("New Password", text: $newPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
+                .padding(.horizontal)
 
-            // Confirm New Password Field
             SecureField("Confirm New Password", text: $confirmPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
+                .padding(.horizontal)
 
-            // Update Password Button
+            // Update Button
             Button(action: { Task { await updatePassword() } }) {
                 Text("Update Password")
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(newPassword.isEmpty || confirmPassword.isEmpty || currentPassword.isEmpty ? Color.gray : Color.blue)
-                    .cornerRadius(8)
+                    .background(isFormValid ? Color.blue : Color.gray)
+                    .cornerRadius(10)
             }
-            .disabled(newPassword.isEmpty || confirmPassword.isEmpty || currentPassword.isEmpty)
-            .padding()
+            .disabled(!isFormValid) // Disable button if form is invalid
+            .padding(.horizontal)
 
             Spacer()
         }
@@ -61,10 +61,17 @@ struct UpdatePasswordView: View {
         }
     }
 
+    // MARK: - Validation and Update Logic
+
+    /// Checks if the form is valid
+    private var isFormValid: Bool {
+        !currentPassword.isEmpty && !newPassword.isEmpty && !confirmPassword.isEmpty
+    }
+
+    /// Handles the password update process
     private func updatePassword() async {
         guard newPassword == confirmPassword else {
-            updateMessage = "New passwords do not match."
-            showAlert = true
+            showError("New passwords do not match.")
             return
         }
 
@@ -72,18 +79,29 @@ struct UpdatePasswordView: View {
         DispatchQueue.main.async {
             switch result {
             case .success(let message):
-                updateMessage = message
+                showSuccess(message)
             case .failure(let error):
-                updateMessage = error.localizedDescription
+                showError(error.localizedDescription)
             }
-            showAlert = true
         }
+    }
+
+    /// Displays a success message
+    private func showSuccess(_ message: String) {
+        updateMessage = message
+        showAlert = true
+    }
+
+    /// Displays an error message
+    private func showError(_ message: String) {
+        updateMessage = message
+        showAlert = true
     }
 }
 
 struct UpdatePasswordView_Previews: PreviewProvider {
     static var previews: some View {
         UpdatePasswordView()
-            .environmentObject(MockOnboardingViewModel()) // Use mock data for preview
+            .environmentObject(MockOnboardingViewModel()) // Mock view model for preview
     }
 }

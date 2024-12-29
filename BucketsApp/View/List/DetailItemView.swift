@@ -10,7 +10,7 @@ import PhotosUI
 
 struct DetailItemView: View {
     @Binding var item: ItemModel
-    @EnvironmentObject var viewModel: ListViewModel
+    @EnvironmentObject var userViewModel: UserViewModel // Replace ListViewModel with UserViewModel
     @Environment(\.presentationMode) var presentationMode // Access presentation mode for navigation
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var showDeleteConfirmation: Bool = false // State for delete confirmation alert
@@ -26,7 +26,7 @@ struct DetailItemView: View {
                         .cornerRadius(10)
                         .shadow(radius: 2)
                         .onChange(of: item.name) { _ in updateItem() }
-                    
+
                     // Notes TextEditor
                     ZStack(alignment: .topLeading) {
                         if item.description?.isEmpty ?? true {
@@ -46,7 +46,7 @@ struct DetailItemView: View {
                         .shadow(radius: 2)
                         .onChange(of: item.description) { _ in updateItem() }
                     }
-                    
+
                     // Completed Toggle
                     Toggle("Completed", isOn: $item.completed)
                         .padding()
@@ -54,7 +54,7 @@ struct DetailItemView: View {
                         .cornerRadius(10)
                         .shadow(radius: 2)
                         .onChange(of: item.completed) { _ in updateItem() }
-                    
+
                     // Photos Grid
                     if !item.imagesData.isEmpty {
                         LazyVGrid(columns: [
@@ -79,7 +79,7 @@ struct DetailItemView: View {
                     } else {
                         placeholderView()
                     }
-                    
+
                     // Photos Picker
                     PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
                         Text("Select Photos")
@@ -125,10 +125,14 @@ struct DetailItemView: View {
 
     // MARK: Helper Functions
 
+    /// Update the item in Firestore
     private func updateItem() {
-        viewModel.updateItem(item)
+        Task {
+            await userViewModel.updateBucketListItem(item)
+        }
     }
 
+    /// Handle photo selection and sync updates with Firestore
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
             var newImages: [Data] = []
@@ -145,11 +149,15 @@ struct DetailItemView: View {
         }
     }
 
+    /// Delete the item from Firestore and navigate back to the previous view
     private func deleteItem() {
-        viewModel.deleteItem(item) // Remove the item from the ListViewModel
-        presentationMode.wrappedValue.dismiss() // Navigate back to the ListView
+        Task {
+            await userViewModel.deleteBucketListItem(item)
+            presentationMode.wrappedValue.dismiss()
+        }
     }
 
+    /// Placeholder image for empty photo slots
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -162,6 +170,7 @@ struct DetailItemView: View {
         }
     }
 
+    /// Placeholder view for no photos
     private func placeholderView() -> some View {
         VStack {
             HStack {

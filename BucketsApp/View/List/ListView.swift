@@ -9,14 +9,20 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @State private var newItem = ItemModel(name: "") // Non-optional type
-    @State private var isAddingNewItem = false       // Controls navigation to DetailItemView for new items
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel // To access the userId
+    @State private var newItem = ItemModel(name: "")
+    @State private var isAddingNewItem = false
+    @State private var isLoading = true
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Main content: List of items
-                if viewModel.items.isEmpty {
+                if isLoading {
+                    ProgressView("Loading...")
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .scaleEffect(1.5)
+                        .padding()
+                } else if viewModel.items.isEmpty {
                     Text("No items yet. Tap + to add a new item.")
                         .foregroundColor(.gray)
                         .font(.headline)
@@ -25,10 +31,10 @@ struct ListView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
-                            ForEach(viewModel.items.indices, id: \.self) { index in
-                                NavigationLink(value: viewModel.items[index]) {
+                            ForEach(viewModel.filteredItems.indices, id: \.self) { index in
+                                NavigationLink(value: viewModel.filteredItems[index]) {
                                     ItemRowView(
-                                        viewModel: ItemRowViewModel(item: viewModel.items[index], listViewModel: viewModel),
+                                        viewModel: ItemRowViewModel(item: viewModel.filteredItems[index], listViewModel: viewModel),
                                         isEditing: .constant(false)
                                     )
                                 }
@@ -38,37 +44,49 @@ struct ListView: View {
                     }
                 }
 
-                // Add button overlay
                 addButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
-            // Navigation for existing items
+            .onAppear {
+                loadItems()
+            }
             .navigationDestination(for: ItemModel.self) { item in
                 DetailItemView(item: Binding(
                     get: { viewModel.items.first { $0.id == item.id } ?? item },
                     set: { updatedItem in
-                        if let index = viewModel.items.firstIndex(where: { $0.id == updatedItem.id }) {
-                            viewModel.items[index] = updatedItem
+                        Task {
+                            guard let userId = onboardingViewModel.user?.id else { return }
+                            await viewModel.addOrUpdateItem(updatedItem, userId: userId)
                         }
                     }
                 ))
             }
-            // Navigation for adding a new item
             .navigationDestination(isPresented: $isAddingNewItem) {
                 DetailItemView(item: $newItem)
                     .onDisappear {
-                        if !newItem.name.isEmpty {
-                            viewModel.addOrUpdateItem(newItem) // Add or update item
+                        Task {
+                            guard let userId = onboardingViewModel.user?.id else { return }
+                            if !newItem.name.isEmpty {
+                                await viewModel.addOrUpdateItem(newItem, userId: userId)
+                            }
+                            self.newItem = ItemModel(name: "")
                         }
-                        self.newItem = ItemModel(name: "") // Reset newItem
                     }
             }
         }
     }
 
-    // MARK: Add Button
+    private func loadItems() {
+        Task {
+            guard let userId = onboardingViewModel.user?.id else { return }
+            isLoading = true
+            await viewModel.loadItems(userId: userId)
+            isLoading = false
+        }
+    }
+
     private var addButton: some View {
         Button(action: {
             newItem = ItemModel(name: "")
@@ -77,7 +95,7 @@ struct ListView: View {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
-                    .foregroundColor(Color.accentColor) // Use the app's AccentColor
+                    .foregroundColor(Color.accentColor)
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
 
                 Image(systemName: "plus")

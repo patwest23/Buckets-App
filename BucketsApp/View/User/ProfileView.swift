@@ -8,6 +8,7 @@
 
 import SwiftUI
 import PhotosUI
+import FirebaseFirestore
 
 struct ProfileView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
@@ -15,56 +16,65 @@ struct ProfileView: View {
     @State private var selectedImageItem: PhotosPickerItem?
 
     var body: some View {
-        ZStack {
-            Color.white.edgesIgnoringSafeArea(.all) // Set background to white
+        NavigationView {
+            ZStack {
+                Color.white.edgesIgnoringSafeArea(.all)
 
-            VStack(spacing: 20) {
-                // Profile Image Button
-                Button(action: {
-                    isImagePickerPresented = true
-                }) {
-                    if let imageData = viewModel.profileImageData,
-                       let image = UIImage(data: imageData) {
-                        Image(uiImage: cropToCircle(image: image))
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 150, height: 150)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
-                            .shadow(radius: 10)
-                    } else {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 150, height: 150)
-                            .foregroundColor(.gray)
+                VStack(spacing: 20) {
+                    // Profile Image Button
+                    Button(action: {
+                        isImagePickerPresented = true
+                    }) {
+                        if let imageData = viewModel.profileImageData,
+                           let image = UIImage(data: imageData) {
+                            Image(uiImage: cropToCircle(image: image))
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 150, height: 150)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
+                                .shadow(radius: 10)
+                        } else {
+                            Image(systemName: "person.crop.circle.badge.plus")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 150, height: 150)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .sheet(isPresented: $isImagePickerPresented) {
+                        PhotosPicker(
+                            "Select a Profile Picture", // Pass a localized title here
+                            selection: $selectedImageItem,
+                            matching: .images
+                        )
+                    }
+                    .onChange(of: selectedImageItem) { newItem in
+                        loadAndCropProfileImage(newItem)
+                    }
+
+                    // Account Settings List
+                    List {
+                        NavigationLink("Update Email", destination: UpdateEmailView())
+                        NavigationLink("Reset Password", destination: ResetPasswordView())
+                        NavigationLink("Update Password", destination: UpdatePasswordView())
+
+                        Button("Log Out", role: .destructive) {
+                            viewModel.signOut()
+                        }
+                    }
+                    .listStyle(GroupedListStyle())
+                    .onAppear {
+                        viewModel.checkIfUserIsAuthenticated()
                     }
                 }
-                .buttonStyle(PlainButtonStyle())
-                .sheet(isPresented: $isImagePickerPresented) {
-                    PhotosPicker(selection: $selectedImageItem, matching: .images, photoLibrary: .shared()) {}
-                }
-                .onChange(of: selectedImageItem) { newItem in
-                    loadAndCropProfileImage(newItem)
-                }
-
-                // Account Settings List
-                List {
-                    navigationLinkButton("Update Email", destination: UpdateEmailView())
-                    navigationLinkButton("Reset Password", destination: ResetPasswordView())
-                    navigationLinkButton("Update Password", destination: UpdatePasswordView())
-
-                    Button("Log Out", role: .destructive) {
-                        viewModel.signOut()
-                    }
-                }
-                .onAppear {
-                    viewModel.checkIfUserIsAuthenticated()
-                }
+                .padding()
             }
-            .padding()
         }
     }
+
+    // MARK: Helper Functions
 
     /// Load and crop the selected image into a circular shape
     private func loadAndCropProfileImage(_ newItem: PhotosPickerItem?) {
@@ -76,7 +86,7 @@ struct ProfileView: View {
                     // Crop to circle and update the profile image
                     let croppedImage = cropToCircle(image: image)
                     if let croppedData = croppedImage.jpegData(compressionQuality: 1.0) {
-                        viewModel.updateProfileImage(with: croppedData)
+                        await viewModel.updateProfileImage(with: croppedData)
                     }
                 }
             } catch {
@@ -113,19 +123,12 @@ struct ProfileView: View {
         guard let cgImage = image.cgImage?.cropping(to: cropRect) else { return image }
         return UIImage(cgImage: cgImage, scale: image.scale, orientation: image.imageOrientation)
     }
-
-    @ViewBuilder
-    private func navigationLinkButton<T: View>(_ title: String, destination: T) -> some View {
-        NavigationLink(destination: destination) {
-            Text(title)
-        }
-    }
 }
 
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
         ProfileView()
-            .environmentObject(MockOnboardingViewModel())
+            .environmentObject(MockOnboardingViewModel()) // Using mock view model for preview
     }
 }
 

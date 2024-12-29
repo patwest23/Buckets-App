@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Firebase
+import FirebaseFirestore
+import FirebaseFirestoreSwift
 
 @main
 struct BucketsApp: App {
@@ -22,14 +24,20 @@ struct BucketsApp: App {
                     .environmentObject(bucketListViewModel)
                     .environmentObject(onboardingViewModel)
                     .onAppear {
-                        // Debugging logs
+                        Task {
+                            // Load profile image asynchronously after login
+                            do {
+                                await onboardingViewModel.loadProfileImage()
+                            } catch {
+                                print("Failed to load profile image: \(error)")
+                            }
+                        }
                         print("Authenticated user: \(onboardingViewModel.email)")
                     }
             } else {
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
                     .onAppear {
-                        // Debugging logs
                         print("Unauthenticated user loading onboarding")
                     }
             }
@@ -43,8 +51,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseApp.configure()
-        print("Firebase configured successfully.")
+        if let options = FirebaseApp.app()?.options {
+            print("Firebase configured with options: \(options)")
+        } else {
+            print("Failed to configure Firebase.")
+        }
         return true
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        print("App entered background.")
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        print("App will enter foreground.")
     }
 }
 

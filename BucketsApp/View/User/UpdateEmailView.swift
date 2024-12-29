@@ -17,15 +17,17 @@ struct UpdateEmailView: View {
         VStack(spacing: 20) {
             // Title
             Text("Update Email")
-                .font(.title)
+                .font(.largeTitle)
                 .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+                .padding()
 
             // Email Input Field
-            TextField("New Email Address", text: $newEmail)
+            TextField("Enter New Email Address", text: $newEmail)
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
+                .padding(.horizontal)
 
             // Update Email Button
             Button(action: { Task { await updateEmail() } }) {
@@ -33,11 +35,11 @@ struct UpdateEmailView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(newEmail.isEmpty ? Color.gray : Color.blue) // Disable button for empty email
-                    .cornerRadius(8)
+                    .background(newEmail.isEmpty ? Color.gray : Color.blue)
+                    .cornerRadius(10)
             }
-            .disabled(newEmail.isEmpty) // Disable button if no input
-            .padding()
+            .disabled(newEmail.isEmpty) // Disable button when no input
+            .padding(.horizontal)
 
             Spacer()
         }
@@ -51,10 +53,12 @@ struct UpdateEmailView: View {
         }
     }
 
+    // MARK: - Helper Functions
+
+    /// Handles the email update process
     private func updateEmail() async {
         guard !newEmail.isEmpty else {
-            updateMessage = "Please enter a valid email address."
-            showAlert = true
+            showError("Please enter a valid email address.")
             return
         }
 
@@ -62,12 +66,23 @@ struct UpdateEmailView: View {
         DispatchQueue.main.async {
             switch result {
             case .success(let message):
-                updateMessage = message
+                showSuccess(message)
             case .failure(let error):
-                updateMessage = error.localizedDescription
+                showError(error.localizedDescription)
             }
-            showAlert = true
         }
+    }
+
+    /// Show error message in the alert
+    private func showError(_ message: String) {
+        updateMessage = message
+        showAlert = true
+    }
+
+    /// Show success message in the alert
+    private func showSuccess(_ message: String) {
+        updateMessage = message
+        showAlert = true
     }
 }
 

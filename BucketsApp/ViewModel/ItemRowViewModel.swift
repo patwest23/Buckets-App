@@ -6,25 +6,58 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
+import FirebaseFirestoreSwift
+import FirebaseAuth
 
 class ItemRowViewModel: ObservableObject {
     @Published var item: ItemModel
-    private weak var listViewModel: ListViewModel?
+    private let db = Firestore.firestore() // Firestore reference
+    private var userId: String? {
+        // Retrieve the current user's ID (assumes FirebaseAuth is being used)
+        Auth.auth().currentUser?.uid
+    }
 
-    init(item: ItemModel, listViewModel: ListViewModel?) {
+    init(item: ItemModel) {
         self.item = item
-        self.listViewModel = listViewModel
     }
 
-    /// Toggle the completed state of the item
-    func toggleCompleted() {
+    /// Toggle the completed state of the item and sync with Firestore
+    func toggleCompleted() async {
         item.completed.toggle()
-        updateItem()
+        await updateItemInFirestore()
     }
 
-    /// Update the item in the centralized ListViewModel
-    private func updateItem() {
-        listViewModel?.updateItem(item)
+    /// Update the item in Firestore
+    func updateItemInFirestore() async {
+        guard let userId = userId else { return }
+        let itemRef = db.collection("users")
+            .document(userId)
+            .collection("bucketList")
+            .document(item.id.uuidString)
+
+        do {
+            try await itemRef.setData(from: item, merge: true)
+            print("Item updated successfully in Firestore.")
+        } catch {
+            print("Error updating item in Firestore: \(error.localizedDescription)")
+        }
+    }
+
+    /// Delete the item from Firestore
+    func deleteItemFromFirestore() async {
+        guard let userId = userId else { return }
+        let itemRef = db.collection("users")
+            .document(userId)
+            .collection("bucketList")
+            .document(item.id.uuidString)
+
+        do {
+            try await itemRef.delete()
+            print("Item deleted successfully from Firestore.")
+        } catch {
+            print("Error deleting item from Firestore: \(error.localizedDescription)")
+        }
     }
 }
 

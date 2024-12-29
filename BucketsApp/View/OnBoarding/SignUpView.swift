@@ -23,15 +23,16 @@ struct SignUpView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack {
-                Spacer().frame(height: 40) // Add some space at the top
+                Spacer().frame(height: 40) // Add spacing at the top
 
+                // App Logo
                 Image("Image2")
                     .resizable()
                     .scaledToFit()
-                    .frame(maxWidth: 80, maxHeight: 80)
-                    .padding(.bottom, 20) // Add some space below the image
-                    .padding(.top, 20)
+                    .frame(maxWidth: 100, maxHeight: 100)
+                    .padding(.bottom, 20)
 
+                // Input Fields
                 VStack(spacing: 20) {
                     emailTextField
                     passwordSecureField
@@ -40,31 +41,29 @@ struct SignUpView: View {
                 }
                 .padding(.horizontal)
 
+                // Sign Up Button
                 signUpButton
-                    .padding(.top, 20) // Add some space above the button
+                    .padding(.top, 20) // Add spacing above the button
 
-                NavigationLink(value: SignUpNavigationDestination.listView) {
-                    Text("Navigate to List View")
-                        .hidden()
-                }
                 Spacer()
             }
-            .padding(.top)
-        }
-        .navigationDestination(for: SignUpNavigationDestination.self) { destination in
-            switch destination {
-            case .listView:
-                ListView().environmentObject(viewModel)
+            .padding()
+            .navigationDestination(for: SignUpNavigationDestination.self) { destination in
+                switch destination {
+                case .listView:
+                    ListView()
+                        .environmentObject(viewModel)
+                }
             }
-        }
-        .alert("Error", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
+            .alert("Error", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
 
-    // Extracted subviews for readability
+    // MARK: - Input Fields
     var emailTextField: some View {
         TextField("Email", text: $viewModel.email)
             .textFieldModifiers()
@@ -80,23 +79,22 @@ struct SignUpView: View {
             .textFieldModifiers()
     }
 
+    // MARK: - Terms and Conditions Section
     var termsAndConditionsSection: some View {
         HStack {
             Text("I agree to the")
             Button("Terms and Conditions") {
-                // Specify the URL you want to open
-                if let url = URL(string: "https://www.bucketsapp.com/") {
-                    // Check if the URL can be opened, then open it
-                    UIApplication.shared.open(url)
-                }
+                openTermsAndConditions()
             }
             .foregroundColor(.blue)
             .underline()
+
             Toggle("", isOn: $agreedToTerms)
         }
         .font(.caption)
     }
 
+    // MARK: - Sign Up Button
     var signUpButton: some View {
         Button(action: {
             if validateInput() {
@@ -108,33 +106,33 @@ struct SignUpView: View {
             }
         }) {
             Text("Sign Up")
-                .buttonStyle()
+                .fontWeight(.bold)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(agreedToTerms ? Color.accentColor : Color.gray)
+                .foregroundColor(.white)
+                .cornerRadius(10)
         }
         .disabled(!agreedToTerms)
     }
 
-    // validate inputs in the email
+    // MARK: - Input Validation
     private func validateInput() -> Bool {
-        // Check if the email is not empty and is in a valid format
         guard !viewModel.email.isEmpty, isValidEmail(viewModel.email) else {
             errorMessage = "Please enter a valid email address."
             return false
         }
 
-        // Check if the password is not empty and meets minimum length criteria
-        let minimumPasswordLength = 6
-        guard !viewModel.password.isEmpty, viewModel.password.count >= minimumPasswordLength else {
-            errorMessage = "Password must be at least \(minimumPasswordLength) characters long."
+        guard !viewModel.password.isEmpty, viewModel.password.count >= 6 else {
+            errorMessage = "Password must be at least 6 characters long."
             return false
         }
 
-        // Check if passwords match
         guard viewModel.password == confirmPassword else {
             errorMessage = "Passwords do not match."
             return false
         }
 
-        // Check if terms and conditions are agreed
         guard agreedToTerms else {
             errorMessage = "You must agree to the terms and conditions."
             return false
@@ -150,15 +148,20 @@ struct SignUpView: View {
         return emailPred.evaluate(with: email)
     }
 
+    // MARK: - Navigation and Actions
     private func signUpUser() async {
         await viewModel.createUser()
         if viewModel.isAuthenticated {
-            // Trigger navigation upon successful sign-up
             navigationPath.append(SignUpNavigationDestination.listView)
         } else if let errorMessage = viewModel.errorMessage {
-            // Handle error
             self.errorMessage = errorMessage
             showErrorAlert = true
+        }
+    }
+
+    private func openTermsAndConditions() {
+        if let url = URL(string: "https://www.bucketsapp.com/") {
+            UIApplication.shared.open(url)
         }
     }
 }
@@ -173,20 +176,12 @@ private extension View {
             .autocapitalization(.none)
             .disableAutocorrection(true)
     }
-
-    func buttonStyle() -> some View {
-        self
-            .fontWeight(.bold)
-            .padding()
-            .background(Color.white)
-            .cornerRadius(10)
-            .shadow(radius: 10)
-    }
 }
 
 struct SignUpView_Previews: PreviewProvider {
     static var previews: some View {
-        SignUpView().environmentObject(OnboardingViewModel())
+        SignUpView()
+            .environmentObject(OnboardingViewModel())
     }
 }
 

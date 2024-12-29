@@ -17,8 +17,10 @@ struct ResetPasswordView: View {
         VStack(spacing: 20) {
             // Title
             Text("Reset Password")
-                .font(.title)
+                .font(.largeTitle)
                 .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+                .padding()
 
             // Email Input Field
             TextField("Enter your email address", text: $email)
@@ -30,11 +32,11 @@ struct ResetPasswordView: View {
             // Send Reset Link Button
             Button(action: { Task { await sendResetLink() } }) {
                 Text("Send Reset Link")
-                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(email.isEmpty ? Color.gray : Color.blue) // Disable button for empty email
-                    .cornerRadius(8)
+                    .background(email.isEmpty ? Color.gray : Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
             }
             .disabled(email.isEmpty) // Disable the button if email is empty
             .padding(.horizontal)
@@ -51,24 +53,34 @@ struct ResetPasswordView: View {
         }
     }
 
+    // MARK: - Helper Functions
+
+    /// Send the reset password link
     private func sendResetLink() async {
         guard !email.isEmpty else {
-            resetMessage = "Please enter a valid email address."
-            showAlert = true
+            showErrorMessage("Please enter a valid email address.")
             return
         }
 
-        // Call the view model's async function
         let result = await viewModel.resetPassword(for: email)
-        DispatchQueue.main.async {
-            switch result {
-            case .success(let message):
-                resetMessage = message
-            case .failure(let error):
-                resetMessage = error.localizedDescription
-            }
-            showAlert = true
+        switch result {
+        case .success(let message):
+            showSuccessMessage(message)
+        case .failure(let error):
+            showErrorMessage(error.localizedDescription)
         }
+    }
+
+    /// Display an error message
+    private func showErrorMessage(_ message: String) {
+        resetMessage = message
+        showAlert = true
+    }
+
+    /// Display a success message
+    private func showSuccessMessage(_ message: String) {
+        resetMessage = message
+        showAlert = true
     }
 }
 

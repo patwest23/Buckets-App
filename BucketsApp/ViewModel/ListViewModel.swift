@@ -8,6 +8,9 @@
 import Foundation
 import Combine
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
+import FirebaseFirestoreSwift
 
 enum SortingMode: String, CaseIterable {
     case manual
@@ -17,51 +20,134 @@ enum SortingMode: String, CaseIterable {
     case byTitle
 }
 
+@MainActor
 class ListViewModel: ObservableObject {
     @Published var items: [ItemModel] = [] {
-        didSet { saveItems() }
+        didSet { saveItemsLocally() }
     }
     @Published var showImages: Bool = true
     @Published var hideCompleted: Bool = false
     @Published var sortingMode: SortingMode = .manual
-    @Published var currentEditingItem: ItemModel? // Used for tracking the item currently being edited
+    @Published var currentEditingItem: ItemModel?
+    
+    private var userId: String? {
+        Auth.auth().currentUser?.uid
+    }
+    private let db = Firestore.firestore()
 
-    private let itemsKey = "items_list"
-    private var cancellables = Set<AnyCancellable>()
-
+    // MARK: - Initialization
     init() {
-        loadItems() // Load saved items on initialization
+        loadItemsFromLocal()
     }
 
-    /// Load items from persistent storage
-    private func loadItems() {
-        guard let data = UserDefaults.standard.data(forKey: itemsKey) else { return }
+    // MARK: - Persistent Storage
+
+    /// Load items from persistent storage or Firestore.
+    func loadItems() async {
+        guard let userId = userId else {
+            print("Error: No userId available.")
+            return
+        }
+
+        do {
+            let snapshot = try await db.collection("users").document(userId).collection("items").getDocuments()
+            self.items = snapshot.documents.compactMap { try? $0.data(as: ItemModel.self) }
+            saveItemsLocally() // Cache items locally
+            print("Items successfully loaded from Firestore.")
+        } catch {
+            print("Error loading items from Firestore: \(error.localizedDescription)")
+        }
+    }
+
+    /// Save items locally to persistent storage.
+    private func saveItemsLocally() {
+        do {
+            let encodedData = try JSONEncoder().encode(items)
+            UserDefaults.standard.set(encodedData, forKey: "items_list")
+        } catch {
+            print("Error saving items locally: \(error.localizedDescription)")
+        }
+    }
+
+    /// Load items from local storage (fallback).
+    private func loadItemsFromLocal() {
+        guard let data = UserDefaults.standard.data(forKey: "items_list") else { return }
         do {
             self.items = try JSONDecoder().decode([ItemModel].self, from: data)
         } catch {
-            print("Error decoding items: \(error)")
+            print("Error decoding items from local storage: \(error.localizedDescription)")
         }
     }
 
-    /// Save items to persistent storage
-    func saveItems() {
+    // MARK: - CRUD Operations with Firestore
+
+    /// Add or update an item in Firestore.
+    func addOrUpdateItem(_ item: ItemModel) async {
+        guard let userId = userId else {
+            print("Error: No userId available.")
+            return
+        }
+
         do {
-            let encodedData = try JSONEncoder().encode(items)
-            UserDefaults.standard.set(encodedData, forKey: itemsKey)
+            try await db.collection("users").document(userId).collection("items")
+                .document(item.id.uuidString).setData(from: item, merge: true)
+            if let index = items.firstIndex(where: { $0.id == item.id }) {
+                items[index] = item // Update local item
+            } else {
+                items.append(item) // Add new item locally
+            }
+            print("Item successfully added/updated in Firestore.")
         } catch {
-            print("Error encoding items: \(error)")
+            print("Error adding/updating item in Firestore: \(error.localizedDescription)")
         }
     }
 
-    /// Sort items based on the selected sorting mode
+    /// Delete an item from Firestore.
+    func deleteItem(_ item: ItemModel) async {
+        guard let userId = userId else {
+            print("Error: No userId available.")
+            return
+        }
+
+        do {
+            try await db.collection("users").document(userId).collection("items")
+                .document(item.id.uuidString).delete()
+            items.removeAll { $0.id == item.id } // Remove locally
+            print("Item successfully deleted from Firestore.")
+        } catch {
+            print("Error deleting item from Firestore: \(error.localizedDescription)")
+        }
+    }
+
+    /// Delete items at specified indices in Firestore.
+    func deleteItems(at indexSet: IndexSet) async {
+        guard let userId = userId else {
+            print("Error: No userId available.")
+            return
+        }
+
+        let itemsToDelete = indexSet.map { items[$0] }
+        for item in itemsToDelete {
+            await deleteItem(item)
+        }
+    }
+
+    /// Fetch a single item by its ID.
+    func getItem(by id: UUID) -> ItemModel? {
+        items.first { $0.id == id }
+    }
+
+    // MARK: - Sorting
+
+    /// Sort items based on the selected sorting mode.
     func sortItems() {
         switch sortingMode {
         case .manual:
-            break // No sorting required
+            break
         case .byDeadline:
             items.sort { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
         case .byCreationDate:
-            items.sort { ($0.creationDate) < ($1.creationDate) }
+            items.sort { $0.creationDate < $1.creationDate }
         case .byPriority:
             items.sort { $0.priority.rawValue < $1.priority.rawValue }
         case .byTitle:
@@ -69,46 +155,9 @@ class ListViewModel: ObservableObject {
         }
     }
 
-    /// Delete items at specified indices
-    func deleteItems(at indexSet: IndexSet) {
-        items.remove(atOffsets: indexSet)
-        saveItems() // Save updated list
-    }
+    // MARK: - Filtering
 
-    /// Delete a specific item by matching its ID
-    func deleteItem(_ item: ItemModel) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            items.remove(at: index)
-            saveItems() // Save updated list
-        }
-    }
-
-    /// Add a new item or update an existing one
-    func addOrUpdateItem(_ item: ItemModel?) {
-        guard let item = item, !item.name.isEmpty else { return }
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            items[index] = item // Update existing item
-        } else {
-            items.append(item) // Add new item
-        }
-        saveItems() // Save updated list
-    }
-
-    /// Update an existing item by replacing it with a new version
-    func updateItem(_ updatedItem: ItemModel) {
-        if let index = items.firstIndex(where: { $0.id == updatedItem.id }) {
-            items[index] = updatedItem
-            saveItems() // Save updated list
-        }
-    }
-
-    /// Get a specific item by ID
-    func getItem(by id: UUID?) -> ItemModel? {
-        guard let id = id else { return nil }
-        return items.first(where: { $0.id == id })
-    }
-
-    /// Filter items based on completion status if `hideCompleted` is true
+    /// Filter items based on completion status.
     var filteredItems: [ItemModel] {
         hideCompleted ? items.filter { !$0.completed } : items
     }

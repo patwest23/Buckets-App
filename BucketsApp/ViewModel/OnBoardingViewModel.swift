@@ -7,6 +7,8 @@
 
 import Foundation
 import FirebaseAuth
+import FirebaseStorage
+import FirebaseFirestore
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
@@ -14,151 +16,137 @@ final class OnboardingViewModel: ObservableObject {
     @Published var email: String = ""
     @Published var password: String = ""
     @Published var isAuthenticated: Bool = false
-    @Published var errorMessage: String? = nil
-    @Published var showErrorAlert: Bool = false
     @Published var profileImageData: Data? // Stores the profile image data
+    @Published var errorMessage: String?
+    @Published var showErrorAlert: Bool = false
+
+    private let storage = Storage.storage()
+    private let firestore = Firestore.firestore()
+    private let profileImagePath = "profile_images"
 
     init() {
         checkIfUserIsAuthenticated()
     }
 
-    // Check user authentication status
+    // MARK: - Authentication Functions
+
+    /// Check the current authentication status
     func checkIfUserIsAuthenticated() {
         isAuthenticated = Auth.auth().currentUser != nil
     }
 
-    // Sign in
+    /// Sign in a user with email and password
     func signIn() async {
         do {
             try await Auth.auth().signIn(withEmail: email, password: password)
             isAuthenticated = true
             clearErrorState()
-            print("User signed in successfully.")
-        } catch let error as NSError {
-            handleFirebaseError(error)
+            await loadProfileImage() // Load the user's profile image after sign-in
+        } catch {
+            handleError(error)
         }
     }
 
-    // Sign out
-    func signOut() {
+    /// Sign out the current user
+    func signOut() async {
         do {
             try Auth.auth().signOut()
             isAuthenticated = false
             clearState()
-            print("User signed out successfully.")
-        } catch let error as NSError {
-            handleFirebaseError(error)
+        } catch {
+            handleError(error)
         }
     }
 
-    // Create a new user
+    /// Create a new user with email and password
     func createUser() async {
         do {
             try await Auth.auth().createUser(withEmail: email, password: password)
             isAuthenticated = true
             clearErrorState()
-            print("User created successfully.")
-        } catch let error as NSError {
-            handleFirebaseError(error)
+            await createUserDocument() // Create Firestore document for the new user
+        } catch {
+            handleError(error)
         }
     }
 
-    // Reset password
+    /// Reset the password for a given email
     func resetPassword(for email: String) async -> Result<String, Error> {
         do {
             try await Auth.auth().sendPasswordReset(withEmail: email)
             return .success("A link to reset your password has been sent to \(email).")
-        } catch let error as NSError {
-            return .failure(formatFirebaseError(error))
-        }
-    }
-
-    // Update email
-    func updateEmail(newEmail: String) async -> Result<String, Error> {
-        guard let currentUser = Auth.auth().currentUser else {
-            return .failure(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "No user is signed in."]))
-        }
-
-        do {
-            try await currentUser.updateEmail(to: newEmail)
-            self.email = newEmail
-            return .success("Your email has been updated to \(newEmail).")
         } catch {
             return .failure(error)
         }
     }
 
-    // Update password
-    func updatePassword(currentPassword: String, newPassword: String) async -> Result<String, Error> {
-        let reauthResult = await reauthenticateUser(currentPassword: currentPassword)
-        switch reauthResult {
-        case .success:
-            do {
-                try await Auth.auth().currentUser?.updatePassword(to: newPassword)
-                return .success("Your password has been updated successfully.")
-            } catch {
-                return .failure(error)
-            }
-        case .failure(let error):
-            return .failure(error)
-        }
-    }
+    // MARK: - Profile Image Functions
 
-    // Update profile image
-    func updateProfileImage(with data: Data?) {
+    /// Update the profile image in Firebase Storage
+    func updateProfileImage(with data: Data?) async {
         profileImageData = data
-    }
-
-    // Reauthenticate the user
-    private func reauthenticateUser(currentPassword: String) async -> Result<Void, Error> {
-        guard let user = Auth.auth().currentUser, let email = user.email else {
-            return .failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not found."]))
-        }
-        let credential = EmailAuthProvider.credential(withEmail: email, password: currentPassword)
+        guard let currentUser = Auth.auth().currentUser, let data = data else { return }
+        let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
         do {
-            try await user.reauthenticate(with: credential)
-            return .success(())
-        } catch let error as NSError {
-            return .failure(formatFirebaseError(error))
+            try await storageRef.putDataAsync(data)
+            print("Profile image uploaded successfully.")
+        } catch {
+            handleError(error)
         }
     }
 
-    // Handle Firebase errors
-    private func handleFirebaseError(_ error: NSError) {
-        errorMessage = formatFirebaseError(error).localizedDescription
+    /// Load the profile image from Firebase Storage
+    func loadProfileImage() async {
+        guard let currentUser = Auth.auth().currentUser else {
+            print("No user signed in.")
+            return
+        }
+        let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
+        do {
+            let data = try await storageRef.getDataAsync(maxSize: 5 * 1024 * 1024) // Max 5MB
+            profileImageData = data
+            print("Profile image loaded successfully.")
+        } catch {
+            print("Error loading profile image: \(error)")
+        }
+    }
+
+    // MARK: - Firestore Integration
+
+    /// Create a new Firestore document for the user
+    private func createUserDocument() async {
+        guard let currentUser = Auth.auth().currentUser else { return }
+        let userDoc = firestore.collection("users").document(currentUser.uid)
+        do {
+            try await userDoc.setData([
+                "email": currentUser.email ?? "",
+                "createdAt": Date()
+            ])
+            print("User document created successfully.")
+        } catch {
+            handleError(error)
+        }
+    }
+
+    // MARK: - Error Handling
+
+    /// Handle and display errors
+    private func handleError(_ error: Error) {
+        errorMessage = error.localizedDescription
         showErrorAlert = true
         print("Error: \(error.localizedDescription)")
     }
 
-    // Format Firebase errors into user-friendly messages
-    private func formatFirebaseError(_ error: NSError) -> NSError {
-        let message: String
-        switch error.code {
-        case AuthErrorCode.invalidEmail.rawValue:
-            message = "The email address is invalid."
-        case AuthErrorCode.userNotFound.rawValue:
-            message = "No user found with this email."
-        case AuthErrorCode.emailAlreadyInUse.rawValue:
-            message = "This email is already in use by another account."
-        case AuthErrorCode.weakPassword.rawValue:
-            message = "The password is too weak. Please choose a stronger password."
-        case AuthErrorCode.wrongPassword.rawValue:
-            message = "The current password is incorrect."
-        default:
-            message = error.localizedDescription
-        }
-        return NSError(domain: "", code: error.code, userInfo: [NSLocalizedDescriptionKey: message])
-    }
-
-    // Clear all user data on sign-out
+    /// Clear the user's data and error states
     private func clearState() {
         email = ""
         password = ""
         profileImageData = nil
-        clearErrorState()
+        errorMessage = nil
+        showErrorAlert = false
     }
 
-    // Clear error state
+    /// Clear error messages
     private func clearErrorState() {
         errorMessage = nil
         showErrorAlert = false

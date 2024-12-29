@@ -9,7 +9,7 @@ import SwiftUI
 import PhotosUI
 
 struct ItemRowView: View {
-    @ObservedObject var viewModel: ItemRowViewModel // Use the revised view model
+    @ObservedObject var viewModel: ItemRowViewModel
     @Binding var isEditing: Bool
 
     var body: some View {
@@ -17,17 +17,26 @@ struct ItemRowView: View {
             HStack {
                 // Toggle completion status
                 Button(action: {
-                    viewModel.toggleCompleted() // Update using view model logic
+                    Task {
+                        await viewModel.toggleCompleted() // Async Firestore update
+                    }
                 }) {
                     Image(systemName: viewModel.item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
                         .font(.title2)
-                        .foregroundColor(viewModel.item.completed ? Color("AccentColor") : .gray)
+                        .foregroundColor(viewModel.item.completed ? Color.accentColor : .gray)
                 }
                 .buttonStyle(BorderlessButtonStyle())
 
                 // Navigation link to DetailItemView
-                NavigationLink(destination: DetailItemView(item: $viewModel.item)) {
+                NavigationLink(destination: DetailItemView(item: Binding(
+                    get: { viewModel.item },
+                    set: { updatedItem in
+                        Task {
+                            await viewModel.updateItem(updatedItem) // Async Firestore update
+                        }
+                    }
+                ))) {
                     Text(viewModel.item.name.isEmpty ? "Untitled Item" : viewModel.item.name)
                         .foregroundColor(viewModel.item.completed ? .gray : .primary)
                         .font(.title3)
@@ -37,24 +46,25 @@ struct ItemRowView: View {
                 }
             }
 
-            // Displaying a photo carousel if images exist
-            if !viewModel.item.imagesData.isEmpty {
+            // Display photo carousel if images exist
+            if !viewModel.item.imageUrls.isEmpty {
                 TabView {
-                    ForEach(Array(viewModel.item.imagesData.enumerated()), id: \.offset) { _, imageData in
-                        if let uiImage = UIImage(data: imageData) {
-                            Image(uiImage: uiImage)
+                    ForEach(viewModel.item.imageUrls, id: \.self) { imageUrl in
+                        AsyncImage(url: URL(string: imageUrl)) { image in
+                            image
                                 .resizable()
                                 .scaledToFill()
-                                .frame(maxWidth: .infinity, maxHeight: 400)
+                                .frame(maxWidth: .infinity, maxHeight: 300)
                                 .cornerRadius(20)
                                 .clipped()
-                                .padding(.horizontal, 16)
+                        } placeholder: {
+                            ProgressView() // Show loading indicator
                         }
                     }
                 }
                 .tabViewStyle(PageTabViewStyle())
-                .frame(height: 400)
-                .edgesIgnoringSafeArea(.horizontal)
+                .frame(height: 300)
+                .padding(.horizontal, 16)
             }
         }
         .padding(.vertical, 10)
