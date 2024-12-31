@@ -11,9 +11,8 @@ import FirebaseAuth
 
 class ItemRowViewModel: ObservableObject {
     @Published var item: ItemModel
-    private let db = Firestore.firestore() // Firestore reference
+    private let db = Firestore.firestore()
     private var userId: String? {
-        // Retrieve the current user's ID (assumes FirebaseAuth is being used)
         Auth.auth().currentUser?.uid
     }
 
@@ -24,11 +23,11 @@ class ItemRowViewModel: ObservableObject {
     /// Toggle the completed state of the item and sync with Firestore
     func toggleCompleted() async {
         item.completed.toggle()
-        await updateItemInFirestore()
+        await updateItemInFirestore(item: item)
     }
 
     /// Update the item in Firestore
-    func updateItemInFirestore() async {
+    func updateItemInFirestore(item: ItemModel) async {
         guard let userId = userId else { return }
         let itemRef = db.collection("users")
             .document(userId)

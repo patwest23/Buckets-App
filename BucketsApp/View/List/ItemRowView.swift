@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import PhotosUI
 
 struct ItemRowView: View {
     @ObservedObject var viewModel: ItemRowViewModel
@@ -33,7 +32,7 @@ struct ItemRowView: View {
                     get: { viewModel.item },
                     set: { updatedItem in
                         Task {
-                            await viewModel.updateItem(updatedItem) // Async Firestore update
+                            await viewModel.updateItemInFirestore(item: updatedItem) // Pass updatedItem
                         }
                     }
                 ))) {

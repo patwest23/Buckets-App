@@ -10,86 +10,83 @@ import SwiftUI
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @State private var newItem = ItemModel(name: "")
+    @State private var newItem = ItemModel(userId: "", name: "")
     @State private var isAddingNewItem = false
     @State private var isLoading = true
 
     var body: some View {
         NavigationStack {
             ZStack {
-                if isLoading {
-                    ProgressView("Loading...")
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(1.5)
-                        .padding()
-                } else if viewModel.items.isEmpty {
-                    Text("No items yet. Tap + to add a new item.")
-                        .foregroundColor(.gray)
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                } else {
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            ForEach(viewModel.items, id: \.id) { item in
-                                NavigationLink(destination: DetailItemView(item: Binding(
-                                    get: { viewModel.items.first { $0.id == item.id } ?? item },
-                                    set: { updatedItem in
-                                        Task {
-                                            if let userId = onboardingViewModel.user?.id {
-                                                await viewModel.addOrUpdateItem(updatedItem, userId: userId)
-                                            }
-                                        }
-                                    }
-                                ))) {
-                                    ItemRowView(
-                                        viewModel: ItemRowViewModel(item: item, listViewModel: viewModel),
-                                        isEditing: .constant(false)
-                                    )
-                                }
-                            }
-                        }
-                        .padding()
-                    }
-                }
-
+                contentView
                 addButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
             .navigationTitle("Buckets")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                loadItems()
-            }
+            .onAppear { loadItems() }
             .navigationDestination(isPresented: $isAddingNewItem) {
                 DetailItemView(item: $newItem)
-                    .onDisappear {
-                        Task {
-                            if let userId = onboardingViewModel.user?.id {
-                                if !newItem.name.isEmpty {
-                                    await viewModel.addOrUpdateItem(newItem, userId: userId)
-                                }
-                                self.newItem = ItemModel(name: "")
-                            }
-                        }
-                    }
+                    .onDisappear { handleNewItemSave() }
             }
         }
     }
 
-    private func loadItems() {
-        Task {
-            if let userId = onboardingViewModel.user?.id {
-                isLoading = true
-                await viewModel.loadItems(userId: userId)
-                isLoading = false
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var contentView: some View {
+        if isLoading {
+            loadingView
+        } else if viewModel.items.isEmpty {
+            emptyStateView
+        } else {
+            itemListView
+        }
+    }
+
+    private var loadingView: some View {
+        ProgressView("Loading...")
+            .progressViewStyle(CircularProgressViewStyle())
+            .scaleEffect(1.5)
+            .padding()
+    }
+
+    private var emptyStateView: some View {
+        Text("No items yet. Tap + to add a new item.")
+            .foregroundColor(.gray)
+            .font(.headline)
+            .multilineTextAlignment(.center)
+            .padding()
+    }
+
+    private var itemListView: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                ForEach(viewModel.items, id: \.id) { item in
+                    navigationLink(for: item)
+                }
             }
+            .padding()
+        }
+    }
+
+    private func navigationLink(for item: ItemModel) -> some View {
+        NavigationLink(
+            destination: DetailItemView(item: Binding(
+                get: { viewModel.items.first { $0.id == item.id } ?? item },
+                set: { updatedItem in handleItemUpdate(updatedItem) }
+            ))
+        ) {
+            ItemRowView(
+                viewModel: ItemRowViewModel(item: item),
+                isEditing: .constant(false)
+            )
         }
     }
 
     private var addButton: some View {
         Button(action: {
-            newItem = ItemModel(name: "")
+            newItem = ItemModel(userId: "", name: "")
             isAddingNewItem = true
         }) {
             ZStack {
@@ -104,6 +101,37 @@ struct ListView: View {
             }
         }
         .padding()
+    }
+
+    // MARK: - Helper Functions
+
+    private func loadItems() {
+        Task {
+            if let userId = onboardingViewModel.user?.id {
+                isLoading = true
+                await viewModel.loadItems(userId: userId)
+                isLoading = false
+            }
+        }
+    }
+
+    private func handleItemUpdate(_ updatedItem: ItemModel) {
+        Task {
+            if let userId = onboardingViewModel.user?.id {
+                await viewModel.addOrUpdateItem(updatedItem, userId: userId)
+            }
+        }
+    }
+
+    private func handleNewItemSave() {
+        Task {
+            if let userId = onboardingViewModel.user?.id {
+                if !newItem.name.isEmpty {
+                    await viewModel.addOrUpdateItem(newItem, userId: userId)
+                }
+                newItem = ItemModel(userId: "", name: "")
+            }
+        }
     }
 }
 
