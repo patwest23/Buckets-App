@@ -17,14 +17,12 @@ struct UpdatePasswordView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Title
             Text("Update Password")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
                 .padding()
 
-            // Input Fields
             SecureField("Current Password", text: $currentPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
@@ -37,7 +35,6 @@ struct UpdatePasswordView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
-            // Update Button
             Button(action: { Task { await updatePassword() } }) {
                 Text("Update Password")
                     .foregroundColor(.white)
@@ -46,7 +43,7 @@ struct UpdatePasswordView: View {
                     .background(isFormValid ? Color.blue : Color.gray)
                     .cornerRadius(10)
             }
-            .disabled(!isFormValid) // Disable button if form is invalid
+            .disabled(!isFormValid)
             .padding(.horizontal)
 
             Spacer()
@@ -61,17 +58,13 @@ struct UpdatePasswordView: View {
         }
     }
 
-    // MARK: - Validation and Update Logic
-
-    /// Checks if the form is valid
     private var isFormValid: Bool {
         !currentPassword.isEmpty && !newPassword.isEmpty && !confirmPassword.isEmpty
     }
 
-    /// Handles the password update process
     private func updatePassword() async {
         guard newPassword == confirmPassword else {
-            showError("New passwords do not match.")
+            showError("Passwords do not match.")
             return
         }
 
@@ -86,22 +79,13 @@ struct UpdatePasswordView: View {
         }
     }
 
-    /// Displays a success message
     private func showSuccess(_ message: String) {
         updateMessage = message
         showAlert = true
     }
 
-    /// Displays an error message
     private func showError(_ message: String) {
         updateMessage = message
         showAlert = true
-    }
-}
-
-struct UpdatePasswordView_Previews: PreviewProvider {
-    static var previews: some View {
-        UpdatePasswordView()
-            .environmentObject(MockOnboardingViewModel()) // Mock view model for preview
     }
 }

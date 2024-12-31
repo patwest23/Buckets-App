@@ -7,7 +7,6 @@
 
 import SwiftUI
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 import FirebaseAuth
 
 class ItemRowViewModel: ObservableObject {

@@ -15,11 +15,13 @@ class MockOnboardingViewModel: ObservableObject {
     @Published var profileImageData: Data? = nil
     @Published var errorMessage: String? = nil
     @Published var showErrorAlert: Bool = false
+    @Published var user: UserModel? = UserModel(id: "mockUserId", email: "mockuser@example.com")
 
     /// Simulate sign-in process
     func signIn() {
         if email == "mockuser@example.com" && password == "password" {
             isAuthenticated = true
+            user = UserModel(id: "mockUserId", email: email)
             errorMessage = nil
         } else {
             simulateError("Invalid email or password.")
@@ -38,6 +40,7 @@ class MockOnboardingViewModel: ObservableObject {
             simulateError("Email and password cannot be empty.")
         } else {
             isAuthenticated = true
+            user = UserModel(id: "mockUserId", email: email)
             errorMessage = nil
         }
     }
@@ -57,33 +60,12 @@ class MockOnboardingViewModel: ObservableObject {
         }
     }
 
-    /// Simulate updating email
-    func updateEmail(newEmail: String) {
-        if newEmail.isEmpty {
-            simulateError("Email cannot be empty.")
-        } else {
-            email = newEmail
-            errorMessage = "Your email has been updated to \(newEmail)."
-            showErrorAlert = true
-        }
-    }
-
-    /// Simulate updating password
-    func updatePassword(newPassword: String) {
-        if newPassword.isEmpty {
-            simulateError("Password cannot be empty.")
-        } else {
-            password = newPassword
-            errorMessage = "Your password has been updated."
-            showErrorAlert = true
-        }
-    }
-
     /// Simulate clearing the user state
     private func clearState() {
         email = "mockuser@example.com"
         password = "password"
         profileImageData = nil
+        user = nil
     }
 
     /// Helper method to simulate an error

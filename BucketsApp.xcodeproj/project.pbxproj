@@ -13,7 +13,6 @@
 		1F357F582D0D3A0A003F121A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1F357F572D0D3A0A003F121A /* FirebaseStorage */; };
 		1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F357F592D0D3F06003F121A /* Extensions.swift */; };
 		1F5E875C2A09FB3500B5A4ED /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */; };
-		1F5E875E2A09FB3500B5A4ED /* FirebaseAnalyticsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1F5E875D2A09FB3500B5A4ED /* FirebaseAnalyticsSwift */; };
 		1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774929E5020F00B66F63 /* ListViewModel.swift */; };
 		1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774B29E5023600B66F63 /* ItemModel.swift */; };
 		1F64774E29E5025000B66F63 /* ListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774D29E5025000B66F63 /* ListView.swift */; };
@@ -30,7 +29,6 @@
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
 		1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */; };
 		1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FCC05822D0E685100892746 /* FirebaseFirestore */; };
-		1FCC05852D0E685100892746 /* FirebaseFirestoreSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1FCC05842D0E685100892746 /* FirebaseFirestoreSwift */; };
 		1FCE7E462C0C036D00F7B2C6 /* DetailItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */; };
 		1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE006E72A10541200B0A6D7 /* ProfileView.swift */; };
 		1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
@@ -82,13 +80,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				1F8EB9582B537915009CC18E /* GoogleSignInSwift in Frameworks */,
-				1F5E875E2A09FB3500B5A4ED /* FirebaseAnalyticsSwift in Frameworks */,
 				1F8EB9562B537915009CC18E /* GoogleSignIn in Frameworks */,
 				1FFCE5BB2B420BEF001751CA /* FirebaseAuth in Frameworks */,
 				1F5E875C2A09FB3500B5A4ED /* FirebaseAnalytics in Frameworks */,
 				1F357F582D0D3A0A003F121A /* FirebaseStorage in Frameworks */,
 				1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */,
-				1FCC05852D0E685100892746 /* FirebaseFirestoreSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,13 +224,11 @@
 			name = BucketsApp;
 			packageProductDependencies = (
 				1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */,
-				1F5E875D2A09FB3500B5A4ED /* FirebaseAnalyticsSwift */,
 				1FFCE5BA2B420BEF001751CA /* FirebaseAuth */,
 				1F8EB9552B537915009CC18E /* GoogleSignIn */,
 				1F8EB9572B537915009CC18E /* GoogleSignInSwift */,
 				1F357F572D0D3A0A003F121A /* FirebaseStorage */,
 				1FCC05822D0E685100892746 /* FirebaseFirestore */,
-				1FCC05842D0E685100892746 /* FirebaseFirestoreSwift */,
 			);
 			productName = BucketsApp;
 			productReference = 1FED1A0929E20B2E00868BAC /* BucketsApp.app */;
@@ -248,7 +242,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1410;
-				LastUpgradeCheck = 1410;
+				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					1FED1A0829E20B2E00868BAC = {
 						CreatedOnToolsVersion = 14.1;
@@ -361,6 +355,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -421,6 +416,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -533,16 +529,16 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 9.0.0;
+				kind = exactVersion;
+				version = 11.6.0;
 			};
 		};
 		1F8EB9542B537915009CC18E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/google/GoogleSignIn-iOS.git";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 7.0.0;
+				kind = exactVersion;
+				version = 7.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -558,11 +554,6 @@
 			package = 1F5E875A2A09FB3500B5A4ED /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalytics;
 		};
-		1F5E875D2A09FB3500B5A4ED /* FirebaseAnalyticsSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1F5E875A2A09FB3500B5A4ED /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseAnalyticsSwift;
-		};
 		1F8EB9552B537915009CC18E /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 1F8EB9542B537915009CC18E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
@@ -577,11 +568,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1F5E875A2A09FB3500B5A4ED /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
-		};
-		1FCC05842D0E685100892746 /* FirebaseFirestoreSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1F5E875A2A09FB3500B5A4ED /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
-			productName = FirebaseFirestoreSwift;
 		};
 		1FFCE5BA2B420BEF001751CA /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -17,6 +17,7 @@ final class OnboardingViewModel: ObservableObject {
     @Published var password: String = ""
     @Published var isAuthenticated: Bool = false
     @Published var profileImageData: Data? // Stores the profile image data
+    @Published var user: UserModel? // User object
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
 
@@ -32,16 +33,25 @@ final class OnboardingViewModel: ObservableObject {
 
     /// Check the current authentication status
     func checkIfUserIsAuthenticated() {
-        isAuthenticated = Auth.auth().currentUser != nil
+        if let currentUser = Auth.auth().currentUser {
+            isAuthenticated = true
+            Task {
+                await fetchUserDocument(userId: currentUser.uid)
+                await loadProfileImage()
+            }
+        } else {
+            isAuthenticated = false
+        }
     }
 
     /// Sign in a user with email and password
     func signIn() async {
         do {
-            try await Auth.auth().signIn(withEmail: email, password: password)
+            let authResult = try await Auth.auth().signIn(withEmail: email, password: password)
             isAuthenticated = true
             clearErrorState()
-            await loadProfileImage() // Load the user's profile image after sign-in
+            await fetchUserDocument(userId: authResult.user.uid)
+            await loadProfileImage()
         } catch {
             handleError(error)
         }
@@ -61,10 +71,11 @@ final class OnboardingViewModel: ObservableObject {
     /// Create a new user with email and password
     func createUser() async {
         do {
-            try await Auth.auth().createUser(withEmail: email, password: password)
+            let authResult = try await Auth.auth().createUser(withEmail: email, password: password)
             isAuthenticated = true
             clearErrorState()
-            await createUserDocument() // Create Firestore document for the new user
+            await createUserDocument(userId: authResult.user.uid)
+            await fetchUserDocument(userId: authResult.user.uid)
         } catch {
             handleError(error)
         }
@@ -101,30 +112,47 @@ final class OnboardingViewModel: ObservableObject {
             print("No user signed in.")
             return
         }
+
         let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
         do {
             let data = try await storageRef.getDataAsync(maxSize: 5 * 1024 * 1024) // Max 5MB
             profileImageData = data
             print("Profile image loaded successfully.")
         } catch {
-            print("Error loading profile image: \(error)")
+            print("Error loading profile image: \(error.localizedDescription)")
         }
     }
 
     // MARK: - Firestore Integration
 
     /// Create a new Firestore document for the user
-    private func createUserDocument() async {
-        guard let currentUser = Auth.auth().currentUser else { return }
-        let userDoc = firestore.collection("users").document(currentUser.uid)
+    private func createUserDocument(userId: String) async {
+        let userDoc = firestore.collection("users").document(userId)
         do {
             try await userDoc.setData([
-                "email": currentUser.email ?? "",
+                "email": email,
                 "createdAt": Date()
             ])
             print("User document created successfully.")
         } catch {
             handleError(error)
+        }
+    }
+
+    /// Fetch the Firestore document for the user using Codable
+    private func fetchUserDocument(userId: String) async {
+        let userDoc = firestore.collection("users").document(userId)
+        do {
+            let snapshot = try await userDoc.getDocument()
+            if snapshot.exists {
+                self.user = try snapshot.data(as: UserModel.self)
+                print("User document fetched successfully.")
+            } else {
+                print("No user document found. Creating a new one...")
+                await createUserDocument(userId: userId)
+            }
+        } catch {
+            print("Error fetching user document: \(error.localizedDescription)")
         }
     }
 
@@ -142,6 +170,7 @@ final class OnboardingViewModel: ObservableObject {
         email = ""
         password = ""
         profileImageData = nil
+        user = nil
         errorMessage = nil
         showErrorAlert = false
     }

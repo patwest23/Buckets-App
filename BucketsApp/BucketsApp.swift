@@ -8,7 +8,6 @@
 import SwiftUI
 import Firebase
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 @main
 struct BucketsApp: App {
@@ -26,11 +25,7 @@ struct BucketsApp: App {
                     .onAppear {
                         Task {
                             // Load profile image asynchronously after login
-                            do {
-                                await onboardingViewModel.loadProfileImage()
-                            } catch {
-                                print("Failed to load profile image: \(error)")
-                            }
+                            await onboardingViewModel.loadProfileImage()
                         }
                         print("Authenticated user: \(onboardingViewModel.email)")
                     }
@@ -67,7 +62,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         print("App will enter foreground.")
     }
 }
-
 
 
 

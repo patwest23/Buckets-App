@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel // To access the userId
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @State private var newItem = ItemModel(name: "")
     @State private var isAddingNewItem = false
     @State private var isLoading = true
@@ -31,10 +31,19 @@ struct ListView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 20) {
-                            ForEach(viewModel.filteredItems.indices, id: \.self) { index in
-                                NavigationLink(value: viewModel.filteredItems[index]) {
+                            ForEach(viewModel.items, id: \.id) { item in
+                                NavigationLink(destination: DetailItemView(item: Binding(
+                                    get: { viewModel.items.first { $0.id == item.id } ?? item },
+                                    set: { updatedItem in
+                                        Task {
+                                            if let userId = onboardingViewModel.user?.id {
+                                                await viewModel.addOrUpdateItem(updatedItem, userId: userId)
+                                            }
+                                        }
+                                    }
+                                ))) {
                                     ItemRowView(
-                                        viewModel: ItemRowViewModel(item: viewModel.filteredItems[index], listViewModel: viewModel),
+                                        viewModel: ItemRowViewModel(item: item, listViewModel: viewModel),
                                         isEditing: .constant(false)
                                     )
                                 }
@@ -52,26 +61,16 @@ struct ListView: View {
             .onAppear {
                 loadItems()
             }
-            .navigationDestination(for: ItemModel.self) { item in
-                DetailItemView(item: Binding(
-                    get: { viewModel.items.first { $0.id == item.id } ?? item },
-                    set: { updatedItem in
-                        Task {
-                            guard let userId = onboardingViewModel.user?.id else { return }
-                            await viewModel.addOrUpdateItem(updatedItem, userId: userId)
-                        }
-                    }
-                ))
-            }
             .navigationDestination(isPresented: $isAddingNewItem) {
                 DetailItemView(item: $newItem)
                     .onDisappear {
                         Task {
-                            guard let userId = onboardingViewModel.user?.id else { return }
-                            if !newItem.name.isEmpty {
-                                await viewModel.addOrUpdateItem(newItem, userId: userId)
+                            if let userId = onboardingViewModel.user?.id {
+                                if !newItem.name.isEmpty {
+                                    await viewModel.addOrUpdateItem(newItem, userId: userId)
+                                }
+                                self.newItem = ItemModel(name: "")
                             }
-                            self.newItem = ItemModel(name: "")
                         }
                     }
             }
@@ -80,10 +79,11 @@ struct ListView: View {
 
     private func loadItems() {
         Task {
-            guard let userId = onboardingViewModel.user?.id else { return }
-            isLoading = true
-            await viewModel.loadItems(userId: userId)
-            isLoading = false
+            if let userId = onboardingViewModel.user?.id {
+                isLoading = true
+                await viewModel.loadItems(userId: userId)
+                isLoading = false
+            }
         }
     }
 
@@ -107,36 +107,25 @@ struct ListView: View {
     }
 }
 
-
-struct ListView_Previews: PreviewProvider {
-    static var previews: some View {
-        // Create a mock view model with sample data
-        let mockViewModel = ListViewModel()
-        mockViewModel.items = [
-            ItemModel(
-                name: "Mock Item 1",
-                description: "Description for mock item 1",
-                imagesData: [UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!]
-            ),
-            ItemModel(
-                name: "Mock Item 2",
-                description: "Description for mock item 2",
-                imagesData: [UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!]
-            ),
-            ItemModel(
-                name: "Mock Item 3",
-                description: nil,
-                imagesData: [UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!]
-            )
-        ]
-
-        // Render the ListView with the mock environment object
-        return NavigationStack {
-            ListView()
-                .environmentObject(mockViewModel) // Inject mock data
-        }
-        .previewDisplayName("ListView Preview with Mock Data")
-    }
-}
+//struct ListView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        let mockViewModel = ListViewModel()
+//        mockViewModel.items = [
+//            ItemModel(name: "Mock Item 1", description: "Description for mock item 1"),
+//            ItemModel(name: "Mock Item 2", description: "Description for mock item 2"),
+//            ItemModel(name: "Mock Item 3", description: nil)
+//        ]
+//
+//        let mockOnboardingViewModel = MockOnboardingViewModel()
+//        mockOnboardingViewModel.isAuthenticated = true
+//        mockOnboardingViewModel.email = "mockuser@example.com"
+//
+//        return NavigationStack {
+//            ListView()
+//                .environmentObject(mockViewModel)
+//                .environmentObject(mockOnboardingViewModel)
+//        }
+//    }
+//}
 
 

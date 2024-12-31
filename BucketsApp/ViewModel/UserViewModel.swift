@@ -6,7 +6,6 @@
 //
 
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 @MainActor
 class UserViewModel: ObservableObject {

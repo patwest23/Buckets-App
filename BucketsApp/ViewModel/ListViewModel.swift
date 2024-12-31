@@ -10,7 +10,6 @@ import Combine
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 enum SortingMode: String, CaseIterable {
     case manual
@@ -43,15 +42,20 @@ class ListViewModel: ObservableObject {
     // MARK: - Persistent Storage
 
     /// Load items from persistent storage or Firestore.
-    func loadItems() async {
-        guard let userId = userId else {
-            print("Error: No userId available.")
-            return
-        }
-
+    func loadItems(userId: String) async {
         do {
             let snapshot = try await db.collection("users").document(userId).collection("items").getDocuments()
-            self.items = snapshot.documents.compactMap { try? $0.data(as: ItemModel.self) }
+            
+            // Map Firestore documents to the local `ItemModel`
+            self.items = snapshot.documents.compactMap { document in
+                do {
+                    return try document.data(as: ItemModel.self)
+                } catch {
+                    print("Error decoding item with ID \(document.documentID): \(error.localizedDescription)")
+                    return nil
+                }
+            }
+            
             saveItemsLocally() // Cache items locally
             print("Items successfully loaded from Firestore.")
         } catch {
@@ -82,33 +86,24 @@ class ListViewModel: ObservableObject {
     // MARK: - CRUD Operations with Firestore
 
     /// Add or update an item in Firestore.
-    func addOrUpdateItem(_ item: ItemModel) async {
-        guard let userId = userId else {
-            print("Error: No userId available.")
-            return
-        }
-
+    func addOrUpdateItem(_ item: ItemModel, userId: String) {
         do {
-            try await db.collection("users").document(userId).collection("items")
-                .document(item.id.uuidString).setData(from: item, merge: true)
+            let documentRef = db.collection("users").document(userId).collection("items").document(item.id.uuidString)
+            try documentRef.setData(from: item, merge: true)
+            
             if let index = items.firstIndex(where: { $0.id == item.id }) {
                 items[index] = item // Update local item
             } else {
                 items.append(item) // Add new item locally
             }
-            print("Item successfully added/updated in Firestore.")
+            print("Item with ID \(item.id) successfully added/updated in Firestore.")
         } catch {
-            print("Error adding/updating item in Firestore: \(error.localizedDescription)")
+            print("Error adding/updating item \(item.id) in Firestore: \(error.localizedDescription)")
         }
     }
 
     /// Delete an item from Firestore.
-    func deleteItem(_ item: ItemModel) async {
-        guard let userId = userId else {
-            print("Error: No userId available.")
-            return
-        }
-
+    func deleteItem(_ item: ItemModel, userId: String) async {
         do {
             try await db.collection("users").document(userId).collection("items")
                 .document(item.id.uuidString).delete()
@@ -120,15 +115,10 @@ class ListViewModel: ObservableObject {
     }
 
     /// Delete items at specified indices in Firestore.
-    func deleteItems(at indexSet: IndexSet) async {
-        guard let userId = userId else {
-            print("Error: No userId available.")
-            return
-        }
-
+    func deleteItems(at indexSet: IndexSet, userId: String) async {
         let itemsToDelete = indexSet.map { items[$0] }
         for item in itemsToDelete {
-            await deleteItem(item)
+            await deleteItem(item, userId: userId)
         }
     }
 
