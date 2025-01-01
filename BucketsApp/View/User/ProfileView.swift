@@ -61,7 +61,9 @@ struct ProfileView: View {
                         NavigationLink("Update Password", destination: UpdatePasswordView())
 
                         Button("Log Out", role: .destructive) {
-                            viewModel.signOut()
+                            Task {
+                                await viewModel.signOut() // Ensure async execution
+                            }
                         }
                     }
                     .listStyle(GroupedListStyle())

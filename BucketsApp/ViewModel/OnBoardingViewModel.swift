@@ -33,14 +33,15 @@ final class OnboardingViewModel: ObservableObject {
 
     /// Check the current authentication status
     func checkIfUserIsAuthenticated() {
-        if let currentUser = Auth.auth().currentUser {
-            isAuthenticated = true
-            Task {
-                await fetchUserDocument(userId: currentUser.uid)
-                await loadProfileImage()
-            }
-        } else {
+        guard let currentUser = Auth.auth().currentUser else {
             isAuthenticated = false
+            return
+        }
+        
+        isAuthenticated = true
+        Task {
+            await fetchUserDocument(userId: currentUser.uid)
+            await loadProfileImage()
         }
     }
 
@@ -86,6 +87,46 @@ final class OnboardingViewModel: ObservableObject {
         do {
             try await Auth.auth().sendPasswordReset(withEmail: email)
             return .success("A link to reset your password has been sent to \(email).")
+        } catch {
+            return .failure(error)
+        }
+    }
+    
+    /// Update email
+    func updateEmail(newEmail: String) async -> Result<String, Error> {
+        guard let currentUser = Auth.auth().currentUser else {
+            return .failure(NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is logged in."]))
+        }
+
+        do {
+            try await currentUser.updateEmail(to: newEmail)
+            
+            // Optionally update email in Firestore if stored there
+            let userDoc = Firestore.firestore().collection("users").document(currentUser.uid)
+            try await userDoc.updateData(["email": newEmail])
+            
+            // Update the published email property if needed
+            DispatchQueue.main.async {
+                self.email = newEmail
+            }
+            
+            return .success("Email updated successfully.")
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    /// Update the password for the authenticated user
+    func updatePassword(currentPassword: String, newPassword: String) async -> Result<String, Error> {
+        guard let user = Auth.auth().currentUser else {
+            return .failure(NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey: "No user is signed in."]))
+        }
+
+        do {
+            let credential = EmailAuthProvider.credential(withEmail: user.email ?? "", password: currentPassword)
+            try await user.reauthenticate(with: credential)
+            try await user.updatePassword(to: newPassword)
+            return .success("Password updated successfully.")
         } catch {
             return .failure(error)
         }
@@ -145,6 +186,7 @@ final class OnboardingViewModel: ObservableObject {
         do {
             let snapshot = try await userDoc.getDocument()
             if snapshot.exists {
+                // Attempt to decode the data into a UserModel
                 self.user = try snapshot.data(as: UserModel.self)
                 print("User document fetched successfully.")
             } else {
@@ -152,7 +194,7 @@ final class OnboardingViewModel: ObservableObject {
                 await createUserDocument(userId: userId)
             }
         } catch {
-            print("Error fetching user document: \(error.localizedDescription)")
+            print("Error fetching or decoding user document: \(error.localizedDescription)")
         }
     }
 

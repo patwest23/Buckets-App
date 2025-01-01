@@ -5,8 +5,10 @@
 //  Created by Patrick Westerkamp on 12/29/24.
 //
 
-import FirebaseFirestore
+import SwiftUI
 import Foundation
+import CoreLocation
+import FirebaseFirestore
 
 struct UserModel: Identifiable, Codable {
     @DocumentID var id: String? // Firestore document ID

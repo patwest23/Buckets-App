@@ -135,25 +135,5 @@ struct ListView: View {
     }
 }
 
-//struct ListView_Previews: PreviewProvider {
-//    static var previews: some View {
-//        let mockViewModel = ListViewModel()
-//        mockViewModel.items = [
-//            ItemModel(name: "Mock Item 1", description: "Description for mock item 1"),
-//            ItemModel(name: "Mock Item 2", description: "Description for mock item 2"),
-//            ItemModel(name: "Mock Item 3", description: nil)
-//        ]
-//
-//        let mockOnboardingViewModel = MockOnboardingViewModel()
-//        mockOnboardingViewModel.isAuthenticated = true
-//        mockOnboardingViewModel.email = "mockuser@example.com"
-//
-//        return NavigationStack {
-//            ListView()
-//                .environmentObject(mockViewModel)
-//                .environmentObject(mockOnboardingViewModel)
-//        }
-//    }
-//}
 
 

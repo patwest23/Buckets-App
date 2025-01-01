@@ -70,25 +70,6 @@ struct ItemRowView: View {
     }
 }
 
-//struct ItemRowView_Previews: PreviewProvider {
-//    @State static var item = ItemModel(
-//        name: "Example Item",
-//        description: "An example item description",
-//        imagesData: [
-//            UIImage(systemName: "photo")!.jpegData(compressionQuality: 1.0)!,
-//            UIImage(systemName: "photo.fill")!.jpegData(compressionQuality: 1.0)!,
-//            UIImage(systemName: "photo.on.rectangle.angled")!.jpegData(compressionQuality: 1.0)!
-//        ]
-//    )
-//    @State static var isEditing = false
-//
-//    static var previews: some View {
-//        ItemRowView(viewModel: ItemRowViewModel(item: item), isEditing: $isEditing)
-//            .previewLayout(.sizeThatFits)
-//            .padding()
-//            .previewDisplayName("Item Row Preview with Images")
-//    }
-//}
 
 
 

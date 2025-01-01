@@ -5,16 +5,15 @@
 //  Created by Patrick Westerkamp on 12/13/24.
 //
 
+import SwiftUI
 import FirebaseStorage
 import Foundation
 import UIKit
+import FirebaseStorage
 
 extension StorageReference {
-    /// Retrieves data from Firebase Storage asynchronously.
-    /// - Parameter maxSize: The maximum size of the data in bytes.
-    /// - Returns: The retrieved data as `Data`.
     func getDataAsync(maxSize: Int64) async throws -> Data {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
             self.getData(maxSize: maxSize) { data, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -31,12 +30,8 @@ extension StorageReference {
         }
     }
 
-    /// Uploads data to Firebase Storage asynchronously.
-    /// - Parameters:
-    ///   - uploadData: The data to upload.
-    ///   - metadata: Optional metadata for the upload.
     func putDataAsync(_ uploadData: Data, metadata: StorageMetadata? = nil) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             self.putData(uploadData, metadata: metadata) { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)

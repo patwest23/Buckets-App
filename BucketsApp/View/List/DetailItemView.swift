@@ -132,6 +132,16 @@ struct DetailItemView: View {
         }
     }
 
+    /// Delete the item from Firestore and navigate back to the previous view
+    private func deleteItem() {
+        Task {
+            await userViewModel.deleteBucketListItem(item)
+            DispatchQueue.main.async {
+                presentationMode.wrappedValue.dismiss()
+            }
+        }
+    }
+
     /// Handle photo selection and sync updates with Firestore
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
@@ -146,14 +156,6 @@ struct DetailItemView: View {
                 item.imagesData = Array(newImages.prefix(3))
                 updateItem()
             }
-        }
-    }
-
-    /// Delete the item from Firestore and navigate back to the previous view
-    private func deleteItem() {
-        Task {
-            await userViewModel.deleteBucketListItem(item)
-            presentationMode.wrappedValue.dismiss()
         }
     }
 
@@ -195,26 +197,26 @@ struct DetailItemView: View {
     }
 }
 
-struct DetailItemView_Previews: PreviewProvider {
-    static var previews: some View {
-        let mockItem = ItemModel(
-            name: "Mock Item Name",
-            description: "Mock Item Description",
-            imagesData: [
-                UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!,
-                UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!,
-                UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!
-            ]
-        )
-
-        return NavigationView {
-            DetailItemView(item: .constant(mockItem))
-                .padding()
-                .background(Color.white.edgesIgnoringSafeArea(.all))
-        }
-        .previewDisplayName("Detail Item View Preview with Mock Data")
-    }
-}
+//struct DetailItemView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        let mockItem = ItemModel(
+//            name: "Mock Item Name",
+//            description: "Mock Item Description",
+//            imagesData: [
+//                UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!,
+//                UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!,
+//                UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!
+//            ]
+//        )
+//
+//        return NavigationView {
+//            DetailItemView(item: .constant(mockItem))
+//                .padding()
+//                .background(Color.white.edgesIgnoringSafeArea(.all))
+//        }
+//        .previewDisplayName("Detail Item View Preview with Mock Data")
+//    }
+//}
 
 
 

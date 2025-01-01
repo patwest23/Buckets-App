@@ -86,10 +86,10 @@ class ListViewModel: ObservableObject {
     // MARK: - CRUD Operations with Firestore
 
     /// Add or update an item in Firestore.
-    func addOrUpdateItem(_ item: ItemModel, userId: String) {
+    func addOrUpdateItem(_ item: ItemModel, userId: String) async {
         do {
             let documentRef = db.collection("users").document(userId).collection("items").document(item.id.uuidString)
-            try documentRef.setData(from: item, merge: true)
+            try await documentRef.setData(from: item, merge: true)
             
             if let index = items.firstIndex(where: { $0.id == item.id }) {
                 items[index] = item // Update local item

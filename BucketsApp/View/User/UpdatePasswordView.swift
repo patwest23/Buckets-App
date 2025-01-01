@@ -17,24 +17,29 @@ struct UpdatePasswordView: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            // Title
             Text("Update Password")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
                 .padding()
 
+            // Current Password Input
             SecureField("Current Password", text: $currentPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
+            // New Password Input
             SecureField("New Password", text: $newPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
+            // Confirm New Password Input
             SecureField("Confirm New Password", text: $confirmPassword)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
+            // Update Password Button
             Button(action: { Task { await updatePassword() } }) {
                 Text("Update Password")
                     .foregroundColor(.white)
@@ -43,7 +48,7 @@ struct UpdatePasswordView: View {
                     .background(isFormValid ? Color.blue : Color.gray)
                     .cornerRadius(10)
             }
-            .disabled(!isFormValid)
+            .disabled(!isFormValid) // Disable button if form is invalid
             .padding(.horizontal)
 
             Spacer()
@@ -58,27 +63,27 @@ struct UpdatePasswordView: View {
         }
     }
 
+    // MARK: - Validation
     private var isFormValid: Bool {
         !currentPassword.isEmpty && !newPassword.isEmpty && !confirmPassword.isEmpty
     }
 
+    // MARK: - Update Password Logic
     private func updatePassword() async {
         guard newPassword == confirmPassword else {
             showError("Passwords do not match.")
             return
         }
 
-        let result = await viewModel.updatePassword(currentPassword: currentPassword, newPassword: newPassword)
-        DispatchQueue.main.async {
-            switch result {
-            case .success(let message):
-                showSuccess(message)
-            case .failure(let error):
-                showError(error.localizedDescription)
-            }
+        do {
+            try await viewModel.updatePassword(currentPassword: currentPassword, newPassword: newPassword)
+            showSuccess("Password updated successfully.")
+        } catch {
+            showError(error.localizedDescription)
         }
     }
 
+    // MARK: - Helper Methods
     private func showSuccess(_ message: String) {
         updateMessage = message
         showAlert = true

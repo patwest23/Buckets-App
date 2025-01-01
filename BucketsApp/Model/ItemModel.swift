@@ -9,6 +9,7 @@
 import Foundation
 import SwiftUI
 import CoreLocation
+import FirebaseFirestore
 
 enum Priority: String, Codable {
     case none, low, medium, high
