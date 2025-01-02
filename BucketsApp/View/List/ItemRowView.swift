@@ -8,7 +8,10 @@
 import SwiftUI
 
 struct ItemRowView: View {
-    @ObservedObject var viewModel: ItemRowViewModel
+    @EnvironmentObject var listViewModel: ListViewModel
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+
+    let item: ItemModel
     @Binding var isEditing: Bool
 
     var body: some View {
@@ -17,27 +20,31 @@ struct ItemRowView: View {
                 // Toggle completion status
                 Button(action: {
                     Task {
-                        await viewModel.toggleCompleted() // Async Firestore update
+                        await toggleCompleted()
                     }
                 }) {
-                    Image(systemName: viewModel.item.completed ? "checkmark.circle.fill" : "circle")
+                    Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
                         .font(.title2)
-                        .foregroundColor(viewModel.item.completed ? Color.accentColor : .gray)
+                        .foregroundColor(item.completed ? .accentColor : .gray)
                 }
                 .buttonStyle(BorderlessButtonStyle())
 
                 // Navigation link to DetailItemView
-                NavigationLink(destination: DetailItemView(item: Binding(
-                    get: { viewModel.item },
-                    set: { updatedItem in
-                        Task {
-                            await viewModel.updateItemInFirestore(item: updatedItem) // Pass updatedItem
-                        }
-                    }
-                ))) {
-                    Text(viewModel.item.name.isEmpty ? "Untitled Item" : viewModel.item.name)
-                        .foregroundColor(viewModel.item.completed ? .gray : .primary)
+                NavigationLink(
+                    destination: DetailItemView(
+                        item: Binding(
+                            get: { itemFromList ?? item },
+                            set: { updatedItem in
+                                Task {
+                                    await updateItemInFirestore(updatedItem)
+                                }
+                            }
+                        )
+                    )
+                ) {
+                    Text(item.name.isEmpty ? "Untitled Item" : item.name)
+                        .foregroundColor(item.completed ? .gray : .primary)
                         .font(.title3)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -46,9 +53,9 @@ struct ItemRowView: View {
             }
 
             // Display photo carousel if images exist
-            if !viewModel.item.imageUrls.isEmpty {
+            if !item.imageUrls.isEmpty {
                 TabView {
-                    ForEach(viewModel.item.imageUrls, id: \.self) { imageUrl in
+                    ForEach(item.imageUrls, id: \.self) { imageUrl in
                         AsyncImage(url: URL(string: imageUrl)) { image in
                             image
                                 .resizable()
@@ -67,6 +74,28 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Private Helpers
+
+    /// Looks up the latest version of this item from the ListViewModel’s items,
+    /// in case it has been updated in memory already.
+    private var itemFromList: ItemModel? {
+        listViewModel.items.first { $0.id == item.id }
+    }
+
+    /// Toggles the `completed` property in Firestore using `ListViewModel`.
+    private func toggleCompleted() async {
+        guard let userId = onboardingViewModel.user?.id else { return }
+        var updatedItem = itemFromList ?? item
+        updatedItem.completed.toggle()
+        await listViewModel.addOrUpdateItem(updatedItem, userId: userId)
+    }
+
+    /// Updates the item in Firestore with any new changes (e.g., name, details).
+    private func updateItemInFirestore(_ updatedItem: ItemModel) async {
+        guard let userId = onboardingViewModel.user?.id else { return }
+        await listViewModel.addOrUpdateItem(updatedItem, userId: userId)
     }
 }
 

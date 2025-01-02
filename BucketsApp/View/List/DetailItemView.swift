@@ -9,11 +9,19 @@ import SwiftUI
 import PhotosUI
 
 struct DetailItemView: View {
+    // MARK: - Bound Item
     @Binding var item: ItemModel
-    @EnvironmentObject var userViewModel: UserViewModel // Replace ListViewModel with UserViewModel
-    @Environment(\.presentationMode) var presentationMode // Access presentation mode for navigation
+    
+    // MARK: - Environment Objects
+    @EnvironmentObject var listViewModel: ListViewModel
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    
+    // MARK: - Presentation
+    @Environment(\.presentationMode) var presentationMode
+    
+    // MARK: - Local State
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var showDeleteConfirmation: Bool = false // State for delete confirmation alert
+    @State private var showDeleteConfirmation: Bool = false
 
     var body: some View {
         VStack {
@@ -25,26 +33,32 @@ struct DetailItemView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.name) { _ in updateItem() }
+                        .onChange(of: item.name) { _ in
+                            updateItem()
+                        }
 
                     // Notes TextEditor
                     ZStack(alignment: .topLeading) {
-                        if item.description?.isEmpty ?? true {
+                        if (item.description?.isEmpty ?? true) {
                             Text("Notes")
                                 .foregroundColor(.gray)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 12)
                         }
-                        TextEditor(text: Binding(
-                            get: { item.description ?? "" },
-                            set: { item.description = $0 }
-                        ))
+                        TextEditor(
+                            text: Binding(
+                                get: { item.description ?? "" },
+                                set: { item.description = $0 }
+                            )
+                        )
                         .frame(minHeight: 150)
                         .padding(4)
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.description) { _ in updateItem() }
+                        .onChange(of: item.description) { _ in
+                            updateItem()
+                        }
                     }
 
                     // Completed Toggle
@@ -53,7 +67,9 @@ struct DetailItemView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.completed) { _ in updateItem() }
+                        .onChange(of: item.completed) { _ in
+                            updateItem()
+                        }
 
                     // Photos Grid
                     if !item.imagesData.isEmpty {
@@ -95,7 +111,8 @@ struct DetailItemView: View {
                 }
                 .padding()
             }
-            Spacer() // Push the delete button to the bottom
+
+            Spacer()
 
             // Delete Button
             Button(action: {
@@ -123,26 +140,30 @@ struct DetailItemView: View {
         .background(Color.white)
     }
 
-    // MARK: Helper Functions
+    // MARK: - Helper Functions
 
-    /// Update the item in Firestore
+    /// Updates the item in Firestore via ListViewModel
     private func updateItem() {
         Task {
-            await userViewModel.updateBucketListItem(item)
-        }
-    }
-
-    /// Delete the item from Firestore and navigate back to the previous view
-    private func deleteItem() {
-        Task {
-            await userViewModel.deleteBucketListItem(item)
-            DispatchQueue.main.async {
-                presentationMode.wrappedValue.dismiss()
+            if let userId = onboardingViewModel.user?.id {
+                await listViewModel.addOrUpdateItem(item, userId: userId)
             }
         }
     }
 
-    /// Handle photo selection and sync updates with Firestore
+    /// Deletes the item from Firestore via ListViewModel, then dismisses the view
+    private func deleteItem() {
+        Task {
+            if let userId = onboardingViewModel.user?.id {
+                await listViewModel.deleteItem(item, userId: userId)
+                DispatchQueue.main.async {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+        }
+    }
+
+    /// Handles photo selection, updates `item.imagesData`, and syncs changes
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
             var newImages: [Data] = []
@@ -152,14 +173,13 @@ struct DetailItemView: View {
                 }
             }
             if !newImages.isEmpty {
-                // Keep only the last selection of images (up to 3)
-                item.imagesData = Array(newImages.prefix(3))
+                item.imagesData = Array(newImages.prefix(3)) // Keep up to 3
                 updateItem()
             }
         }
     }
 
-    /// Placeholder image for empty photo slots
+    /// A placeholder image for empty photo slots
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -172,12 +192,13 @@ struct DetailItemView: View {
         }
     }
 
-    /// Placeholder view for no photos
+    /// A placeholder view for no photos
     private func placeholderView() -> some View {
         VStack {
             HStack {
                 ForEach(0..<3, id: \.self) { index in
-                    if index < item.imagesData.count, let image = UIImage(data: item.imagesData[index]) {
+                    if index < item.imagesData.count,
+                       let image = UIImage(data: item.imagesData[index]) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
@@ -197,26 +218,6 @@ struct DetailItemView: View {
     }
 }
 
-//struct DetailItemView_Previews: PreviewProvider {
-//    static var previews: some View {
-//        let mockItem = ItemModel(
-//            name: "Mock Item Name",
-//            description: "Mock Item Description",
-//            imagesData: [
-//                UIImage(named: "MockImage1")!.jpegData(compressionQuality: 1.0)!,
-//                UIImage(named: "MockImage2")!.jpegData(compressionQuality: 1.0)!,
-//                UIImage(named: "MockImage3")!.jpegData(compressionQuality: 1.0)!
-//            ]
-//        )
-//
-//        return NavigationView {
-//            DetailItemView(item: .constant(mockItem))
-//                .padding()
-//                .background(Color.white.edgesIgnoringSafeArea(.all))
-//        }
-//        .previewDisplayName("Detail Item View Preview with Mock Data")
-//    }
-//}
 
 
 

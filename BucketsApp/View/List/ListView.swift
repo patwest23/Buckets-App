@@ -70,6 +70,8 @@ struct ListView: View {
         }
     }
 
+    // MARK: - Updated NavigationLink
+
     private func navigationLink(for item: ItemModel) -> some View {
         NavigationLink(
             destination: DetailItemView(item: Binding(
@@ -77,10 +79,8 @@ struct ListView: View {
                 set: { updatedItem in handleItemUpdate(updatedItem) }
             ))
         ) {
-            ItemRowView(
-                viewModel: ItemRowViewModel(item: item),
-                isEditing: .constant(false)
-            )
+            // Pass the item directly to ItemRowView without any separate "row" ViewModel
+            ItemRowView(item: item, isEditing: .constant(false))
         }
     }
 
@@ -134,6 +134,5 @@ struct ListView: View {
         }
     }
 }
-
 
 
