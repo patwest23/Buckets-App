@@ -23,7 +23,6 @@
 		1F8EB9562B537915009CC18E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 1F8EB9552B537915009CC18E /* GoogleSignIn */; };
 		1F8EB9582B537915009CC18E /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1F8EB9572B537915009CC18E /* GoogleSignInSwift */; };
 		1F91D69B2C9678F300947A9D /* MockOnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */; };
-		1F960AF32BB88D9E00815B66 /* ItemRowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F960AF22BB88D9E00815B66 /* ItemRowViewModel.swift */; };
 		1FA834E52CFC1B660085F0F1 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA834E42CFC1B660085F0F1 /* MainTabView.swift */; };
 		1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */; };
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
@@ -56,7 +55,6 @@
 		1F815C8D29ECA08B000063D3 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		1F8EB9592B5379E5009CC18E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOnBoardingViewModel.swift; sourceTree = "<group>"; };
-		1F960AF22BB88D9E00815B66 /* ItemRowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowViewModel.swift; sourceTree = "<group>"; };
 		1FA834E42CFC1B660085F0F1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 		1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateEmailView.swift; sourceTree = "<group>"; };
@@ -165,7 +163,6 @@
 			children = (
 				1F234B222D21DAE7000DF507 /* UserViewModel.swift */,
 				1F64774929E5020F00B66F63 /* ListViewModel.swift */,
-				1F960AF22BB88D9E00815B66 /* ItemRowViewModel.swift */,
 				1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */,
 				1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */,
 				1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */,
@@ -312,7 +309,6 @@
 				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
 				1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
 				1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
-				1F960AF32BB88D9E00815B66 /* ItemRowViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

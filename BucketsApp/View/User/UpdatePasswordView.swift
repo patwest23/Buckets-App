@@ -76,8 +76,11 @@ struct UpdatePasswordView: View {
         }
 
         do {
-            try await viewModel.updatePassword(currentPassword: currentPassword, newPassword: newPassword)
-            showSuccess("Password updated successfully.")
+            let message = try await viewModel.updatePassword(
+                currentPassword: currentPassword,
+                newPassword: newPassword
+            )
+            showSuccess(message)
         } catch {
             showError(error.localizedDescription)
         }
