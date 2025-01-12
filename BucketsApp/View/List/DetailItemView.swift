@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import FirebaseStorage
 
 struct DetailItemView: View {
     // MARK: - Bound Item
@@ -27,17 +28,16 @@ struct DetailItemView: View {
         VStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // TextField for Item Name
+                    
+                    // MARK: - Name Field
                     TextField("What do you want to do before you die?", text: $item.name)
                         .padding()
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.name) { _ in
-                            updateItem()
-                        }
+                        .onChange(of: item.name) { _ in updateItem() }
 
-                    // Notes TextEditor
+                    // MARK: - Description
                     ZStack(alignment: .topLeading) {
                         if (item.description?.isEmpty ?? true) {
                             Text("Notes")
@@ -56,47 +56,57 @@ struct DetailItemView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.description) { _ in
-                            updateItem()
-                        }
+                        .onChange(of: item.description) { _ in updateItem() }
                     }
 
-                    // Completed Toggle
+                    // MARK: - Completed Toggle
                     Toggle("Completed", isOn: $item.completed)
                         .padding()
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.completed) { _ in
-                            updateItem()
-                        }
+                        .onChange(of: item.completed) { _ in updateItem() }
 
-                    // Photos Grid
-                    if !item.imagesData.isEmpty {
-                        LazyVGrid(columns: [
-                            GridItem(.flexible()),
-                            GridItem(.flexible()),
-                            GridItem(.flexible())
-                        ], spacing: 10) {
-                            ForEach(Array(item.imagesData.enumerated()), id: \.offset) { _, imageData in
-                                if let image = UIImage(data: imageData) {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 100, height: 100)
-                                        .cornerRadius(10)
-                                        .clipped()
+                    // MARK: - Photo Grid (Using imageUrls)
+                    if item.imageUrls.isEmpty {
+                        placeholderView()
+                    } else {
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.flexible()),
+                                GridItem(.flexible()),
+                                GridItem(.flexible())
+                            ],
+                            spacing: 10
+                        ) {
+                            ForEach(item.imageUrls, id: \.self) { urlString in
+                                if let url = URL(string: urlString) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .empty:
+                                            ProgressView()
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 100, height: 100)
+                                                .cornerRadius(10)
+                                                .clipped()
+                                        case .failure:
+                                            placeholderImage()
+                                        @unknown default:
+                                            placeholderImage()
+                                        }
+                                    }
                                 } else {
                                     placeholderImage()
                                 }
                             }
                         }
                         .padding(.horizontal)
-                    } else {
-                        placeholderView()
                     }
 
-                    // Photos Picker
+                    // MARK: - Photos Picker
                     PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
                         Text("Select Photos")
                             .frame(maxWidth: .infinity)
@@ -114,7 +124,7 @@ struct DetailItemView: View {
 
             Spacer()
 
-            // Delete Button
+            // MARK: - Delete Button
             Button(action: {
                 showDeleteConfirmation = true
             }) {
@@ -142,7 +152,7 @@ struct DetailItemView: View {
 
     // MARK: - Helper Functions
 
-    /// Updates the item in Firestore via ListViewModel
+    /// Updates the item in Firestore (via ListViewModel)
     private func updateItem() {
         Task {
             if let userId = onboardingViewModel.user?.id {
@@ -151,7 +161,7 @@ struct DetailItemView: View {
         }
     }
 
-    /// Deletes the item from Firestore via ListViewModel, then dismisses the view
+    /// Deletes the item from Firestore (via ListViewModel) and dismisses the view
     private func deleteItem() {
         Task {
             if let userId = onboardingViewModel.user?.id {
@@ -163,23 +173,40 @@ struct DetailItemView: View {
         }
     }
 
-    /// Handles photo selection, updates `item.imagesData`, and syncs changes
+    /// Uploads selected photos to a single user-level folder (`users/<userId>/images`),
+    /// then appends their URLs to `item.imageUrls`.
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
-            var newImages: [Data] = []
-            for selection in selections {
-                if let data = try? await selection.loadTransferable(type: Data.self) {
-                    newImages.append(data)
+            guard let userId = onboardingViewModel.user?.id else { return }
+            let storageRef = Storage.storage()
+                .reference()
+                .child("users/\(userId)/images")
+
+            var newUrls: [String] = []
+            for (index, selection) in selections.prefix(3).enumerated() {
+                do {
+                    if let data = try? await selection.loadTransferable(type: Data.self) {
+                        // Upload the image data
+                        let imageRef = storageRef.child("detail-\(item.id.uuidString)-\(index + 1).jpg")
+                        _ = try await imageRef.putDataAsync(data)
+                        
+                        let downloadUrl = try await imageRef.downloadURL()
+                        newUrls.append(downloadUrl.absoluteString)
+                    }
+                } catch {
+                    print("Error uploading selected photo: \(error.localizedDescription)")
                 }
             }
-            if !newImages.isEmpty {
-                item.imagesData = Array(newImages.prefix(3)) // Keep up to 3
+
+            // Append to existing imageUrls, then update Firestore
+            if !newUrls.isEmpty {
+                item.imageUrls.append(contentsOf: newUrls)
                 updateItem()
             }
         }
     }
 
-    /// A placeholder image for empty photo slots
+    /// A placeholder image for missing or invalid URLs
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -192,25 +219,16 @@ struct DetailItemView: View {
         }
     }
 
-    /// A placeholder view for no photos
+    /// A placeholder view when `imageUrls` is empty
     private func placeholderView() -> some View {
         VStack {
-            HStack {
-                ForEach(0..<3, id: \.self) { index in
-                    if index < item.imagesData.count,
-                       let image = UIImage(data: item.imagesData[index]) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 100, height: 100)
-                            .cornerRadius(10)
-                            .clipped()
-                    } else {
-                        placeholderImage()
-                    }
-                }
-            }
-            Text(item.imagesData.isEmpty ? "No Photos Added" : "Max 3 Photos")
+            Image(systemName: "photo.on.rectangle.angled")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 80, height: 80)
+                .foregroundColor(.gray)
+
+            Text("No Photos Added")
                 .font(.subheadline)
                 .foregroundColor(.gray)
         }

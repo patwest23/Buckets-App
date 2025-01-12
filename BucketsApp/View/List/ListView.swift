@@ -10,6 +10,7 @@ import SwiftUI
 struct ListView: View {
     @EnvironmentObject var viewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+
     @State private var newItem = ItemModel(userId: "", name: "")
     @State private var isAddingNewItem = false
     @State private var isLoading = true
@@ -70,16 +71,18 @@ struct ListView: View {
         }
     }
 
-    // MARK: - Updated NavigationLink
+    // MARK: - NavigationLink
 
     private func navigationLink(for item: ItemModel) -> some View {
         NavigationLink(
-            destination: DetailItemView(item: Binding(
-                get: { viewModel.items.first { $0.id == item.id } ?? item },
-                set: { updatedItem in handleItemUpdate(updatedItem) }
-            ))
+            destination: DetailItemView(
+                item: Binding(
+                    get: { viewModel.items.first { $0.id == item.id } ?? item },
+                    set: { updatedItem in handleItemUpdate(updatedItem) }
+                )
+            )
         ) {
-            // Pass the item directly to ItemRowView without any separate "row" ViewModel
+            // Show a row with the item, no separate ViewModel needed
             ItemRowView(item: item, isEditing: .constant(false))
         }
     }
@@ -134,5 +137,4 @@ struct ListView: View {
         }
     }
 }
-
 

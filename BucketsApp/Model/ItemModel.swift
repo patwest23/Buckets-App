@@ -26,8 +26,8 @@ struct Location: Codable, Hashable {
 }
 
 struct ItemModel: Codable, Identifiable, Hashable {
-    var id: UUID // Unique identifier for the item
-    var userId: String // Identifier for the user who owns this item
+    var id: UUID              // Unique identifier
+    var userId: String        // Identifier for the user who owns this item
     var name: String
     var description: String?
     var url: String?
@@ -40,8 +40,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var completed: Bool = false
     var order: Int = 0
     var creationDate: Date
-    var imagesData: [Data] = [] // Array to hold multiple image data locally
-    var imageUrls: [String] = [] // For Firebase Storage references
+    
+    // Now we only store URLs pointing to images in Firebase Storage
+    var imageUrls: [String] = []
 
     init(
         id: UUID = UUID(),
@@ -58,7 +59,6 @@ struct ItemModel: Codable, Identifiable, Hashable {
         completed: Bool = false,
         order: Int = 0,
         creationDate: Date = Date(),
-        imagesData: [Data] = [],
         imageUrls: [String] = []
     ) {
         self.id = id
@@ -75,23 +75,19 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.completed = completed
         self.order = order
         self.creationDate = creationDate
-        self.imagesData = imagesData
         self.imageUrls = imageUrls
     }
 
-    // Computed properties for validations or transformations
+    // MARK: - Computed Properties
+
     var isValidUrl: Bool {
         guard let url = URL(string: self.url ?? "") else { return false }
         return UIApplication.shared.canOpenURL(url)
     }
 
-    var thumbnailImages: [UIImage] {
-        imagesData.compactMap { UIImage(data: $0)?.resized(toWidth: 100) }
-    }
-
-    /// Converts the due date to a formatted string or nil if no date is set
     var firebaseDueDate: Date? {
-        return dueDate
+        // Firestore-friendly due date (nil if not set)
+        dueDate
     }
 }
 
