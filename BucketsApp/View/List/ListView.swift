@@ -14,20 +14,49 @@ struct ListView: View {
     @State private var newItem = ItemModel(userId: "", name: "")
     @State private var isAddingNewItem = false
     @State private var isLoading = true
+    @State private var showProfileView = false // Controls navigation to ProfileView
 
     var body: some View {
         NavigationStack {
             ZStack {
                 contentView
+
                 addButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
-            .navigationTitle("Buckets")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Bucket List")
+            .navigationBarTitleDisplayMode(.large)
+            // MARK: - Add custom toolbar items
+            .toolbar {
+                // User name on the left side
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if let user = onboardingViewModel.user {
+                        Text(user.name ?? "Unknown")
+                            .font(.headline)
+                    } else {
+                        Text("No Name")
+                            .font(.headline)
+                    }
+                }
+                // Profile image button on the right side
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        // Navigate to ProfileView
+                        showProfileView = true
+                    } label: {
+                        profileImageView
+                    }
+                }
+            }
             .onAppear { loadItems() }
             .navigationDestination(isPresented: $isAddingNewItem) {
                 DetailItemView(item: $newItem)
                     .onDisappear { handleNewItemSave() }
+            }
+            // Present ProfileView when showProfileView is true
+            .navigationDestination(isPresented: $showProfileView) {
+                ProfileView()
+                    .environmentObject(onboardingViewModel)
             }
         }
     }
@@ -71,8 +100,30 @@ struct ListView: View {
         }
     }
 
-    // MARK: - NavigationLink
+    // Profile image in the top-right corner
+    private var profileImageView: some View {
+        if let data = onboardingViewModel.profileImageData,
+           let uiImage = UIImage(data: data) {
+            AnyView(
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
+            )
+        } else {
+            AnyView(
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
+                    .foregroundColor(.gray)
+            )
+        }
+    }
 
+    // MARK: - NavigationLink for each item
     private func navigationLink(for item: ItemModel) -> some View {
         NavigationLink(
             destination: DetailItemView(
@@ -82,11 +133,11 @@ struct ListView: View {
                 )
             )
         ) {
-            // Show a row with the item, no separate ViewModel needed
             ItemRowView(item: item, isEditing: .constant(false))
         }
     }
 
+    // MARK: - Add button
     private var addButton: some View {
         Button(action: {
             newItem = ItemModel(userId: "", name: "")
@@ -112,7 +163,13 @@ struct ListView: View {
         Task {
             if let userId = onboardingViewModel.user?.id {
                 isLoading = true
-                await viewModel.loadItems(userId: userId)
+                do {
+                    // If your ListViewModel.loadItems is 'async throws',
+                    // you can do:
+                    try await viewModel.loadItems(userId: userId)
+                } catch {
+                    print("ListView: loadItems() error => \(error.localizedDescription)")
+                }
                 isLoading = false
             }
         }
@@ -135,6 +192,55 @@ struct ListView: View {
                 newItem = ItemModel(userId: "", name: "")
             }
         }
+    }
+}
+
+struct ListView_Previews: PreviewProvider {
+    static var previews: some View {
+        // 1) Create sample environment objects
+        let sampleListVM = ListViewModel()
+        let sampleOnboardingVM = OnboardingViewModel()
+
+        // 2) Populate the ListViewModel with a few items
+        sampleListVM.items = [
+            ItemModel(
+                userId: "testUser1",
+                name: "Sample Bucket List Item 1",
+                description: "This is a preview description for item 1.",
+                creationDate: Date().addingTimeInterval(-86400) // 1 day ago
+            ),
+            ItemModel(
+                userId: "testUser2",
+                name: "Sample Bucket List Item 2",
+                description: "A second item to show in the preview.",
+                completed: true,
+                creationDate: Date()
+            )
+        ]
+
+        // 3) Populate the OnboardingViewModel with a mock user
+        sampleOnboardingVM.user = UserModel(
+            id: "testUser1",
+            email: "sample@example.com",
+            createdAt: Date(),
+            profileImageUrl: nil,
+            name: "@pwesterkamp"
+        )
+
+        // 4) (Optional) Provide some placeholder profile image data
+        // If you have a local image in your Assets, you can do:
+        /*
+        if let uiImage = UIImage(named: "ProfilePlaceholder"),
+           let data = uiImage.jpegData(compressionQuality: 1.0) {
+            sampleOnboardingVM.profileImageData = data
+        }
+        */
+
+        // 5) Return the `ListView` in the preview
+        return ListView()
+            .environmentObject(sampleListVM)
+            .environmentObject(sampleOnboardingVM)
+            // You can add .previewDisplayName(...) to label the preview
     }
 }
 

@@ -19,17 +19,21 @@ struct BucketsApp: App {
     var body: some Scene {
         WindowGroup {
             if onboardingViewModel.isAuthenticated {
-                MainTabView()
-                    .environmentObject(bucketListViewModel)
-                    .environmentObject(onboardingViewModel)
-                    .onAppear {
-                        Task {
-                            // Load profile image asynchronously after login
-                            await onboardingViewModel.loadProfileImage()
+                // Show the ListView for authenticated users
+                NavigationStack {
+                    ListView()
+                        .environmentObject(bucketListViewModel)
+                        .environmentObject(onboardingViewModel)
+                        .onAppear {
+                            Task {
+                                // Load profile image asynchronously after login
+                                await onboardingViewModel.loadProfileImage()
+                            }
+                            print("Authenticated user: \(onboardingViewModel.email)")
                         }
-                        print("Authenticated user: \(onboardingViewModel.email)")
-                    }
+                }
             } else {
+                // Show the OnboardingView if the user isn't authenticated
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
                     .onAppear {

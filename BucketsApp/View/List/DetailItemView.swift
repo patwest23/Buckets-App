@@ -8,27 +8,36 @@
 import SwiftUI
 import PhotosUI
 import FirebaseStorage
+import MapKit  // <-- For MKLocalSearchCompleter
 
 struct DetailItemView: View {
     // MARK: - Bound Item
     @Binding var item: ItemModel
-    
+
     // MARK: - Environment Objects
     @EnvironmentObject var listViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    
+
     // MARK: - Presentation
     @Environment(\.presentationMode) var presentationMode
-    
-    // MARK: - Local State
+
+    // MARK: - Local States
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var showDeleteConfirmation: Bool = false
+
+    // For MapKit autocomplete
+    @State private var locationQuery: String = ""
+    @State private var searchCompleter = MKLocalSearchCompleter()
+    @State private var completions: [MKLocalSearchCompletion] = []
+
+    // For date picker sheet (single-line display)
+    @State private var showDatePickerSheet = false
 
     var body: some View {
         VStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    
+
                     // MARK: - Name Field
                     TextField("What do you want to do before you die?", text: $item.name)
                         .padding()
@@ -59,6 +68,48 @@ struct DetailItemView: View {
                         .onChange(of: item.description) { _ in updateItem() }
                     }
 
+                    // MARK: - Single-line Date (Tap => Sheet w/ Wheel Picker)
+                    dateCreatedLine
+
+                    // MARK: - Location (MapKit Autocomplete, no label)
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField(
+                            "Enter location...",
+                            text: $locationQuery
+                        )
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 2)
+                        .onChange(of: locationQuery) { newValue in
+                            // Update item.location for custom text
+                            updateLocation(to: newValue)
+                            // Kick off MapKit autocomplete
+                            searchCompleter.queryFragment = newValue
+                        }
+
+                        if !completions.isEmpty && !locationQuery.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(completions, id: \.self) { completion in
+                                    Text(completion.title)
+                                        .padding(.vertical, 6)
+                                        .padding(.horizontal, 8)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(Color.gray.opacity(0.2))
+                                        .onTapGesture {
+                                            // User picked this suggestion
+                                            locationQuery = completion.title
+                                            updateLocation(to: completion.title)
+                                            completions.removeAll()
+                                        }
+                                }
+                            }
+                            .background(Color.white)
+                            .cornerRadius(8)
+                            .shadow(radius: 2)
+                        }
+                    }
+
                     // MARK: - Completed Toggle
                     Toggle("Completed", isOn: $item.completed)
                         .padding()
@@ -67,7 +118,7 @@ struct DetailItemView: View {
                         .shadow(radius: 2)
                         .onChange(of: item.completed) { _ in updateItem() }
 
-                    // MARK: - Photo Grid (Using imageUrls)
+                    // MARK: - Photo Grid
                     if item.imageUrls.isEmpty {
                         placeholderView()
                     } else {
@@ -148,11 +199,68 @@ struct DetailItemView: View {
             }
         }
         .background(Color.white)
+        .onAppear {
+            configureSearchCompleter()
+            // Initialize locationQuery from existing item data
+            locationQuery = item.location?.address ?? ""
+        }
     }
 
-    // MARK: - Helper Functions
+    // MARK: - Single-Line Date View
+    private var dateCreatedLine: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Single-line label
+            HStack {
+                Text("Date Created:")
+                    .font(.headline)
+                // Show the date in medium style
+                Text(formattedDate(item.creationDate))
+                    .foregroundColor(.blue)
+            }
+            .onTapGesture {
+                showDatePickerSheet = true
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 2)
+        // Present the sheet with a wheel-style date picker
+        .sheet(isPresented: $showDatePickerSheet) {
+            VStack(spacing: 20) {
+                Text("Select Date Created")
+                    .font(.title3)
+                    .padding(.top)
 
-    /// Updates the item in Firestore (via ListViewModel)
+                DatePicker(
+                    "",
+                    selection: $item.creationDate,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(WheelDatePickerStyle())
+                .labelsHidden()
+                .onChange(of: item.creationDate) { _ in
+                    updateItem()
+                }
+
+                Button("Done") {
+                    showDatePickerSheet = false
+                }
+                .font(.headline)
+                .padding(.bottom, 20)
+            }
+            .presentationDetents([.height(350)]) // iOS 16+ (optional)
+        }
+    }
+
+    // Helper to format the displayed date
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+
+    // MARK: - Firestore / Item Updating
     private func updateItem() {
         Task {
             if let userId = onboardingViewModel.user?.id {
@@ -161,7 +269,6 @@ struct DetailItemView: View {
         }
     }
 
-    /// Deletes the item from Firestore (via ListViewModel) and dismisses the view
     private func deleteItem() {
         Task {
             if let userId = onboardingViewModel.user?.id {
@@ -173,8 +280,15 @@ struct DetailItemView: View {
         }
     }
 
-    /// Uploads selected photos to a single user-level folder (`users/<userId>/images`),
-    /// then appends their URLs to `item.imageUrls`.
+    // MARK: - Location Update
+    private func updateLocation(to newAddress: String) {
+        var updatedLocation = item.location ?? Location(latitude: 0, longitude: 0, address: newAddress)
+        updatedLocation.address = newAddress
+        item.location = updatedLocation
+        updateItem()
+    }
+
+    // MARK: - Photos Selection
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
             guard let userId = onboardingViewModel.user?.id else { return }
@@ -186,10 +300,8 @@ struct DetailItemView: View {
             for (index, selection) in selections.prefix(3).enumerated() {
                 do {
                     if let data = try? await selection.loadTransferable(type: Data.self) {
-                        // Upload the image data
                         let imageRef = storageRef.child("detail-\(item.id.uuidString)-\(index + 1).jpg")
                         _ = try await imageRef.putDataAsync(data)
-                        
                         let downloadUrl = try await imageRef.downloadURL()
                         newUrls.append(downloadUrl.absoluteString)
                     }
@@ -198,7 +310,6 @@ struct DetailItemView: View {
                 }
             }
 
-            // Append to existing imageUrls, then update Firestore
             if !newUrls.isEmpty {
                 item.imageUrls.append(contentsOf: newUrls)
                 updateItem()
@@ -206,7 +317,17 @@ struct DetailItemView: View {
         }
     }
 
-    /// A placeholder image for missing or invalid URLs
+    // MARK: - MapKit Autocomplete Setup
+    private func configureSearchCompleter() {
+        // Listen for updates to the searchCompleter
+        searchCompleter.delegate = AutocompleteDelegate { completions in
+            self.completions = completions
+        }
+        // Optionally adjust .resultTypes, e.g.:
+        // searchCompleter.resultTypes = .address
+    }
+
+    // MARK: - UI Helpers
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -219,7 +340,6 @@ struct DetailItemView: View {
         }
     }
 
-    /// A placeholder view when `imageUrls` is empty
     private func placeholderView() -> some View {
         VStack {
             Image(systemName: "photo.on.rectangle.angled")
@@ -235,6 +355,26 @@ struct DetailItemView: View {
         .padding()
     }
 }
+
+// MARK: - AutocompleteDelegate
+private class AutocompleteDelegate: NSObject, MKLocalSearchCompleterDelegate {
+    let onUpdate: ([MKLocalSearchCompletion]) -> Void
+
+    init(onUpdate: @escaping ([MKLocalSearchCompletion]) -> Void) {
+        self.onUpdate = onUpdate
+    }
+
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        onUpdate(completer.results)
+    }
+
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        print("Search completer error: \(error.localizedDescription)")
+        onUpdate([])
+    }
+}
+
+
 
 
 

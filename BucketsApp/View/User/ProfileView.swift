@@ -11,21 +11,23 @@ import PhotosUI
 import FirebaseFirestore
 
 struct ProfileView: View {
-    @EnvironmentObject var viewModel: OnboardingViewModel
-    @State private var isImagePickerPresented = false
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var listViewModel: ListViewModel  // So we can access item counts
+
+    // The boolean to show/hide the picker
+    @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color.white.edgesIgnoringSafeArea(.all)
-
+        NavigationStack {
+            ScrollView {
                 VStack(spacing: 20) {
-                    // Profile Image Button
+                    
+                    // MARK: - Profile Image + Name
                     Button(action: {
-                        isImagePickerPresented = true
+                        isPickerPresented = true
                     }) {
-                        if let imageData = viewModel.profileImageData,
+                        if let imageData = onboardingViewModel.profileImageData,
                            let uiImage = UIImage(data: imageData) {
                             Image(uiImage: uiImage)
                                 .resizable()
@@ -42,49 +44,103 @@ struct ProfileView: View {
                                 .foregroundColor(.gray)
                         }
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .sheet(isPresented: $isImagePickerPresented) {
-                        PhotosPicker(
-                            "Select a Profile Picture",
-                            selection: $selectedImageItem,
-                            matching: .images
-                        )
-                    }
+                    .buttonStyle(.plain)
+                    .photosPicker(
+                        isPresented: $isPickerPresented,
+                        selection: $selectedImageItem,
+                        matching: .images
+                    )
                     .onChange(of: selectedImageItem) { newItem in
                         loadProfileImage(newItem)
                     }
+                    
+                    // User’s name below the profile image
+                    if let userName = onboardingViewModel.user?.name, !userName.isEmpty {
+                        Text(userName)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                    } else {
+                        Text("Username")
+                            .font(.title2)
+                            .foregroundColor(.gray)
+                    }
 
-                    // Account Settings
-                    List {
-                        NavigationLink("Update Email", destination: UpdateEmailView())
-                        NavigationLink("Reset Password", destination: ResetPasswordView())
-                        NavigationLink("Update Password", destination: UpdatePasswordView())
-
-                        Button("Log Out", role: .destructive) {
-                            Task {
-                                await viewModel.signOut()
-                            }
+                    // MARK: - Item Counts (Total, Completed, Incomplete)
+                    HStack(spacing: 40) {
+                        VStack {
+                            Text("Total")
+                                .font(.headline)
+                            Text("\(listViewModel.items.count)")
+                                .font(.title3)
+                        }
+                        VStack {
+                            Text("Completed")
+                                .font(.headline)
+                            Text("\(listViewModel.items.filter { $0.completed }.count)")
+                                .font(.title3)
+                        }
+                        VStack {
+                            Text("Incomplete")
+                                .font(.headline)
+                            let completedCount = listViewModel.items.filter { $0.completed }.count
+                            Text("\(listViewModel.items.count - completedCount)")
+                                .font(.title3)
                         }
                     }
-                    .listStyle(GroupedListStyle())
+                    .padding(.vertical, 8)
+
+                    // MARK: - Account Settings
+                    VStack(spacing: 10) {
+                        // Left-aligned links
+                        VStack(alignment: .leading, spacing: 12) {
+                            NavigationLink("Update Email", destination: UpdateEmailView())
+                            NavigationLink("Reset Password", destination: ResetPasswordView())
+                            NavigationLink("Update Password", destination: UpdatePasswordView())
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Divider()
+                            .padding(.vertical, 8)
+
+                        // Centered "Log Out" button
+                        HStack {
+                            Spacer()
+                            Button("Log Out", role: .destructive) {
+                                Task {
+                                    await onboardingViewModel.signOut()
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                    .shadow(radius: 2)
                     .onAppear {
-                        viewModel.checkIfUserIsAuthenticated()
+                        onboardingViewModel.checkIfUserIsAuthenticated()
                     }
                 }
                 .padding()
             }
-            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Optionally remove or replace nav bar title
+                ToolbarItem(placement: .principal) {
+                    EmptyView()
+                }
+            }
         }
     }
 
-    // MARK: - Load Profile Image (local only)
+    // MARK: - Load Profile Image
     private func loadProfileImage(_ newItem: PhotosPickerItem?) {
         guard let newItem = newItem else { return }
         Task {
             do {
                 if let data = try await newItem.loadTransferable(type: Data.self) {
                     // Upload to Firebase Storage and update Firestore
-                    await viewModel.updateProfileImage(with: data)
+                    await onboardingViewModel.updateProfileImage(with: data)
                 }
             } catch {
                 print("Error loading image data: \(error)")
@@ -95,8 +151,17 @@ struct ProfileView: View {
 
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
-        ProfileView()
-            .environmentObject(MockOnboardingViewModel()) // Using mock view model for preview
+        // Mock environment objects
+        let mockOnboardingVM = OnboardingViewModel()
+        let mockListVM = ListViewModel()
+        mockListVM.items = [
+            ItemModel(userId: "abc", name: "Bucket 1", completed: false),
+            ItemModel(userId: "abc", name: "Bucket 2", completed: true)
+        ]
+
+        return ProfileView()
+            .environmentObject(mockOnboardingVM)
+            .environmentObject(mockListVM)
     }
 }
 
