@@ -24,22 +24,24 @@ struct ResetPasswordView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
                 
-                // MARK: - Divider
-                Divider()
                 
                 // MARK: - Send Reset Link Button
                 Button(action: { Task { await sendResetLink() } }) {
-                    Text("✅ Send Reset Link")
+                    Text("🔗 Send Reset Link")
                         .foregroundColor(email.isEmpty ? Color.accentColor : Color.red)
                         .frame(maxWidth: .infinity)
+                        .fontWeight(.bold)
+                        .padding()
+                        .background(.white)
+                        .foregroundColor(.black)
+                        .cornerRadius(10)
+                        .shadow(radius: 5)
                 }
                 .disabled(email.isEmpty) // Disable button if email is empty
                 .padding(.horizontal)
             }
             .padding()
             .background(Color.white)
-            .cornerRadius(10)
-            .shadow(radius: 2)
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Password Reset"),

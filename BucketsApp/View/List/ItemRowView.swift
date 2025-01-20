@@ -99,6 +99,27 @@ struct ItemRowView: View {
     }
 }
 
+//struct ItemRowView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        // Mock environment objects
+//        let mockOnboardingViewModel = OnboardingViewModel()
+//        mockOnboardingViewModel.user = UserModel(id: "user1", email: "john.doe@example.com", name: "John Doe")
+//
+//        let mockListViewModel = ListViewModel()
+//        mockListViewModel.items = [
+//            ItemModel(id: UUID(), userId: "user1", name: "Sample Item", completed: true, imageUrls: ["picture1.jpeg"])
+//        ]
+//        
+//        // Mock binding for isEditing
+//        let mockIsEditing = Binding<Bool>(get: { false }, set: { _ in })
+//
+//        return ItemRowView(item: mockListViewModel.items[0], isEditing: mockIsEditing)
+//            .environmentObject(mockOnboardingViewModel)
+//            .environmentObject(mockListViewModel)
+//            .previewLayout(.sizeThatFits)
+//            .padding()
+//    }
+//}
 
 
 

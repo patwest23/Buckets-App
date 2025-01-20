@@ -42,6 +42,11 @@ struct UpdatePasswordView: View {
                     Text("✅ Update Password")
                         .foregroundColor(isFormValid ? Color.accentColor : Color.red)
                         .frame(maxWidth: .infinity)
+                        .fontWeight(.bold)
+                        .padding()
+                        .background(.white)
+                        .cornerRadius(10)
+                        .shadow(radius: 5)
                 }
                 .disabled(!isFormValid) // Disable button if form is invalid
                 .padding(.horizontal)
@@ -49,8 +54,6 @@ struct UpdatePasswordView: View {
             }
             .padding()
             .background(Color.white)
-            .cornerRadius(10)
-            .shadow(radius: 2)
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Password Update"),

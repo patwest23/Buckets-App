@@ -33,6 +33,12 @@ struct UpdateEmailView: View {
                         Text("✅ Update Email")
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
+                            .fontWeight(.bold)
+                            .padding()
+                            .background(.white)
+                            .foregroundColor(.black)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
                     }
                     .disabled(newEmail.isEmpty) // Disable button when no input
                     .padding(.horizontal)
@@ -41,8 +47,6 @@ struct UpdateEmailView: View {
             }
             .padding() // Adding some top padding to avoid the text field being too close to the top
             .background(Color.white)
-            .cornerRadius(10)
-            .shadow(radius: 2)
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Email Update"),

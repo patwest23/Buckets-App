@@ -16,17 +16,16 @@ struct OnboardingView: View {
         NavigationStack {
             ZStack {
                 VStack(spacing: 40) {
-                    Spacer()
 
                     // App Icon or Logo
                     Image("Image2")
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: 120, maxHeight: 120)
-                        .shadow(radius: 5)
+                        .frame(maxWidth: 60, maxHeight: 60)
+                        .padding()
 
                     Spacer()
-
+                    
                     // Main Title
                     Text("What do you want to do before you die?")
                         .font(.largeTitle)
@@ -37,16 +36,16 @@ struct OnboardingView: View {
                     Spacer()
 
                     // Buttons for Sign Up and Log In
-                    HStack(spacing: 20) {
+                    VStack(spacing: 20) {
                         Button(action: {
                             showSignUp.toggle()
                         }) {
-                            Text("Sign Up")
+                            Text("✍️ Sign Up")
                                 .fontWeight(.bold)
                                 .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(Color.accentColor)
-                                .foregroundColor(.white)
+                                .background(.white)
+                                .foregroundColor(.black)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
                         }
@@ -58,12 +57,12 @@ struct OnboardingView: View {
                         Button(action: {
                             showLogIn.toggle()
                         }) {
-                            Text("Log In")
+                            Text("🪵 Log In")
                                 .fontWeight(.bold)
                                 .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(Color.accentColor)
-                                .foregroundColor(.white)
+                                .background(.white)
+                                .foregroundColor(.black)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
                         }
@@ -78,7 +77,9 @@ struct OnboardingView: View {
                 }
                 .padding()
             }
+            .background(Color.white)  // Ensure background is consistent
         }
+        .navigationBarHidden(true)  // Hide navigation bar for a cleaner look
     }
 }
 
