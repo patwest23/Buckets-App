@@ -16,51 +16,50 @@ struct UpdatePasswordView: View {
     @State private var showAlert: Bool = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            // Title
-            Text("Update Password")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
-                .padding()
+        ScrollView {
+            VStack(spacing: 20) {  // Adjusted spacing to match profile view
 
-            // Current Password Input
-            SecureField("Current Password", text: $currentPassword)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                // MARK: - Current Password Input
+                SecureField("🔒 Current Password", text: $currentPassword)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                // MARK: - New Password Input
+                SecureField("🔑 New Password", text: $newPassword)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                // MARK: - Confirm New Password Input
+                SecureField("🔐 Confirm New Password", text: $confirmPassword)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                // MARK: - Divider
+                Divider()
+
+                // MARK: - Update Password Button
+                Button(action: { Task { await updatePassword() } }) {
+                    Text("✅ Update Password")
+                        .foregroundColor(isFormValid ? Color.accentColor : Color.red)
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(!isFormValid) // Disable button if form is invalid
                 .padding(.horizontal)
 
-            // New Password Input
-            SecureField("New Password", text: $newPassword)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-
-            // Confirm New Password Input
-            SecureField("Confirm New Password", text: $confirmPassword)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-
-            // Update Password Button
-            Button(action: { Task { await updatePassword() } }) {
-                Text("Update Password")
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(isFormValid ? Color.blue : Color.gray)
-                    .cornerRadius(10)
             }
-            .disabled(!isFormValid) // Disable button if form is invalid
-            .padding(.horizontal)
-
-            Spacer()
+            .padding()
+            .background(Color.white)
+            .cornerRadius(10)
+            .shadow(radius: 2)
+            .alert(isPresented: $showAlert) {
+                Alert(
+                    title: Text("Password Update"),
+                    message: Text(updateMessage),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
         .padding()
-        .alert(isPresented: $showAlert) {
-            Alert(
-                title: Text("Password Update"),
-                message: Text(updateMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
     }
 
     // MARK: - Validation
@@ -97,3 +96,12 @@ struct UpdatePasswordView: View {
         showAlert = true
     }
 }
+
+struct UpdatePasswordView_Previews: PreviewProvider {
+    static var previews: some View {
+        UpdatePasswordView()
+            .environmentObject(MockOnboardingViewModel()) // Use mock view model for preview
+    }
+}
+
+

@@ -21,8 +21,8 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    
+                VStack(spacing: 30) {
+
                     // MARK: - Profile Image + Name
                     Button(action: {
                         isPickerPresented = true
@@ -53,63 +53,74 @@ struct ProfileView: View {
                     .onChange(of: selectedImageItem) { newItem in
                         loadProfileImage(newItem)
                     }
-                    
+
                     // User’s name below the profile image
                     if let userName = onboardingViewModel.user?.name, !userName.isEmpty {
                         Text(userName)
                             .font(.title2)
                             .fontWeight(.semibold)
+                            .foregroundColor(.black)  // Text color set to black
                     } else {
                         Text("Username")
                             .font(.title2)
                             .foregroundColor(.gray)
                     }
 
-                    // MARK: - Item Counts (Total, Completed, Incomplete)
-                    HStack(spacing: 40) {
+                    // MARK: - Emoji-based Item Counts
+                    HStack(spacing: 60) {
                         VStack {
-                            Text("Total")
+                            Text("🪣")
                                 .font(.headline)
                             Text("\(listViewModel.items.count)")
                                 .font(.title3)
+                                .fontWeight(.bold)
                         }
                         VStack {
-                            Text("Completed")
+                            Text("✅")
                                 .font(.headline)
                             Text("\(listViewModel.items.filter { $0.completed }.count)")
                                 .font(.title3)
+                                .fontWeight(.bold)
                         }
                         VStack {
-                            Text("Incomplete")
+                            Text("❌")
                                 .font(.headline)
                             let completedCount = listViewModel.items.filter { $0.completed }.count
                             Text("\(listViewModel.items.count - completedCount)")
                                 .font(.title3)
+                                .fontWeight(.bold)
                         }
                     }
                     .padding(.vertical, 8)
 
-                    // MARK: - Account Settings
+                    // MARK: - Account Settings (with Emoji)
                     VStack(spacing: 10) {
-                        // Left-aligned links
+                        // Left-aligned links with emojis and no borders
                         VStack(alignment: .leading, spacing: 12) {
-                            NavigationLink("Update Email", destination: UpdateEmailView())
-                            NavigationLink("Reset Password", destination: ResetPasswordView())
-                            NavigationLink("Update Password", destination: UpdatePasswordView())
+                            NavigationLink("✉️ Update Email", destination: UpdateEmailView())
+                                .foregroundColor(.black)  // Set text color to black
+                                .buttonStyle(PlainButtonStyle()) // Remove border
+                            NavigationLink("🔑 Reset Password", destination: ResetPasswordView())
+                                .foregroundColor(.black)  // Set text color to black
+                                .buttonStyle(PlainButtonStyle()) // Remove border
+                            NavigationLink("🔒 Update Password", destination: UpdatePasswordView())
+                                .foregroundColor(.black)  // Set text color to black
+                                .buttonStyle(PlainButtonStyle()) // Remove border
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         Divider()
                             .padding(.vertical, 8)
 
-                        // Centered "Log Out" button
+                        // Centered "Log Out" button with a door emoji 🚪
                         HStack {
                             Spacer()
-                            Button("Log Out", role: .destructive) {
+                            Button("🚪 Log Out", role: .destructive) {
                                 Task {
                                     await onboardingViewModel.signOut()
                                 }
                             }
+                            .foregroundColor(.black)  // Set text color to black
                             Spacer()
                         }
                     }

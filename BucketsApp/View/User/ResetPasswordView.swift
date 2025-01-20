@@ -14,43 +14,41 @@ struct ResetPasswordView: View {
     @State private var showAlert: Bool = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            // Title
-            Text("Reset Password")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
-                .padding()
-
-            // Email Input Field
-            TextField("Enter your email address", text: $email)
-                .keyboardType(.emailAddress)
-                .autocapitalization(.none)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+        ScrollView {
+            VStack(spacing: 20) {  // Adjusted spacing to match profile view style
+                
+                // MARK: - Email Input Field
+                TextField("✉️ Enter your email address", text: $email)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+                
+                // MARK: - Divider
+                Divider()
+                
+                // MARK: - Send Reset Link Button
+                Button(action: { Task { await sendResetLink() } }) {
+                    Text("✅ Send Reset Link")
+                        .foregroundColor(email.isEmpty ? Color.accentColor : Color.red)
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(email.isEmpty) // Disable button if email is empty
                 .padding(.horizontal)
-
-            // Send Reset Link Button
-            Button(action: { Task { await sendResetLink() } }) {
-                Text("Send Reset Link")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(email.isEmpty ? Color.gray : Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
             }
-            .disabled(email.isEmpty) // Disable the button if email is empty
-            .padding(.horizontal)
-
-            Spacer()
+            .padding()
+            .background(Color.white)
+            .cornerRadius(10)
+            .shadow(radius: 2)
+            .alert(isPresented: $showAlert) {
+                Alert(
+                    title: Text("Password Reset"),
+                    message: Text(resetMessage),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
         .padding()
-        .alert(isPresented: $showAlert) {
-            Alert(
-                title: Text("Password Reset"),
-                message: Text(resetMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
     }
 
     // MARK: - Helper Functions
