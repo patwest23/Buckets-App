@@ -24,11 +24,12 @@ struct ResetPasswordView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
                 
+                Spacer()
                 
                 // MARK: - Send Reset Link Button
                 Button(action: { Task { await sendResetLink() } }) {
                     Text("🔗 Send Reset Link")
-                        .foregroundColor(email.isEmpty ? Color.accentColor : Color.red)
+                        .foregroundColor(email.isEmpty ? Color.black : Color.red)
                         .frame(maxWidth: .infinity)
                         .fontWeight(.bold)
                         .padding()

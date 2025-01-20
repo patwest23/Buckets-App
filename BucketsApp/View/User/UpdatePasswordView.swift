@@ -33,9 +33,8 @@ struct UpdatePasswordView: View {
                 SecureField("🔐 Confirm New Password", text: $confirmPassword)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
-
-                // MARK: - Divider
-                Divider()
+                
+                Spacer()
 
                 // MARK: - Update Password Button
                 Button(action: { Task { await updatePassword() } }) {

@@ -23,9 +23,8 @@ struct UpdateEmailView: View {
                     .autocapitalization(.none)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-
-                // MARK: - Divider
-                Divider()
+                
+                Spacer()
 
                 // MARK: - Update Email Button
                 HStack {

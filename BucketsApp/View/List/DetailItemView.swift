@@ -320,7 +320,7 @@ struct DetailItemView: View {
     // MARK: - MapKit Autocomplete Setup
     private func configureSearchCompleter() {
         // Listen for updates to the searchCompleter
-        searchCompleter.delegate = AutocompleteDelegate { completions in
+        searchCompleter.delegateears superbowl= AutocompleteDelegate { completions in
             self.completions = completions
         }
         // Optionally adjust .resultTypes, e.g.:

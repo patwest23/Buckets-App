@@ -77,15 +77,14 @@ struct ProfileView: View {
                     VStack {
                         Text("✅")
                             .font(.headline)
-                        Text("\(listViewModel.items.filter { $0.completed }.count)")
+                        Text("x")
                             .font(.title3)
                             .fontWeight(.bold)
                     }
                     VStack {
                         Text("❌")
                             .font(.headline)
-                        let completedCount = listViewModel.items.filter { $0.completed }.count
-                        Text("\(listViewModel.items.count - completedCount)")
+                        Text("x")
                             .font(.title3)
                             .fontWeight(.bold)
                     }
@@ -108,9 +107,8 @@ struct ProfileView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Divider()
-                        .padding(.vertical, 8)
-
+                    Spacer()
+                    
                     // Centered "Log Out" button with a door emoji 🚪
                     HStack {
                         Spacer()
@@ -120,13 +118,18 @@ struct ProfileView: View {
                             }
                         }
                         .foregroundColor(.black)  // Set text color to black
+                        .frame(maxWidth: .infinity)
+                        .fontWeight(.bold)
+                        .padding()
+                        .background(.white)
+                        .foregroundColor(.black)
+                        .cornerRadius(10)
+                        .shadow(radius: 5)
                         Spacer()
                     }
                 }
                 .padding()
                 .background(Color.white)
-                .cornerRadius(10)
-                .shadow(radius: 2)
                 .onAppear {
                     onboardingViewModel.checkIfUserIsAuthenticated()
                 }

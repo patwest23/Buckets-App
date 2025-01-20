@@ -22,32 +22,37 @@ struct SignUpView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            VStack {
-                Spacer().frame(height: 40) // Add spacing at the top
+            ScrollView {
+                VStack(spacing: 20) {  // Adjusted spacing for consistency with other views
 
-                // App Logo
-                Image("Image2")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 100, maxHeight: 100)
-                    .padding(.bottom, 20)
+                    // MARK: - App Logo
+                    Image("Image2")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 60, maxHeight: 60)
+                        .padding()
+                    
+                    Spacer()
 
-                // Input Fields
-                VStack(spacing: 20) {
+                    // MARK: - Input Fields
                     emailTextField
                     passwordSecureField
                     confirmPasswordSecureField
                     termsAndConditionsSection
+
+                    // MARK: - Sign Up Button
+                    signUpButton
+                        .padding(.top, 20) // Add spacing above the button
                 }
-                .padding(.horizontal)
-
-                // Sign Up Button
-                signUpButton
-                    .padding(.top, 20) // Add spacing above the button
-
-                Spacer()
+                .padding()
+                .background(Color.white)  // Ensure background is consistent
+                .alert("Error", isPresented: $showErrorAlert) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(errorMessage)
+                }
             }
-            .padding()
+            .padding(.horizontal)
             .navigationDestination(for: SignUpNavigationDestination.self) { destination in
                 switch destination {
                 case .listView:
@@ -55,27 +60,22 @@ struct SignUpView: View {
                         .environmentObject(viewModel)
                 }
             }
-            .alert("Error", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage)
-            }
         }
     }
 
     // MARK: - Input Fields
     var emailTextField: some View {
-        TextField("Email", text: $viewModel.email)
+        TextField("✉️ Email Address", text: $viewModel.email)
             .textFieldModifiers()
     }
 
     var passwordSecureField: some View {
-        SecureField("Password", text: $viewModel.password)
+        SecureField("🔑 Password", text: $viewModel.password)
             .textFieldModifiers()
     }
 
     var confirmPasswordSecureField: some View {
-        SecureField("Confirm Password", text: $confirmPassword)
+        SecureField("🔐 Confirm Password", text: $confirmPassword)
             .textFieldModifiers()
     }
 
@@ -109,9 +109,10 @@ struct SignUpView: View {
                 .fontWeight(.bold)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(agreedToTerms ? Color.accentColor : Color.gray)
-                .foregroundColor(.white)
+                .background(Color.white)
+                .foregroundColor(agreedToTerms ? Color.black : Color.red)
                 .cornerRadius(10)
+                .shadow(radius: 5)
         }
         .disabled(!agreedToTerms)
     }
