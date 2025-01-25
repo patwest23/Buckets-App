@@ -49,12 +49,24 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // 1) Configure Firebase
         FirebaseApp.configure()
+
+        // 2) Print some info for debugging
         if let options = FirebaseApp.app()?.options {
             print("Firebase configured with options: \(options)")
         } else {
             print("Failed to configure Firebase.")
         }
+
+        // 3) (Optional) Configure Firestore *once* here
+        let db = Firestore.firestore()
+        let settings = db.settings
+        let persistentCache = PersistentCacheSettings()
+        // persistentCache.sizeBytes = 10_485_760 // for example, 10MB
+        settings.cacheSettings = persistentCache
+        db.settings = settings
+
         return true
     }
 

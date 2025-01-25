@@ -33,12 +33,8 @@ class ImagePickerViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        // Enable Firestore’s offline caching via cacheSettings
-        let settings = FirestoreSettings()
-        let persistentCache = PersistentCacheSettings()
-        // persistentCache.sizeBytes = 10_485_760 // (Optional) e.g. 10MB cache
-        settings.cacheSettings = persistentCache
-        db.settings = settings
+        // Removed Firestore settings code (db.settings = ...) here
+        // since it's already done once at app startup
     }
     
     // MARK: - Load Images from Selections
@@ -70,7 +66,7 @@ class ImagePickerViewModel: ObservableObject {
         
         let storageRef = storage.reference().child("users/\(userId)/images")
         var uploadedImageUrls: [String] = []
-        
+
         // 1) Upload each image to Storage
         for (index, image) in uiImages.enumerated() {
             guard let imageData = image.jpegData(compressionQuality: 0.8) else { continue }

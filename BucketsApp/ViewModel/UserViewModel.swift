@@ -17,35 +17,20 @@ class UserViewModel: ObservableObject {
     private let db = Firestore.firestore()
 
     // MARK: - Initializer
-        init() {
-            // Create a FirestoreSettings instance
-            let settings = FirestoreSettings()
-
-            // Assign PersistentCacheSettings() to the cacheSettings property
-            let persistentCache = PersistentCacheSettings()
-            // Optionally, you can configure the cache size here if needed:
-            // persistentCache.sizeBytes = 10485760 // 10 MB, for example
-
-            // Now set it on FirestoreSettings
-            settings.cacheSettings = persistentCache
-
-            // Finally, apply these settings to your Firestore instance
-            db.settings = settings
-        }
+    init() {
+        // No Firestore settings here if done once elsewhere
+    }
 
     // MARK: - Fetch User Data
     func fetchUserData(userId: String) async {
         do {
-            // Wrap Firestore's getDocument in a continuation
             let fetchedUser = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UserModel, Error>) in
                 db.collection("users").document(userId).getDocument { snapshot, error in
-                    // Handle Firestore or network error
                     if let error = error {
                         continuation.resume(throwing: error)
                         return
                     }
                     
-                    // If no snapshot or document doesn't exist, throw an error
                     guard let snapshot = snapshot, snapshot.exists else {
                         let noDocumentError = NSError(domain: "NoDocumentFound", code: 404, userInfo: [
                             NSLocalizedDescriptionKey: "No user document found for ID \(userId)."
@@ -63,7 +48,6 @@ class UserViewModel: ObservableObject {
                 }
             }
             
-            // Successfully decoded the user
             self.user = fetchedUser
             print("User data fetched successfully: \(fetchedUser)")
         } catch {
@@ -79,7 +63,6 @@ class UserViewModel: ObservableObject {
         }
 
         do {
-            // Wrap Firestore's setData in a continuation
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 do {
                     try db
@@ -93,12 +76,10 @@ class UserViewModel: ObservableObject {
                             }
                         }
                 } catch {
-                    // If encoding 'updatedUser' fails, it throws immediately
                     continuation.resume(throwing: error)
                 }
             }
-
-            // If we reach here, Firestore update was successful
+            
             self.user = updatedUser
             print("User profile updated successfully.")
         } catch {

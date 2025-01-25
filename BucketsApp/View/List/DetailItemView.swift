@@ -8,7 +8,6 @@
 import SwiftUI
 import PhotosUI
 import FirebaseStorage
-import MapKit  // <-- For MKLocalSearchCompleter
 
 struct DetailItemView: View {
     // MARK: - Bound Item
@@ -23,238 +22,311 @@ struct DetailItemView: View {
 
     // MARK: - Local States
     @State private var selectedPhotos: [PhotosPickerItem] = []
-    @State private var showDeleteConfirmation: Bool = false
 
-    // For MapKit autocomplete
-    @State private var locationQuery: String = ""
-    @State private var searchCompleter = MKLocalSearchCompleter()
-    @State private var completions: [MKLocalSearchCompletion] = []
-
-    // For date picker sheet (single-line display)
-    @State private var showDatePickerSheet = false
+    // For date pickers (single-line display -> sheet)
+    @State private var showDateCreatedSheet = false
+    @State private var showDateCompletedSheet = false
 
     var body: some View {
         VStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
 
-                    // MARK: - Name Field
-                    TextField("What do you want to do before you die?", text: $item.name)
+                    // MARK: - First Row (ItemRowView style)
+                    firstRowView
                         .padding()
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-                        .onChange(of: item.name) { _ in updateItem() }
 
-                    // MARK: - Description
-                    ZStack(alignment: .topLeading) {
-                        if (item.description?.isEmpty ?? true) {
-                            Text("Notes")
-                                .foregroundColor(.gray)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 12)
-                        }
-                        TextEditor(
-                            text: Binding(
-                                get: { item.description ?? "" },
-                                set: { item.description = $0 }
-                            )
-                        )
-                        .frame(minHeight: 150)
-                        .padding(4)
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .shadow(radius: 2)
-                        .onChange(of: item.description) { _ in updateItem() }
-                    }
+                    // MARK: - Description Row
+                    descriptionRow
 
-                    // MARK: - Single-line Date (Tap => Sheet w/ Wheel Picker)
+                    // MARK: - Date Created
                     dateCreatedLine
 
-                    // MARK: - Location (MapKit Autocomplete, no label)
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextField(
-                            "Enter location...",
-                            text: $locationQuery
-                        )
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .shadow(radius: 2)
-                        .onChange(of: locationQuery) { newValue in
-                            // Update item.location for custom text
-                            updateLocation(to: newValue)
-                            // Kick off MapKit autocomplete
-                            searchCompleter.queryFragment = newValue
-                        }
+                    // MARK: - Date Completed (dueDate)
+                    dateCompletedLine
 
-                        if !completions.isEmpty && !locationQuery.isEmpty {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(completions, id: \.self) { completion in
-                                    Text(completion.title)
-                                        .padding(.vertical, 6)
-                                        .padding(.horizontal, 8)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.gray.opacity(0.2))
-                                        .onTapGesture {
-                                            // User picked this suggestion
-                                            locationQuery = completion.title
-                                            updateLocation(to: completion.title)
-                                            completions.removeAll()
-                                        }
-                                }
-                            }
-                            .background(Color.white)
-                            .cornerRadius(8)
-                            .shadow(radius: 2)
-                        }
-                    }
+                    // MARK: - Location Row
+                    locationRow
 
-                    // MARK: - Completed Toggle
-                    Toggle("Completed", isOn: $item.completed)
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .shadow(radius: 2)
-                        .onChange(of: item.completed) { _ in updateItem() }
+                    // MARK: - Select Photos Row
+                    selectPhotosRow
 
                     // MARK: - Photo Grid
-                    if item.imageUrls.isEmpty {
-                        placeholderView()
-                    } else {
-                        LazyVGrid(
-                            columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ],
-                            spacing: 10
-                        ) {
-                            ForEach(item.imageUrls, id: \.self) { urlString in
-                                if let url = URL(string: urlString) {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .empty:
-                                            ProgressView()
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 100, height: 100)
-                                                .cornerRadius(10)
-                                                .clipped()
-                                        case .failure:
-                                            placeholderImage()
-                                        @unknown default:
-                                            placeholderImage()
-                                        }
-                                    }
-                                } else {
-                                    placeholderImage()
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-
-                    // MARK: - Photos Picker
-                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
-                        Text("Select Photos")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .onChange(of: selectedPhotos) { selections in
-                        handlePhotoSelection(selections)
+                    if !item.imageUrls.isEmpty {
+                        photoGridView
                     }
                 }
                 .padding()
             }
-
-            Spacer()
-
-            // MARK: - Delete Button
-            Button(action: {
-                showDeleteConfirmation = true
-            }) {
-                Text("Delete")
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.red)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-            }
-            .padding()
-            .alert(isPresented: $showDeleteConfirmation) {
-                Alert(
-                    title: Text("Delete Item"),
-                    message: Text("Are you sure you want to delete this item?"),
-                    primaryButton: .destructive(Text("Delete")) {
-                        deleteItem()
-                    },
-                    secondaryButton: .cancel()
-                )
-            }
-        }
-        .background(Color.white)
-        .onAppear {
-            configureSearchCompleter()
-            // Initialize locationQuery from existing item data
-            locationQuery = item.location?.address ?? ""
         }
     }
 
-    // MARK: - Single-Line Date View
-    private var dateCreatedLine: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Single-line label
+    // MARK: - First Row (Toggle + Name + optional TabView)
+    private var firstRowView: some View {
+        VStack(alignment: .leading) {
             HStack {
-                Text("Date Created:")
-                    .font(.headline)
-                // Show the date in medium style
-                Text(formattedDate(item.creationDate))
-                    .foregroundColor(.blue)
+                // Completion toggle
+                Button(action: {
+                    Task {
+                        await toggleCompleted()
+                    }
+                }) {
+                    Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
+                        .imageScale(.large)
+                        .font(.title2)
+                        .foregroundColor(item.completed ? .accentColor : .gray)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+
+                // Item name
+                Text(item.name.isEmpty ? "Untitled Item" : item.name)
+                    .foregroundColor(item.completed ? .gray : .primary)
+                    .font(.title3)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .onTapGesture {
-                showDatePickerSheet = true
+
+            // Optional tab view for images if item has them
+            if !item.imageUrls.isEmpty {
+                TabView {
+                    ForEach(item.imageUrls, id: \.self) { imageUrl in
+                        AsyncImage(url: URL(string: imageUrl)) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity, maxHeight: 300)
+                                    .cornerRadius(20)
+                                    .clipped()
+                            case .failure:
+                                placeholderImage()
+                            @unknown default:
+                                placeholderImage()
+                            }
+                        }
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle())
+                .frame(height: 300)
+                .padding(.horizontal, 16)
+            }
+        }
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Description Row
+    private var descriptionRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("📝   Notes")
+                .font(.headline)
+
+            TextEditor(
+                text: Binding(
+                    get: { item.description ?? "" },
+                    set: { newValue in
+                        item.description = newValue
+                        updateItem()
+                    }
+                )
+            )
+            .frame(minHeight: 150)
+            .onChange(of: item.description) { _ in
+                updateItem()
             }
         }
         .padding()
         .background(Color.white)
         .cornerRadius(10)
         .shadow(radius: 2)
-        // Present the sheet with a wheel-style date picker
-        .sheet(isPresented: $showDatePickerSheet) {
+    }
+
+    // MARK: - Date Created Line
+    private var dateCreatedLine: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("📅   Date Created")
+                    .font(.headline)
+                Spacer()
+                Text(formattedDate(item.creationDate))
+                    .foregroundColor(.accentColor)
+            }
+            .onTapGesture {
+                showDateCreatedSheet = true
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 2)
+        .sheet(isPresented: $showDateCreatedSheet) {
             VStack(spacing: 20) {
                 Text("Select Date Created")
                     .font(.title3)
                     .padding(.top)
 
-                DatePicker(
-                    "",
-                    selection: $item.creationDate,
-                    displayedComponents: .date
-                )
-                .datePickerStyle(WheelDatePickerStyle())
-                .labelsHidden()
-                .onChange(of: item.creationDate) { _ in
-                    updateItem()
-                }
+                DatePicker("", selection: $item.creationDate, displayedComponents: .date)
+                    .datePickerStyle(WheelDatePickerStyle())
+                    .labelsHidden()
+                    .onChange(of: item.creationDate) { _ in
+                        updateItem()
+                    }
 
                 Button("Done") {
-                    showDatePickerSheet = false
+                    showDateCreatedSheet = false
                 }
                 .font(.headline)
                 .padding(.bottom, 20)
             }
-            .presentationDetents([.height(350)]) // iOS 16+ (optional)
+            .presentationDetents([.height(350)]) // iOS16+ (optional)
         }
     }
 
-    // Helper to format the displayed date
-    private func formattedDate(_ date: Date) -> String {
+    // MARK: - Date Completed (dueDate)
+    private var dateCompletedLine: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("📅   Date Completed")
+                    .font(.headline)
+                Spacer()
+                Text(formattedDate(item.dueDate))
+                    .foregroundColor(.accentColor)
+            }
+            .onTapGesture {
+                showDateCompletedSheet = true
+            }
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 2)
+        .sheet(isPresented: $showDateCompletedSheet) {
+            VStack(spacing: 20) {
+                Text("Select Date Completed")
+                    .font(.title3)
+                    .padding(.top)
+
+                DatePicker("", selection: Binding(
+                    get: { item.dueDate ?? Date() },
+                    set: { newValue in
+                        item.dueDate = newValue
+                        updateItem()
+                    }
+                ), displayedComponents: .date)
+                .datePickerStyle(WheelDatePickerStyle())
+                .labelsHidden()
+
+                Button("Done") {
+                    showDateCompletedSheet = false
+                }
+                .font(.headline)
+                .padding(.bottom, 20)
+            }
+            .presentationDetents([.height(350)]) // iOS16+ (optional)
+        }
+    }
+
+    // MARK: - Location Row
+    private var locationRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("📍")
+
+                TextField(
+                    "Enter location...",
+                    text: Binding(
+                        get: { item.location?.address ?? "" },
+                        set: { newValue in
+                            var updatedLocation = item.location ?? Location(
+                                latitude: 0,
+                                longitude: 0,
+                                address: newValue
+                            )
+                            updatedLocation.address = newValue
+                            item.location = updatedLocation
+                            updateItem()
+                        }
+                    )
+                )
+            }
+            .font(.headline)
+            .padding()
+            .background(Color.white)
+            .cornerRadius(10)
+            .shadow(radius: 2)
+        }
+    }
+
+    // MARK: - Photos Picker Row
+    private var selectPhotosRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
+                Text("📸   Select Photos")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                    .shadow(radius: 2)
+                    .font(.headline)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .onChange(of: selectedPhotos) { selections in
+                handlePhotoSelection(selections)
+            }
+        }
+    }
+
+    // MARK: - Photo Grid
+    private var photoGridView: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ],
+            spacing: 10
+        ) {
+            ForEach(item.imageUrls, id: \.self) { urlString in
+                if let url = URL(string: urlString) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .cornerRadius(10)
+                                .clipped()
+                        case .failure:
+                            placeholderImage()
+                        @unknown default:
+                            placeholderImage()
+                        }
+                    }
+                } else {
+                    placeholderImage()
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Formatting
+    private func formattedDate(_ date: Date?) -> String {
+        // If dueDate is nil, show something like "--"
+        guard let date = date else { return "--" }
+
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
@@ -269,32 +341,17 @@ struct DetailItemView: View {
         }
     }
 
-    private func deleteItem() {
-        Task {
-            if let userId = onboardingViewModel.user?.id {
-                await listViewModel.deleteItem(item, userId: userId)
-                DispatchQueue.main.async {
-                    presentationMode.wrappedValue.dismiss()
-                }
-            }
-        }
+    private func toggleCompleted() async {
+        guard let userId = onboardingViewModel.user?.id else { return }
+        item.completed.toggle()
+        await listViewModel.addOrUpdateItem(item, userId: userId)
     }
 
-    // MARK: - Location Update
-    private func updateLocation(to newAddress: String) {
-        var updatedLocation = item.location ?? Location(latitude: 0, longitude: 0, address: newAddress)
-        updatedLocation.address = newAddress
-        item.location = updatedLocation
-        updateItem()
-    }
-
-    // MARK: - Photos Selection
+    // MARK: - Photos Upload
     private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
         Task {
             guard let userId = onboardingViewModel.user?.id else { return }
-            let storageRef = Storage.storage()
-                .reference()
-                .child("users/\(userId)/images")
+            let storageRef = Storage.storage().reference().child("users/\(userId)/images")
 
             var newUrls: [String] = []
             for (index, selection) in selections.prefix(3).enumerated() {
@@ -317,16 +374,6 @@ struct DetailItemView: View {
         }
     }
 
-    // MARK: - MapKit Autocomplete Setup
-    private func configureSearchCompleter() {
-        // Listen for updates to the searchCompleter
-        searchCompleter.delegateears superbowl= AutocompleteDelegate { completions in
-            self.completions = completions
-        }
-        // Optionally adjust .resultTypes, e.g.:
-        // searchCompleter.resultTypes = .address
-    }
-
     // MARK: - UI Helpers
     private func placeholderImage() -> some View {
         ZStack {
@@ -339,40 +386,36 @@ struct DetailItemView: View {
                 )
         }
     }
-
-    private func placeholderView() -> some View {
-        VStack {
-            Image(systemName: "photo.on.rectangle.angled")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .foregroundColor(.gray)
-
-            Text("No Photos Added")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-        }
-        .padding()
-    }
 }
 
-// MARK: - AutocompleteDelegate
-private class AutocompleteDelegate: NSObject, MKLocalSearchCompleterDelegate {
-    let onUpdate: ([MKLocalSearchCompletion]) -> Void
+#if DEBUG
+struct DetailItemView_Previews: PreviewProvider {
+    static var previews: some View {
+        // 1) Create mock environment objects
+        let mockOnboardingVM = OnboardingViewModel()
+        let mockListVM = ListViewModel()
 
-    init(onUpdate: @escaping ([MKLocalSearchCompletion]) -> Void) {
-        self.onUpdate = onUpdate
-    }
+        // 2) Create a sample ItemModel with both creationDate and dueDate
+        let sampleItem = ItemModel(
+            userId: "previewUser",
+            name: "Sample Bucket List Item",
+            description: "Short description for preview...",
+            dueDate: Date().addingTimeInterval(86400 * 3), // 3 days in the future
+            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
+            completed: true,
+            creationDate: Date().addingTimeInterval(-86400), // 1 day ago
+            imageUrls: []
+        )
 
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        onUpdate(completer.results)
-    }
-
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("Search completer error: \(error.localizedDescription)")
-        onUpdate([])
+        // 3) Provide a binding to `sampleItem`
+        return DetailItemView(item: .constant(sampleItem))
+            .environmentObject(mockOnboardingVM)
+            .environmentObject(mockListVM)
+            .previewDisplayName("DetailItemViewWorking Preview")
     }
 }
+#endif
+
 
 
 

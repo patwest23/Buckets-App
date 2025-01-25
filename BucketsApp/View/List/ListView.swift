@@ -75,7 +75,7 @@ struct ListView: View {
     }
 
     private var loadingView: some View {
-        ProgressView("Loading...")
+        ProgressView("")
             .progressViewStyle(CircularProgressViewStyle())
             .scaleEffect(1.5)
             .padding()

@@ -28,13 +28,8 @@ final class OnboardingViewModel: ObservableObject {
 
     // MARK: - Initializer
     init() {
-        // Configure Firestore cache settings (instead of `isPersistenceEnabled`)
-        let settings = FirestoreSettings()
-        let persistentCache = PersistentCacheSettings()
-        // persistentCache.sizeBytes = 10485760 // e.g., 10MB cache, if desired
-        settings.cacheSettings = persistentCache
-        firestore.settings = settings
-
+        // Removed Firestore settings configuration
+        // Firestore is configured once at app startup
         checkIfUserIsAuthenticated()
     }
 
@@ -122,9 +117,6 @@ final class OnboardingViewModel: ObservableObject {
             
             // 2) Update the email field in Firestore
             let userDoc = firestore.collection("users").document(currentUser.uid)
-            // NOTE: If `updateData` is recognized as async in your SDK, you can do:
-            // try await userDoc.updateData(["email": newEmail])
-            // Otherwise, wrap it in a continuation to remove concurrency warnings:
             let dataToUpdate: [String: String] = ["email": newEmail]
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 userDoc.updateData(dataToUpdate) { error in
@@ -136,8 +128,7 @@ final class OnboardingViewModel: ObservableObject {
                 }
             }
             
-            // 3) Update your local state on the main actor
-            //    (already on the main actor, but we do it explicitly for clarity)
+            // 3) Update your local state
             self.email = newEmail
             
             // 4) Inform the user to verify their email
@@ -159,17 +150,12 @@ final class OnboardingViewModel: ObservableObject {
             )
         }
 
-        // Re-authenticate with the current password
         let credential = EmailAuthProvider.credential(
             withEmail: currentUser.email ?? "",
             password: currentPassword
         )
         try await currentUser.reauthenticate(with: credential)
-
-        // Update to the new password
         try await currentUser.updatePassword(to: newPassword)
-
-        // Return a success message (or handle however you like)
         return "Password updated successfully."
     }
 
@@ -181,7 +167,6 @@ final class OnboardingViewModel: ObservableObject {
         guard let currentUser = Auth.auth().currentUser, let data = data else { return }
         let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
         do {
-            // Uses concurrency-based `putDataAsync` from newer SDK
             try await storageRef.putDataAsync(data)
             print("Profile image uploaded successfully.")
         } catch {
@@ -211,7 +196,6 @@ final class OnboardingViewModel: ObservableObject {
     private func createUserDocument(userId: String) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
-            // If recognized as async, you can call directly:
             try await userDoc.setData([
                 "email": email,
                 "createdAt": Date()
@@ -226,10 +210,8 @@ final class OnboardingViewModel: ObservableObject {
     private func fetchUserDocument(userId: String) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
-            // If recognized as async in your SDK:
             let snapshot = try await userDoc.getDocument()
             if snapshot.exists {
-                // Attempt to decode
                 self.user = try snapshot.data(as: UserModel.self)
                 print("User document fetched successfully.")
             } else {
@@ -243,14 +225,12 @@ final class OnboardingViewModel: ObservableObject {
 
     // MARK: - Error Handling
 
-    /// Handle and display errors
     private func handleError(_ error: Error) {
         errorMessage = error.localizedDescription
         showErrorAlert = true
         print("Error: \(error.localizedDescription)")
     }
 
-    /// Clear all user data and error states
     private func clearState() {
         email = ""
         password = ""
@@ -260,7 +240,6 @@ final class OnboardingViewModel: ObservableObject {
         showErrorAlert = false
     }
 
-    /// Clear only error states
     private func clearErrorState() {
         errorMessage = nil
         showErrorAlert = false

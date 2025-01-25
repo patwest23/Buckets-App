@@ -29,19 +29,15 @@ class ListViewModel: ObservableObject {
     @Published var currentEditingItem: ItemModel?
 
     // MARK: - Firestore
-    private let db = Firestore.firestore()
+    private let db = Firestore.firestore()  // No further settings changes here
     private var userId: String? {
         Auth.auth().currentUser?.uid
     }
 
     // MARK: - Initialization
     init() {
-        // Enable Firestore’s offline caching via cacheSettings
-        let settings = FirestoreSettings()
-        let persistentCache = PersistentCacheSettings()
-        // persistentCache.sizeBytes = 10485760 // (Optional) 10MB cache size
-        settings.cacheSettings = persistentCache
-        db.settings = settings
+        // Removed Firestore settings code from here
+        // Firestore is already configured once in AppDelegate or BucketsApp
     }
 
     // MARK: - Firestore CRUD Operations
@@ -49,7 +45,7 @@ class ListViewModel: ObservableObject {
     /// Loads all items from Firestore for the given user, throwing on error.
     func loadItems(userId: String) async throws {
         print("[ListViewModel] loadItems called for userId: \(userId)")
-        // Convert Firestore's completion-based getDocuments into an async/throw-based call
+
         let snapshot = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<QuerySnapshot, Error>) in
             db.collection("users")
                 .document(userId)
@@ -74,7 +70,6 @@ class ListViewModel: ObservableObject {
 
         print("[ListViewModel] Fetched \(snapshot.documents.count) documents from Firestore.")
 
-        // Decode Firestore documents into `ItemModel`
         var tempItems: [ItemModel] = []
         for document in snapshot.documents {
             do {
@@ -94,7 +89,6 @@ class ListViewModel: ObservableObject {
     func addOrUpdateItem(_ item: ItemModel, userId: String) async {
         print("[ListViewModel] addOrUpdateItem called for item ID: \(item.id)")
         do {
-            // Bridge completion-based setData into an async call
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 do {
                     let documentRef = db
@@ -174,8 +168,6 @@ class ListViewModel: ObservableObject {
     }
 
     // MARK: - Sorting
-
-    /// Sorts the local array based on the selected sorting mode.
     func sortItems() {
         print("[ListViewModel] sortItems called, mode = \(sortingMode)")
         switch sortingMode {
@@ -197,8 +189,6 @@ class ListViewModel: ObservableObject {
     }
 
     // MARK: - Filtering
-
-    /// Provides a filtered list of items based on completion status.
     var filteredItems: [ItemModel] {
         hideCompleted
         ? items.filter { !$0.completed }
