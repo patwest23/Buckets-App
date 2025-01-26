@@ -12,7 +12,7 @@ import FirebaseAuth
 import FirebaseFirestore
 
 enum SortingMode: String, CaseIterable {
-    case manual
+    case manual       // Preserves insertion order or uses 'orderIndex'
     case byDeadline
     case byCreationDate
     case byPriority
@@ -21,161 +21,199 @@ enum SortingMode: String, CaseIterable {
 
 @MainActor
 class ListViewModel: ObservableObject {
+    
     // MARK: - Published Properties
+    
+    /// The array of items in memory for the UI.
     @Published var items: [ItemModel] = []
+    
+    /// Controls whether images are shown in the UI (if you have toggles, you can hide them).
     @Published var showImages: Bool = true
+    
+    /// If `true`, completed items are hidden in the UI.
     @Published var hideCompleted: Bool = false
+    
+    /// Current sorting mode used by `sortItems()`.
     @Published var sortingMode: SortingMode = .manual
+    
+    /// The item currently being edited in detail, if any.
     @Published var currentEditingItem: ItemModel?
-
+    
+    /// Alert state for deletion confirmation.
+    @Published var showDeleteAlert: Bool = false
+    
+    /// The item to be deleted if the user confirms.
+    @Published var itemToDelete: ItemModel?
+    
     // MARK: - Firestore
-    private let db = Firestore.firestore()  // No further settings changes here
+    
+    private let db = Firestore.firestore()
+    private var listenerRegistration: ListenerRegistration?
+    
+    /// Convenience property to get the current logged-in user’s ID.
     private var userId: String? {
         Auth.auth().currentUser?.uid
     }
-
+    
     // MARK: - Initialization
-    init() {
-        // Removed Firestore settings code from here
-        // Firestore is already configured once in AppDelegate or BucketsApp
-    }
+    
+    init() {}
+    
+    deinit {
+            // No longer calling `stopListeningToItems()` here
+            print("[ListViewModel] deinit called.")
+        }
 
-    // MARK: - Firestore CRUD Operations
-
-    /// Loads all items from Firestore for the given user, throwing on error.
-    func loadItems(userId: String) async throws {
-        print("[ListViewModel] loadItems called for userId: \(userId)")
-
-        let snapshot = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<QuerySnapshot, Error>) in
-            db.collection("users")
+        func stopListeningToItems() {
+            listenerRegistration?.remove()
+            listenerRegistration = nil
+            print("[ListViewModel] Stopped listening to items.")
+        }
+    
+    // MARK: - One-Time Fetch
+    
+    /// Loads all items once from Firestore for the current user (no real-time updates).
+    func loadItems() async {
+        guard let userId = userId else {
+            print("[ListViewModel] Error: User is not authenticated.")
+            return
+        }
+        do {
+            let snapshot = try await db.collection("users")
                 .document(userId)
                 .collection("items")
-                .getDocuments { snapshot, error in
-                    if let error = error {
-                        print("[ListViewModel] Error in getDocuments: \(error)")
-                        continuation.resume(throwing: error)
-                    } else if let snapshot = snapshot {
-                        continuation.resume(returning: snapshot)
-                    } else {
-                        let noDataError = NSError(
-                            domain: "LoadItemsError",
-                            code: 0,
-                            userInfo: [NSLocalizedDescriptionKey: "No snapshot returned."]
-                        )
-                        print("[ListViewModel] Error: no snapshot returned.")
-                        continuation.resume(throwing: noDataError)
-                    }
-                }
-        }
-
-        print("[ListViewModel] Fetched \(snapshot.documents.count) documents from Firestore.")
-
-        var tempItems: [ItemModel] = []
-        for document in snapshot.documents {
-            do {
-                let decodedItem = try document.data(as: ItemModel.self)
-                tempItems.append(decodedItem)
-                print("[ListViewModel] Successfully decoded item with ID: \(decodedItem.id)")
-            } catch {
-                print("[ListViewModel] Error decoding item with ID \(document.documentID): \(error.localizedDescription)")
+                .getDocuments()
+            
+            let fetchedItems = try snapshot.documents.compactMap { document -> ItemModel? in
+                try document.data(as: ItemModel.self)
             }
+            self.items = fetchedItems
+            print("[ListViewModel] Successfully loaded \(items.count) items (one-time fetch).")
+            
+            // Sort after loading
+            sortItems()
+            
+        } catch {
+            print("[ListViewModel] Error loading items: \(error.localizedDescription)")
         }
-
-        self.items = tempItems
-        print("[ListViewModel] Items successfully loaded from Firestore. items.count = \(items.count)")
     }
-
-    /// Adds or updates an item in Firestore, then updates local state.
-    func addOrUpdateItem(_ item: ItemModel, userId: String) async {
-        print("[ListViewModel] addOrUpdateItem called for item ID: \(item.id)")
-        do {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                do {
-                    let documentRef = db
-                        .collection("users")
-                        .document(userId)
-                        .collection("items")
-                        .document(item.id.uuidString)
-
-                    try documentRef.setData(from: item, merge: true) { error in
-                        if let error = error {
-                            print("[ListViewModel] setData error: \(error)")
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume(returning: ())
-                        }
-                    }
-                } catch {
-                    print("[ListViewModel] Encoding error in setData: \(error)")
-                    continuation.resume(throwing: error)
-                }
+    
+    // MARK: - Real-Time Updates
+    
+    /// Starts listening to Firestore in real time. Call this method instead of `loadItems()`
+    /// if you want continuous sync.
+    func startListeningToItems() {
+        guard let userId = userId else {
+            print("[ListViewModel] Error: User is not authenticated.")
+            return
+        }
+        
+        stopListeningToItems() // Ensure we don't set up multiple listeners
+        
+        let collectionRef = db.collection("users")
+            .document(userId)
+            .collection("items")
+        
+        listenerRegistration = collectionRef.addSnapshotListener { [weak self] snapshot, error in
+            guard let self = self else { return }
+            if let error = error {
+                print("[ListViewModel] Error listening to items: \(error.localizedDescription)")
+                return
             }
-
-            // Update local array
+            guard let snapshot = snapshot else { return }
+            
+            do {
+                let fetchedItems = try snapshot.documents.compactMap { document -> ItemModel? in
+                    try document.data(as: ItemModel.self)
+                }
+                self.items = fetchedItems
+                print("[ListViewModel] Received \(self.items.count) items (real-time).")
+                
+                // Sort after receiving updates
+                self.sortItems()
+                
+            } catch {
+                print("[ListViewModel] Decoding error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Add or Update Item
+    
+    /// Adds or updates an item in Firestore and updates local state.
+    func addOrUpdateItem(_ item: ItemModel) {
+        guard let userId = userId else { return }
+        do {
+            let docRef = db.collection("users")
+                .document(userId)
+                .collection("items")
+                .document(item.id.uuidString)
+            
+            try docRef.setData(from: item, merge: true)
+            // Synchronously update local items
             if let index = items.firstIndex(where: { $0.id == item.id }) {
                 items[index] = item
-                print("[ListViewModel] Updated existing item in local array, index = \(index)")
             } else {
                 items.append(item)
-                print("[ListViewModel] Appended new item to local array, new count = \(items.count)")
             }
-
-            print("[ListViewModel] Item with ID \(item.id) successfully added/updated in Firestore.")
+            sortItems()
+            
         } catch {
-            print("[ListViewModel] Error adding/updating item \(item.id) in Firestore: \(error.localizedDescription)")
+            print("Error: \(error)")
         }
     }
-
-    /// Deletes an item from Firestore and removes it from local state.
-    func deleteItem(_ item: ItemModel, userId: String) async {
-        print("[ListViewModel] deleteItem called for item ID: \(item.id)")
+    
+    // MARK: - Delete Item
+    
+    /// Deletes an item from Firestore and from local state.
+    func deleteItem(_ item: ItemModel) async {
+        guard let userId = userId else {
+            print("[ListViewModel] Error: User is not authenticated.")
+            return
+        }
         do {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                db.collection("users")
-                    .document(userId)
-                    .collection("items")
-                    .document(item.id.uuidString)
-                    .delete { error in
-                        if let error = error {
-                            print("[ListViewModel] delete error: \(error)")
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume(returning: ())
-                        }
-                    }
-            }
-
-            // Remove from the local array
+            try await db.collection("users")
+                .document(userId)
+                .collection("items")
+                .document(item.id.uuidString)
+                .delete()
+            
+            // Remove from local list if using one-time fetch or non-real-time approach
             items.removeAll { $0.id == item.id }
-            print("[ListViewModel] Item \(item.id) successfully deleted from Firestore and local array.")
+            print("[ListViewModel] Deleted item with ID \(item.id).")
+            
         } catch {
-            print("[ListViewModel] Error deleting item \(item.id) from Firestore: \(error.localizedDescription)")
+            print("[ListViewModel] Error deleting item: \(error.localizedDescription)")
         }
     }
-
-    /// Deletes multiple items (by index set) from Firestore.
-    func deleteItems(at indexSet: IndexSet, userId: String) async {
-        print("[ListViewModel] deleteItems called for indexSet: \(indexSet)")
+    
+    /// Deletes multiple items (by index set) from Firestore and local state.
+    func deleteItems(at indexSet: IndexSet) async {
+        // If real-time is on, you only need to remove them from Firestore,
+        // the snapshot listener will update `items` automatically.
+        
         let itemsToDelete = indexSet.map { items[$0] }
         for item in itemsToDelete {
-            await deleteItem(item, userId: userId)
+            await deleteItem(item)
         }
     }
-
-    /// Retrieves a single item from the local array, if needed.
-    func getItem(by id: UUID) -> ItemModel? {
-        items.first { $0.id == id }
-    }
-
+    
     // MARK: - Sorting
+    
+    /// Sorts `items` based on the current `sortingMode`.
     func sortItems() {
-        print("[ListViewModel] sortItems called, mode = \(sortingMode)")
+        print("[ListViewModel] Sorting items with mode: \(sortingMode.rawValue)")
+        
         switch sortingMode {
         case .manual:
-            // Preserve manual order (no action)
-            return
+            // If you want pure "insertion order" from Firestore, do nothing.
+            // But if you store a custom 'orderIndex' in ItemModel, you can do:
+            items.sort { $0.orderIndex < $1.orderIndex }
+            
         case .byDeadline:
-            items.sort { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
+            items.sort {
+                ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture)
+            }
         case .byCreationDate:
             items.sort { $0.creationDate < $1.creationDate }
         case .byPriority:
@@ -185,17 +223,29 @@ class ListViewModel: ObservableObject {
                 $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
         }
-        print("[ListViewModel] items sorted, first item: \(items.first?.name ?? "none")")
     }
-
+    
     // MARK: - Filtering
+    
+    /// If `hideCompleted` is true, filters out completed items.
     var filteredItems: [ItemModel] {
-        hideCompleted
-        ? items.filter { !$0.completed }
-        : items
+        hideCompleted ? items.filter { !$0.completed } : items
+    }
+    
+    // MARK: - Helpers
+    
+    /// Sets up the item that the user is trying to delete
+    /// so the View can show a confirmation dialog.
+    func setItemForDeletion(_ item: ItemModel) {
+        self.itemToDelete = item
+        self.showDeleteAlert = true
+    }
+    
+    /// Finds an item in `items` by its UUID.
+    func getItem(by id: UUID) -> ItemModel? {
+        items.first { $0.id == id }
     }
 }
-
 
 
 

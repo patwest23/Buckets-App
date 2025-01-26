@@ -10,61 +10,80 @@ import SwiftUI
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-
-    @State private var newItem = ItemModel(userId: "", name: "")
-    @State private var isAddingNewItem = false
+    
     @State private var isLoading = true
-    @State private var showProfileView = false // Controls navigation to ProfileView
-
+    @State private var showProfileView = false
+    
+    // For programmatic navigation to DetailItemView
+    @State private var selectedItem: ItemModel?
+    
+    // For delete confirmation
+    @State private var itemToDelete: ItemModel? = nil
+    
     var body: some View {
         NavigationStack {
-            ZStack {
-                contentView
-
-                addButton
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            }
-            .navigationTitle("Bucket List")
-            .navigationBarTitleDisplayMode(.large)
-            // MARK: - Add custom toolbar items
-            .toolbar {
-                // User name on the left side
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if let user = onboardingViewModel.user {
-                        Text(user.name ?? "Unknown")
-                            .font(.headline)
-                    } else {
-                        Text("No Name")
-                            .font(.headline)
+            if #available(iOS 17.0, *) {
+                ZStack {
+                    contentView
+                    
+                    addButton
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                }
+                .navigationTitle("Bucket List")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        if let user = onboardingViewModel.user {
+                            Text(user.name ?? "Unknown")
+                                .font(.headline)
+                        } else {
+                            Text("No Name")
+                                .font(.headline)
+                        }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showProfileView = true
+                        } label: {
+                            profileImageView
+                        }
                     }
                 }
-                // Profile image button on the right side
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        // Navigate to ProfileView
-                        showProfileView = true
-                    } label: {
-                        profileImageView
-                    }
+                .onAppear {
+                    loadItems()
                 }
-            }
-            .onAppear { loadItems() }
-            .navigationDestination(isPresented: $isAddingNewItem) {
-                DetailItemView(item: $newItem)
-                    .onDisappear { handleNewItemSave() }
-                    .environmentObject(onboardingViewModel)
-                    .environmentObject(bucketListViewModel)
-            }
-            // Present ProfileView when showProfileView is true
-            .navigationDestination(isPresented: $showProfileView) {
-                ProfileView()
-                    .environmentObject(onboardingViewModel)
+                // Navigate to ProfileView
+                .navigationDestination(isPresented: $showProfileView) {
+                    ProfileView()
+                        .environmentObject(onboardingViewModel)
+                }
+                // Navigate to DetailItemView
+                .navigationDestination(item: $selectedItem) { item in
+                    DetailItemView(item: bindingForItem(item))
+                        .environmentObject(bucketListViewModel)
+                        .environmentObject(onboardingViewModel)
+                }
+                // Delete confirmation
+                .confirmationDialog(
+                    "Are you sure you want to delete this item?",
+                    isPresented: $bucketListViewModel.showDeleteAlert
+                ) {
+                    if let itemToDelete = itemToDelete {
+                        Button("Delete", role: .destructive) {
+                            deleteItem(itemToDelete)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+            } else {
+                // Fallback on earlier versions
+                Text("Please use iOS 17 or later.")
             }
         }
     }
-
+    
     // MARK: - Subviews
-
+    
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
@@ -75,14 +94,14 @@ struct ListView: View {
             itemListView
         }
     }
-
+    
     private var loadingView: some View {
-        ProgressView("")
+        ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
             .scaleEffect(1.5)
             .padding()
     }
-
+    
     private var emptyStateView: some View {
         Text("No items yet. Tap + to add a new item.")
             .foregroundColor(.gray)
@@ -90,19 +109,45 @@ struct ListView: View {
             .multilineTextAlignment(.center)
             .padding()
     }
-
+    
     private var itemListView: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                ForEach(bucketListViewModel.items, id: \.id) { item in
-                    navigationLink(for: item)
+            VStack(spacing: 5) {
+                ForEach($bucketListViewModel.items, id: \.id) { $item in
+                    ItemRowView(
+                        item: $item,
+                        onNavigateToDetail: {
+                            selectedItem = item
+                        },
+                        onEmptyNameLostFocus: {
+                            // If the user didn't type anything, delete the item from the model
+                            deleteItemIfEmpty(item)
+                        }
+                    )
+                    // Swipe left = trailing
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation(for: item)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    // Swipe right = leading
+                    .swipeActions(edge: .leading) {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation(for: item)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
             .padding()
         }
     }
-
-    // Profile image in the top-right corner
+    
+    // MARK: - Profile Image
+    
     private var profileImageView: some View {
         if let data = onboardingViewModel.profileImageData,
            let uiImage = UIImage(data: data) {
@@ -124,35 +169,32 @@ struct ListView: View {
             )
         }
     }
-
-    // MARK: - NavigationLink for each item
-    private func navigationLink(for item: ItemModel) -> some View {
-        NavigationLink(
-            destination: DetailItemView(
-                item: Binding(
-                    get: { bucketListViewModel.items.first { $0.id == item.id } ?? item },
-                    set: { updatedItem in handleItemUpdate(updatedItem) }
-                )
-            )
-            .environmentObject(bucketListViewModel)  // Ensure environment object is passed
-            .environmentObject(onboardingViewModel)
-        ) {
-            ItemRowView(item: item, isEditing: .constant(false))
-        }
-    }
-
-    // MARK: - Add button
+    
+    // MARK: - Add Button
+    
     private var addButton: some View {
-        Button(action: {
-            newItem = ItemModel(userId: "", name: "")
-            isAddingNewItem = true
-        }) {
+        Button {
+            // 1) Prevent multiple empty items
+            let alreadyHasEmptyItem = bucketListViewModel.items.contains {
+                $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            guard !alreadyHasEmptyItem else {
+                print("There's already an empty item. Not adding another.")
+                return
+            }
+            
+            let newItem = ItemModel(
+                userId: onboardingViewModel.user?.id ?? "",
+                name: ""
+            )
+            bucketListViewModel.items.append(newItem)
+        } label: {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
-                    .foregroundColor(Color.accentColor)
+                    .foregroundColor(.accentColor)
                     .shadow(color: .gray, radius: 10, x: 0, y: 5)
-
+                
                 Image(systemName: "plus")
                     .foregroundColor(.white)
                     .font(.system(size: 30, weight: .bold))
@@ -160,91 +202,58 @@ struct ListView: View {
         }
         .padding()
     }
-
-    // MARK: - Helper Functions
-
+    
+    // MARK: - Helper Methods
+    
     private func loadItems() {
         Task {
-            if let userId = onboardingViewModel.user?.id {
-                isLoading = true
-                do {
-                    // If your ListViewModel.loadItems is 'async throws',
-                    // you can do:
-                    try await bucketListViewModel.loadItems(userId: userId)
-                } catch {
-                    print("ListView: loadItems() error => \(error.localizedDescription)")
-                }
-                isLoading = false
-            }
+            isLoading = true
+            // Simulate a half-second load
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            isLoading = false
         }
     }
-
-    private func handleItemUpdate(_ updatedItem: ItemModel) {
-        Task {
-            if let userId = onboardingViewModel.user?.id {
-                await bucketListViewModel.addOrUpdateItem(updatedItem, userId: userId)
-            }
+    
+    /// Create a binding to the item in the array, so changes propagate.
+    private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
+        guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
+            return .constant(item)
+        }
+        return $bucketListViewModel.items[index]
+    }
+    
+    private func showDeleteConfirmation(for item: ItemModel) {
+        itemToDelete = item
+        bucketListViewModel.showDeleteAlert = true
+    }
+    
+    private func deleteItemIfEmpty(_ item: ItemModel) {
+        if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            showDeleteConfirmation(for: item)
         }
     }
-
-    private func handleNewItemSave() {
+    
+    private func deleteItem(_ item: ItemModel) {
         Task {
-            if let userId = onboardingViewModel.user?.id {
-                if !newItem.name.isEmpty {
-                    await bucketListViewModel.addOrUpdateItem(newItem, userId: userId)
-                }
-                newItem = ItemModel(userId: "", name: "")
-            }
+            await bucketListViewModel.deleteItem(item)
         }
     }
 }
+
 
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
-        // 1) Create sample environment objects
-        let sampleListVM = ListViewModel()
-        let sampleOnboardingVM = OnboardingViewModel()
-
-        // 2) Populate the ListViewModel with a few items
-        sampleListVM.items = [
-            ItemModel(
-                userId: "testUser1",
-                name: "Sample Bucket List Item 1",
-                description: "This is a preview description for item 1.",
-                creationDate: Date().addingTimeInterval(-86400) // 1 day ago
-            ),
-            ItemModel(
-                userId: "testUser2",
-                name: "Sample Bucket List Item 2",
-                description: "A second item to show in the preview.",
-                completed: true,
-                creationDate: Date()
-            )
-        ]
-
-        // 3) Populate the OnboardingViewModel with a mock user
-        sampleOnboardingVM.user = UserModel(
-            id: "testUser1",
-            email: "sample@example.com",
-            createdAt: Date(),
-            profileImageUrl: nil,
-            name: "@pwesterkamp"
-        )
-
-        // 4) (Optional) Provide some placeholder profile image data
-        // If you have a local image in your Assets, you can do:
-        /*
-        if let uiImage = UIImage(named: "ProfilePlaceholder"),
-           let data = uiImage.jpegData(compressionQuality: 1.0) {
-            sampleOnboardingVM.profileImageData = data
+        let mockListViewModel = ListViewModel()         // Or your mock list VM
+        let mockOnboardingViewModel = OnboardingViewModel() // Or a mock onboarding VM
+        
+        return NavigationStack {
+            ListView()
+                .environmentObject(mockListViewModel)
+                .environmentObject(mockOnboardingViewModel)
         }
-        */
-
-        // 5) Return the `ListView` in the preview
-        return ListView()
-            .environmentObject(sampleListVM)
-            .environmentObject(sampleOnboardingVM)
-            // You can add .previewDisplayName(...) to label the preview
     }
 }
+
+
+
 

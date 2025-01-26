@@ -5,19 +5,35 @@
 //  Created by Patrick Westerkamp on 12/29/24.
 //
 
-import SwiftUI
 import Foundation
-import CoreLocation
 import FirebaseFirestore
 
+/// Represents a user document in Firestore.
 struct UserModel: Identifiable, Codable {
-    @DocumentID var id: String? = nil // Default to `nil` if no document ID is provided
-        var email: String = "" // Default to an empty string for email
-        var createdAt: Date = Date() // Default to the current date
-        var profileImageUrl: String? = nil // Default to `nil` if no profile image URL
-        var name: String? = "Guest" // Default to "Guest" if no name is provided
-
-    init(id: String? = nil, email: String, createdAt: Date? = nil, profileImageUrl: String? = nil, name: String? = nil) {
+    
+    /// The Firestore document ID for this user (managed automatically if using Firestore’s Swift APIs).
+    @DocumentID var id: String? = nil
+    
+    /// The user’s email address.
+    var email: String
+    
+    /// The date/time when this user record was created.
+    var createdAt: Date
+    
+    /// URL to the user’s profile image (stored in Firebase Storage or elsewhere).
+    var profileImageUrl: String?
+    
+    /// Display name for this user. Defaults to "Guest" if none is provided.
+    var name: String?
+    
+    // MARK: - Custom Initializer
+    init(
+        id: String? = nil,
+        email: String,
+        createdAt: Date? = nil,
+        profileImageUrl: String? = nil,
+        name: String? = "Guest"
+    ) {
         self.id = id
         self.email = email
         self.createdAt = createdAt ?? Date()

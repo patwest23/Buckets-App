@@ -45,6 +45,7 @@ struct BucketsApp: App {
     }
 }
 
+// MARK: - AppDelegate
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
         _ application: UIApplication,
@@ -63,9 +64,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // 3) (Optional) Configure Firestore *once* here
         let db = Firestore.firestore()
         let settings = db.settings
+        
+        // Example of tweaking the cache
         let persistentCache = PersistentCacheSettings()
         // persistentCache.sizeBytes = 10_485_760 // for example, 10MB
         settings.cacheSettings = persistentCache
+        
         db.settings = settings
 
         return true

@@ -65,9 +65,9 @@ struct DetailItemView: View {
         }
     }
 
-    // MARK: - First Row (Toggle + Name + optional TabView)
+    // MARK: - First Row (Toggle + Editable Text Field + Images)
     private var firstRowView: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 // Completion toggle
                 Button(action: {
@@ -82,16 +82,25 @@ struct DetailItemView: View {
                 }
                 .buttonStyle(BorderlessButtonStyle())
 
-                // Item name
-                Text(item.name.isEmpty ? "Untitled Item" : item.name)
-                    .foregroundColor(item.completed ? .gray : .primary)
-                    .font(.title3)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Editable Text Field for Item Name
+                TextField(
+                    "📝 What do you want to do before you die?",
+                    text: Binding(
+                        get: { item.name },
+                        set: { newValue in
+                            item.name = newValue
+                            updateItem()
+                        }
+                    )
+                )
+                .font(.title3)
+                .foregroundColor(item.completed ? .gray : .primary)
+                .onChange(of: item.name) { _ in
+                    updateItem()
+                }
             }
 
-            // Optional tab view for images if item has them
+            // Optional TabView for Images (if available)
             if !item.imageUrls.isEmpty {
                 TabView {
                     ForEach(item.imageUrls, id: \.self) { imageUrl in
@@ -336,21 +345,25 @@ struct DetailItemView: View {
     // MARK: - Firestore / Item Updating
     private func updateItem() {
         Task {
-            guard let userId = onboardingViewModel.user?.id else {
-                print("Error: User ID is nil.")
+            // Optional: guard user != nil if you want to be sure the user is logged in
+            guard onboardingViewModel.user != nil else {
+                print("Error: OnboardingViewModel user is nil.")
                 return
             }
-            await bucketListViewModel.addOrUpdateItem(item, userId: userId)
+            
+            // Now that your method no longer needs userId, just pass `item`
+            bucketListViewModel.addOrUpdateItem(item)
         }
     }
 
     private func toggleCompleted() async {
-        guard let userId = onboardingViewModel.user?.id else {
-            print("Error: OnboardingViewModel or user ID is missing")
+        // Optional: guard user != nil to confirm authentication
+        guard onboardingViewModel.user != nil else {
+            print("Error: OnboardingViewModel user is missing")
             return
         }
         item.completed.toggle()
-        await bucketListViewModel.addOrUpdateItem(item, userId: userId)
+        bucketListViewModel.addOrUpdateItem(item)
     }
 
     // MARK: - Photos Upload
