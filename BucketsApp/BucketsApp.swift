@@ -36,6 +36,7 @@ struct BucketsApp: App {
                 // Show the OnboardingView if the user isn't authenticated
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
+                    .environmentObject(bucketListViewModel)
                     .onAppear {
                         print("Unauthenticated user loading onboarding")
                     }

@@ -37,15 +37,15 @@ final class OnboardingViewModel: ObservableObject {
 
     /// Check current authentication status
     func checkIfUserIsAuthenticated() {
-        guard let currentUser = Auth.auth().currentUser else {
-            isAuthenticated = false
-            return
-        }
-
-        isAuthenticated = true
         Task {
-            await fetchUserDocument(userId: currentUser.uid)
-            await loadProfileImage()
+            if let currentUser = Auth.auth().currentUser {
+                isAuthenticated = true
+                await fetchUserDocument(userId: currentUser.uid)
+                await loadProfileImage()
+            } else {
+                print("No authenticated user found.")
+                isAuthenticated = false
+            }
         }
     }
 
@@ -168,7 +168,12 @@ final class OnboardingViewModel: ObservableObject {
         let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
         do {
             try await storageRef.putDataAsync(data)
-            print("Profile image uploaded successfully.")
+            let downloadURL = try await storageRef.downloadURL()
+            
+            // Update Firestore with the URL
+            try await firestore.collection("users").document(currentUser.uid).updateData(["profileImageUrl": downloadURL.absoluteString])
+            
+            print("Profile image uploaded and URL updated in Firestore.")
         } catch {
             handleError(error)
         }
@@ -212,15 +217,39 @@ final class OnboardingViewModel: ObservableObject {
         do {
             let snapshot = try await userDoc.getDocument()
             if snapshot.exists {
+                // Decode the document into the UserModel
                 self.user = try snapshot.data(as: UserModel.self)
                 print("User document fetched successfully.")
             } else {
                 print("No user document found. Creating a new one...")
                 await createUserDocument(userId: userId)
             }
+        } catch DecodingError.dataCorrupted(let context) {
+            print("Decoding error: \(context.debugDescription)")
+            handleError(DecodingError.dataCorrupted(context))
+        } catch DecodingError.keyNotFound(let key, let context) {
+            print("Decoding error: Key '\(key)' not found, \(context.debugDescription)")
+            handleError(DecodingError.keyNotFound(key, context))
+        } catch DecodingError.typeMismatch(let type, let context) {
+            print("Decoding error: Type mismatch for type '\(type)', \(context.debugDescription)")
+            handleError(DecodingError.typeMismatch(type, context))
+        } catch DecodingError.valueNotFound(let value, let context) {
+            print("Decoding error: Value '\(value)' not found, \(context.debugDescription)")
+            handleError(DecodingError.valueNotFound(value, context))
         } catch {
             print("Error fetching or decoding user document: \(error.localizedDescription)")
+            handleError(error)
         }
+    }
+    
+    /// add a pre-check for session validity
+    func validateAuthSession() -> Bool {
+        guard Auth.auth().currentUser != nil else {
+            self.isAuthenticated = false
+            handleError(NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User session expired."]))
+            return false
+        }
+        return true
     }
 
     // MARK: - Error Handling
@@ -232,12 +261,14 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     private func clearState() {
+        print("Clearing state...")
         email = ""
         password = ""
         profileImageData = nil
         user = nil
         errorMessage = nil
         showErrorAlert = false
+        isAuthenticated = false
     }
 
     private func clearErrorState() {

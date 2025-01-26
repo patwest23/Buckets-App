@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ItemRowView: View {
-    @EnvironmentObject var listViewModel: ListViewModel
+    @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
 
     let item: ItemModel
@@ -42,6 +42,8 @@ struct ItemRowView: View {
                             }
                         )
                     )
+                    .environmentObject(bucketListViewModel)
+                    .environmentObject(onboardingViewModel)
                 ) {
                     Text(item.name.isEmpty ? "Untitled Item" : item.name)
                         .foregroundColor(item.completed ? .gray : .primary)
@@ -73,7 +75,6 @@ struct ItemRowView: View {
                 .padding(.horizontal, 16)
             }
         }
-//        .padding(.vertical, 10)
         .padding()
         .background(Color.white)
         .cornerRadius(10)
@@ -85,7 +86,7 @@ struct ItemRowView: View {
     /// Looks up the latest version of this item from the ListViewModel’s items,
     /// in case it has been updated in memory already.
     private var itemFromList: ItemModel? {
-        listViewModel.items.first { $0.id == item.id }
+        bucketListViewModel.items.first { $0.id == item.id }
     }
 
     /// Toggles the `completed` property in Firestore using `ListViewModel`.
@@ -93,13 +94,13 @@ struct ItemRowView: View {
         guard let userId = onboardingViewModel.user?.id else { return }
         var updatedItem = itemFromList ?? item
         updatedItem.completed.toggle()
-        await listViewModel.addOrUpdateItem(updatedItem, userId: userId)
+        await bucketListViewModel.addOrUpdateItem(updatedItem, userId: userId)
     }
 
     /// Updates the item in Firestore with any new changes (e.g., name, details).
     private func updateItemInFirestore(_ updatedItem: ItemModel) async {
         guard let userId = onboardingViewModel.user?.id else { return }
-        await listViewModel.addOrUpdateItem(updatedItem, userId: userId)
+        await bucketListViewModel.addOrUpdateItem(updatedItem, userId: userId)
     }
 }
 

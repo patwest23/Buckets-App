@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ListView: View {
-    @EnvironmentObject var viewModel: ListViewModel
+    @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
 
     @State private var newItem = ItemModel(userId: "", name: "")
@@ -52,6 +52,8 @@ struct ListView: View {
             .navigationDestination(isPresented: $isAddingNewItem) {
                 DetailItemView(item: $newItem)
                     .onDisappear { handleNewItemSave() }
+                    .environmentObject(onboardingViewModel)
+                    .environmentObject(bucketListViewModel)
             }
             // Present ProfileView when showProfileView is true
             .navigationDestination(isPresented: $showProfileView) {
@@ -67,7 +69,7 @@ struct ListView: View {
     private var contentView: some View {
         if isLoading {
             loadingView
-        } else if viewModel.items.isEmpty {
+        } else if bucketListViewModel.items.isEmpty {
             emptyStateView
         } else {
             itemListView
@@ -92,7 +94,7 @@ struct ListView: View {
     private var itemListView: some View {
         ScrollView {
             VStack(spacing: 20) {
-                ForEach(viewModel.items, id: \.id) { item in
+                ForEach(bucketListViewModel.items, id: \.id) { item in
                     navigationLink(for: item)
                 }
             }
@@ -128,10 +130,12 @@ struct ListView: View {
         NavigationLink(
             destination: DetailItemView(
                 item: Binding(
-                    get: { viewModel.items.first { $0.id == item.id } ?? item },
+                    get: { bucketListViewModel.items.first { $0.id == item.id } ?? item },
                     set: { updatedItem in handleItemUpdate(updatedItem) }
                 )
             )
+            .environmentObject(bucketListViewModel)  // Ensure environment object is passed
+            .environmentObject(onboardingViewModel)
         ) {
             ItemRowView(item: item, isEditing: .constant(false))
         }
@@ -166,7 +170,7 @@ struct ListView: View {
                 do {
                     // If your ListViewModel.loadItems is 'async throws',
                     // you can do:
-                    try await viewModel.loadItems(userId: userId)
+                    try await bucketListViewModel.loadItems(userId: userId)
                 } catch {
                     print("ListView: loadItems() error => \(error.localizedDescription)")
                 }
@@ -178,7 +182,7 @@ struct ListView: View {
     private func handleItemUpdate(_ updatedItem: ItemModel) {
         Task {
             if let userId = onboardingViewModel.user?.id {
-                await viewModel.addOrUpdateItem(updatedItem, userId: userId)
+                await bucketListViewModel.addOrUpdateItem(updatedItem, userId: userId)
             }
         }
     }
@@ -187,7 +191,7 @@ struct ListView: View {
         Task {
             if let userId = onboardingViewModel.user?.id {
                 if !newItem.name.isEmpty {
-                    await viewModel.addOrUpdateItem(newItem, userId: userId)
+                    await bucketListViewModel.addOrUpdateItem(newItem, userId: userId)
                 }
                 newItem = ItemModel(userId: "", name: "")
             }

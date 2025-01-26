@@ -14,8 +14,9 @@ struct DetailItemView: View {
     @Binding var item: ItemModel
 
     // MARK: - Environment Objects
-    @EnvironmentObject var listViewModel: ListViewModel
+    @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+        
 
     // MARK: - Presentation
     @Environment(\.presentationMode) var presentationMode
@@ -335,16 +336,21 @@ struct DetailItemView: View {
     // MARK: - Firestore / Item Updating
     private func updateItem() {
         Task {
-            if let userId = onboardingViewModel.user?.id {
-                await listViewModel.addOrUpdateItem(item, userId: userId)
+            guard let userId = onboardingViewModel.user?.id else {
+                print("Error: User ID is nil.")
+                return
             }
+            await bucketListViewModel.addOrUpdateItem(item, userId: userId)
         }
     }
 
     private func toggleCompleted() async {
-        guard let userId = onboardingViewModel.user?.id else { return }
+        guard let userId = onboardingViewModel.user?.id else {
+            print("Error: OnboardingViewModel or user ID is missing")
+            return
+        }
         item.completed.toggle()
-        await listViewModel.addOrUpdateItem(item, userId: userId)
+        await bucketListViewModel.addOrUpdateItem(item, userId: userId)
     }
 
     // MARK: - Photos Upload
