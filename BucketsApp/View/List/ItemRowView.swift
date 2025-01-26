@@ -9,28 +9,34 @@ import SwiftUI
 
 struct ItemRowView: View {
     // MARK: - Properties
+    
     @Binding var item: ItemModel
     
-    /// Callback for navigation to detail view (info button).
+    /// The current item ID that is expanded in the parent view. Only one row can be expanded at a time.
+    @Binding var expandedItemId: UUID?
+    
+    /// Navigate to detail view (DetailItemView).
     let onNavigateToDetail: (() -> Void)?
     
-    /// Called when the user finishes editing the row and the item name is still empty.
+    /// Called if the user collapses the row while the item name is still empty.
     let onEmptyNameLostFocus: (() -> Void)?
     
-    // Environment
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     
-    // MARK: - Local State
-    @State private var isExpanded: Bool = false
-    @FocusState private var textFieldIsFocused: Bool  // optional focus binding
+    // MARK: - Computed State
+    private var isExpanded: Bool {
+        expandedItemId == item.id
+    }
     
     // MARK: - Body
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             
-            // (1) Top Row
+            // 1) Top Row: Completion toggle, multiline text, up/down arrow, detail arrow
             HStack(spacing: 12) {
+                
                 // a) Completion Toggle
                 Button {
                     toggleCompleted()
@@ -41,47 +47,71 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
                 
-                // b) Item Name TextField
-                TextField(
-                    "What do you want to do before you die?",
-                    text: Binding(
-                        get: { item.name },
-                        set: { updateItemName($0) }
+                // b) Editable multiline TextField (iOS 16+)
+                if #available(iOS 16.0, *) {
+                    TextField(
+                        "What do you want to do before you die?",
+                        text: Binding(
+                            get: { item.name },
+                            set: { updateItemName($0) }
+                        ),
+                        axis: .vertical
                     )
-                )
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(Color.white)
-                .cornerRadius(8)
-                .focused($textFieldIsFocused)
-                
-                // c) Info button shows only when expanded
-                if isExpanded {
-                    Button {
-                        onNavigateToDetail?()
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .imageScale(.large)
-                            .foregroundColor(.accentColor)
-                    }
-                    .buttonStyle(.borderless)
-                    .transition(.scale.combined(with: .opacity))
+                    // Allows it to start as a single line,
+                    // then grow up to (for example) 5 lines if needed.
+                    .lineLimit(1...5)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color(uiColor: .systemGray6))
+                    .cornerRadius(8)
+                } else {
+                    // Fallback: single-line if iOS < 16
+                    TextField(
+                        "What do you want to do before you die?",
+                        text: Binding(
+                            get: { item.name },
+                            set: { updateItemName($0) }
+                        )
+                    )
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color(uiColor: .systemGray6))
+                    .cornerRadius(8)
                 }
+                
+                Spacer()
+                
+                // c) Expand/Collapse Button
+                Button {
+                    withAnimation {
+                        toggleRowExpansion()
+                    }
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .imageScale(.medium)
+                }
+                .buttonStyle(.borderless)
+                
+                // d) Navigate-to-Detail Button
+                Button {
+                    onNavigateToDetail?()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .imageScale(.medium)
+                }
+                .buttonStyle(.borderless)
             }
             .padding()
-            .contentShape(Rectangle())  // Make entire row tappable
-            .onTapGesture {
-                withAnimation {
-                    isExpanded.toggle()
-                }
-            }
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.white)
-                    .shadow(color: .gray.opacity(isExpanded ? 0.4 : 0.0), radius: 6)
+                    .shadow(
+                        color: .gray.opacity(isExpanded ? 0.4 : 0.0),
+                        radius: 6
+                    )
             )
             
-            // (2) Drop-down content (only visible when expanded)
+            // 2) Drop-down details (only if expanded)
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
                     
@@ -103,7 +133,7 @@ struct ItemRowView: View {
                             .foregroundColor(.secondary)
                     }
                     
-                    // c) Completion / Due Date
+                    // c) Due Date
                     if let dueDate = item.dueDate {
                         HStack {
                             Image(systemName: "calendar.badge.clock")
@@ -137,7 +167,7 @@ struct ItemRowView: View {
                             }
                         }
                         .tabViewStyle(PageTabViewStyle())
-                        .frame(height: 400)
+                        .frame(height: 200) // or 400 if you prefer a taller view
                     } else {
                         placeholderImage()
                     }
@@ -147,19 +177,15 @@ struct ItemRowView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        // Animate layout changes for expand/collapse
-        .animation(.easeInOut, value: isExpanded)
         .padding(.vertical, 4)
-        .background(Color.white)
-        .onChange(of: isExpanded) { expanded in
-            // If the user collapses the row, check if name is empty
-            if !expanded {
+        .animation(.easeInOut, value: isExpanded)
+        .onChange(of: isExpanded) { newValue in
+            // If row collapses, check if name is empty
+            if !newValue {
                 let trimmedName = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedName.isEmpty {
-                    // Let parent handle deletion or confirmation
                     onEmptyNameLostFocus?()
                 } else {
-                    // Otherwise, save changes
                     saveItem()
                 }
             }
@@ -170,26 +196,31 @@ struct ItemRowView: View {
 // MARK: - Private Helpers
 extension ItemRowView {
     
-    /// Toggles the `completed` status of the item and updates via the view model.
     private func toggleCompleted() {
         var updatedItem = item
         updatedItem.completed.toggle()
         bucketListViewModel.addOrUpdateItem(updatedItem)
     }
     
-    /// Updates the item’s name in the model. Immediately calls view model so changes are saved.
     private func updateItemName(_ newName: String) {
         var updatedItem = item
         updatedItem.name = newName
         bucketListViewModel.addOrUpdateItem(updatedItem)
     }
     
-    /// Called when the row collapses (or any other time you want to explicitly force a save).
     private func saveItem() {
         bucketListViewModel.addOrUpdateItem(item)
     }
     
-    /// Formats a `Date?` for display. Returns empty string if `nil`.
+    /// Toggle expansion for single-row logic
+    private func toggleRowExpansion() {
+        if isExpanded {
+            expandedItemId = nil
+        } else {
+            expandedItemId = item.id
+        }
+    }
+    
     private func formattedDate(_ date: Date?) -> String {
         guard let date = date else { return "" }
         let formatter = DateFormatter()
@@ -197,16 +228,15 @@ extension ItemRowView {
         return formatter.string(from: date)
     }
     
-    /// A placeholder image for empty or failed loads.
     private func placeholderImage() -> some View {
         ZStack {
             Color.gray.opacity(0.1)
-                .frame(maxWidth: .infinity, maxHeight: 400)
+                .frame(maxWidth: .infinity, maxHeight: 200)
                 .cornerRadius(10)
             Image(systemName: "photo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 50, height: 50)
+                .frame(width: 40, height: 40)
                 .foregroundColor(.gray)
         }
     }
@@ -218,6 +248,8 @@ struct ItemRowView_Previews: PreviewProvider {
     /// A reusable container to preview one `ItemRowView` instance
     struct PreviewContainer: View {
         @State private var item: ItemModel
+        
+        @State private var expandedItemId: UUID?
         
         /// Determines if we start with the row "focused" (expanded).
         let initiallyFocused: Bool
@@ -248,7 +280,7 @@ struct ItemRowView_Previews: PreviewProvider {
                 
                 // Our ItemRowView under test
                 ItemRowView(
-                    item: $item,
+                    item: $item, expandedItemId: $expandedItemId,
                     onNavigateToDetail: {
                         print("Navigating to detail for item: \(item.name)")
                     },

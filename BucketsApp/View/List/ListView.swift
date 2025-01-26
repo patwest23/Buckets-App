@@ -16,6 +16,7 @@ struct ListView: View {
     
     // For programmatic navigation to DetailItemView
     @State private var selectedItem: ItemModel?
+    @State private var expandedItemId: UUID?
     
     // For delete confirmation
     @State private var itemToDelete: ItemModel? = nil
@@ -50,7 +51,12 @@ struct ListView: View {
                     }
                 }
                 .onAppear {
+                    #if DEBUG
+                    // In previews, do nothing
+                    #else
+                    // In production, call loadItems()
                     loadItems()
+                    #endif
                 }
                 // Navigate to ProfileView
                 .navigationDestination(isPresented: $showProfileView) {
@@ -87,7 +93,7 @@ struct ListView: View {
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
-            loadingView
+            itemListView
         } else if bucketListViewModel.items.isEmpty {
             emptyStateView
         } else {
@@ -116,6 +122,7 @@ struct ListView: View {
                 ForEach($bucketListViewModel.items, id: \.id) { $item in
                     ItemRowView(
                         item: $item,
+                        expandedItemId: $expandedItemId,
                         onNavigateToDetail: {
                             selectedItem = item
                         },
