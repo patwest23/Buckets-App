@@ -12,68 +12,68 @@ import FirebaseStorage
 struct DetailItemView: View {
     // MARK: - Bound Item
     @Binding var item: ItemModel
-
-    // MARK: - Environment Objects
+    
+    // MARK: - Environment
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-        
-
+    
     // MARK: - Presentation
     @Environment(\.presentationMode) var presentationMode
-
+    
     // MARK: - Local States
-    @State private var selectedPhotos: [PhotosPickerItem] = []
-
-    // For date pickers (single-line display -> sheet)
+    @StateObject private var imagePickerVM = ImagePickerViewModel() // The new view model
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
-
+    
     var body: some View {
         VStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-
-                    // MARK: - First Row (ItemRowView style)
-                    firstRowView
+                    
+                    // (1) Basic Info Row (toggle + name + image carousel)
+                    basicInfoRow
                         .padding()
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
-
-                    // MARK: - Description Row
-                    descriptionRow
-
-                    // MARK: - Date Created
+                    
+                    // (2) Photos Picker Row
+                    photoPickerRow
+                    
+                    // (3) Date Created
                     dateCreatedLine
-
-                    // MARK: - Date Completed (dueDate)
+                    
+                    // (4) Date Completed
                     dateCompletedLine
-
-                    // MARK: - Location Row
+                    
+                    // (5) Location
                     locationRow
-
-                    // MARK: - Select Photos Row
-                    selectPhotosRow
-
-                    // MARK: - Photo Grid
-                    if !item.imageUrls.isEmpty {
-                        photoGridView
-                    }
+                    
+                    // (6) Notes at the Bottom
+                    descriptionRow
                 }
                 .padding()
             }
         }
+        // Whenever `imagePickerVM.uiImages` changes, upload them and update item.imageUrls
+        .onChange(of: imagePickerVM.uiImages) { newImages in
+            Task {
+                await uploadPickedImages(newImages)
+            }
+        }
     }
+}
 
-    // MARK: - First Row (Toggle + Editable Text Field + Images)
-    private var firstRowView: some View {
+// MARK: - Subviews
+extension DetailItemView {
+    
+    /// Basic info row with toggle & name. Also shows a TabView if item.imageUrls is not empty.
+    private var basicInfoRow: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 // Completion toggle
                 Button(action: {
-                    Task {
-                        await toggleCompleted()
-                    }
+                    Task { await toggleCompleted() }
                 }) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
@@ -81,8 +81,8 @@ struct DetailItemView: View {
                         .foregroundColor(item.completed ? .accentColor : .gray)
                 }
                 .buttonStyle(BorderlessButtonStyle())
-
-                // Editable Text Field for Item Name
+                
+                // Editable Text Field
                 TextField(
                     "📝 What do you want to do before you die?",
                     text: Binding(
@@ -95,31 +95,32 @@ struct DetailItemView: View {
                 )
                 .font(.title3)
                 .foregroundColor(item.completed ? .gray : .primary)
-                .onChange(of: item.name) { _ in
-                    updateItem()
-                }
             }
-
-            // Optional TabView for Images (if available)
+            
+            // If item already has imageUrls, show them in a TabView (carousel)
             if !item.imageUrls.isEmpty {
                 TabView {
-                    ForEach(item.imageUrls, id: \.self) { imageUrl in
-                        AsyncImage(url: URL(string: imageUrl)) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(maxWidth: .infinity, maxHeight: 300)
-                                    .cornerRadius(20)
-                                    .clipped()
-                            case .failure:
-                                placeholderImage()
-                            @unknown default:
-                                placeholderImage()
+                    ForEach(item.imageUrls, id: \.self) { urlStr in
+                        if let url = URL(string: urlStr) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(maxWidth: .infinity, maxHeight: 300)
+                                        .cornerRadius(20)
+                                        .clipped()
+                                case .failure:
+                                    placeholderImage()
+                                @unknown default:
+                                    placeholderImage()
+                                }
                             }
+                        } else {
+                            placeholderImage()
                         }
                     }
                 }
@@ -130,136 +131,91 @@ struct DetailItemView: View {
         }
         .padding(.vertical, 10)
     }
-
-    // MARK: - Description Row
-    private var descriptionRow: some View {
+    
+    /// Photos Picker Row
+    private var photoPickerRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("📝   Notes")
-                .font(.headline)
-
-            TextEditor(
-                text: Binding(
-                    get: { item.description ?? "" },
-                    set: { newValue in
-                        item.description = newValue
-                        updateItem()
-                    }
-                )
-            )
-            .frame(minHeight: 150)
-            .onChange(of: item.description) { _ in
-                updateItem()
-            }
-        }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(radius: 2)
-    }
-
-    // MARK: - Date Created Line
-    private var dateCreatedLine: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("📅   Date Created")
+            PhotosPicker(
+                selection: $imagePickerVM.imageSelections,
+                maxSelectionCount: 3,
+                matching: .images
+            ) {
+                Text("📸   Select Photos")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(10)
+                    .shadow(radius: 2)
                     .font(.headline)
-                Spacer()
-                Text(formattedDate(item.creationDate))
-                    .foregroundColor(.accentColor)
-            }
-            .onTapGesture {
-                showDateCreatedSheet = true
             }
         }
+    }
+    
+    /// Date Created Row
+    private var dateCreatedLine: some View {
+        HStack {
+            Text("📅   Date Created")
+                .font(.headline)
+            Spacer()
+            Text(formattedDate(item.creationDate))
+                .foregroundColor(.accentColor)
+        }
+        .onTapGesture { showDateCreatedSheet = true }
         .padding()
         .background(Color.white)
         .cornerRadius(10)
         .shadow(radius: 2)
         .sheet(isPresented: $showDateCreatedSheet) {
-            VStack(spacing: 20) {
-                Text("Select Date Created")
-                    .font(.title3)
-                    .padding(.top)
-
-                DatePicker("", selection: $item.creationDate, displayedComponents: .date)
-                    .datePickerStyle(WheelDatePickerStyle())
-                    .labelsHidden()
-                    .onChange(of: item.creationDate) { _ in
-                        updateItem()
-                    }
-
-                Button("Done") {
-                    showDateCreatedSheet = false
-                }
-                .font(.headline)
-                .padding(.bottom, 20)
-            }
-            .presentationDetents([.height(350)]) // iOS16+ (optional)
+            datePickerSheet(
+                title: "Select Date Created",
+                date: $item.creationDate,
+                onDismiss: { showDateCreatedSheet = false }
+            )
         }
     }
-
-    // MARK: - Date Completed (dueDate)
+    
+    /// Date Completed Row
     private var dateCompletedLine: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("📅   Date Completed")
-                    .font(.headline)
-                Spacer()
-                Text(formattedDate(item.dueDate))
-                    .foregroundColor(.accentColor)
-            }
-            .onTapGesture {
-                showDateCompletedSheet = true
-            }
+        HStack {
+            Text("📅   Date Completed")
+                .font(.headline)
+            Spacer()
+            Text(formattedDate(item.dueDate))
+                .foregroundColor(.accentColor)
         }
+        .onTapGesture { showDateCompletedSheet = true }
         .padding()
         .background(Color.white)
         .cornerRadius(10)
         .shadow(radius: 2)
         .sheet(isPresented: $showDateCompletedSheet) {
-            VStack(spacing: 20) {
-                Text("Select Date Completed")
-                    .font(.title3)
-                    .padding(.top)
-
-                DatePicker("", selection: Binding(
+            datePickerSheet(
+                title: "Select Date Completed",
+                date: Binding(
                     get: { item.dueDate ?? Date() },
                     set: { newValue in
                         item.dueDate = newValue
                         updateItem()
                     }
-                ), displayedComponents: .date)
-                .datePickerStyle(WheelDatePickerStyle())
-                .labelsHidden()
-
-                Button("Done") {
-                    showDateCompletedSheet = false
-                }
-                .font(.headline)
-                .padding(.bottom, 20)
-            }
-            .presentationDetents([.height(350)]) // iOS16+ (optional)
+                ),
+                onDismiss: { showDateCompletedSheet = false }
+            )
         }
     }
-
-    // MARK: - Location Row
+    
+    /// Location Row
     private var locationRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("📍")
-
                 TextField(
                     "Enter location...",
                     text: Binding(
                         get: { item.location?.address ?? "" },
                         set: { newValue in
-                            var updatedLocation = item.location ?? Location(
-                                latitude: 0,
-                                longitude: 0,
-                                address: newValue
-                            )
-                            updatedLocation.address = newValue
-                            item.location = updatedLocation
+                            var loc = item.location ?? Location(latitude: 0, longitude: 0, address: "")
+                            loc.address = newValue
+                            item.location = loc
                             updateItem()
                         }
                     )
@@ -272,128 +228,104 @@ struct DetailItemView: View {
             .shadow(radius: 2)
         }
     }
-
-    // MARK: - Photos Picker Row
-    private var selectPhotosRow: some View {
+    
+    /// Notes (Description) at the bottom
+    private var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 3, matching: .images) {
-                Text("📸   Select Photos")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(10)
-                    .shadow(radius: 2)
-                    .font(.headline)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                    )
-            }
-            .onChange(of: selectedPhotos) { selections in
-                handlePhotoSelection(selections)
-            }
-        }
-    }
-
-    // MARK: - Photo Grid
-    private var photoGridView: some View {
-        LazyVGrid(
-            columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ],
-            spacing: 10
-        ) {
-            ForEach(item.imageUrls, id: \.self) { urlString in
-                if let url = URL(string: urlString) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .cornerRadius(10)
-                                .clipped()
-                        case .failure:
-                            placeholderImage()
-                        @unknown default:
-                            placeholderImage()
-                        }
+            Text("📝   Notes")
+                .font(.headline)
+            
+            TextEditor(
+                text: Binding(
+                    get: { item.description ?? "" },
+                    set: { newValue in
+                        item.description = newValue
+                        updateItem()
                     }
-                } else {
-                    placeholderImage()
-                }
+                )
+            )
+            .frame(minHeight: 150)
+        }
+        .padding()
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 2)
+    }
+}
+
+// MARK: - Private Helpers
+extension DetailItemView {
+    
+    /// Upload the newly picked images from `imagePickerVM.uiImages` to Storage,
+    /// then update item.imageUrls with the new download URLs.
+    private func uploadPickedImages(_ images: [UIImage]) async {
+        guard let userId = onboardingViewModel.user?.id else { return }
+        
+        let storageRef = Storage.storage().reference().child("users/\(userId)/item-\(item.id.uuidString)")
+        var newUrls: [String] = []
+        
+        for (index, uiImage) in images.enumerated() {
+            guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else { continue }
+            let fileName = "photo\(index + 1).jpg"
+            let imageRef = storageRef.child(fileName)
+            do {
+                // Upload
+                try await imageRef.putDataAsync(imageData)
+                // Get URL
+                let downloadUrl = try await imageRef.downloadURL()
+                newUrls.append(downloadUrl.absoluteString)
+            } catch {
+                print("Error uploading image: \(error.localizedDescription)")
             }
         }
-        .padding(.horizontal)
+        
+        // If we got new URLs, append them and update the item
+        if !newUrls.isEmpty {
+            item.imageUrls.append(contentsOf: newUrls)
+            updateItem() // Save the item with updated imageUrls
+        }
     }
-
-    // MARK: - Formatting
-    private func formattedDate(_ date: Date?) -> String {
-        // If dueDate is nil, show something like "--"
-        guard let date = date else { return "--" }
-
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
+    
+    private func datePickerSheet(
+        title: String,
+        date: Binding<Date>,
+        onDismiss: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 20) {
+            Text(title)
+                .font(.title3)
+                .padding(.top)
+            
+            DatePicker("", selection: date, displayedComponents: .date)
+                .datePickerStyle(WheelDatePickerStyle())
+                .labelsHidden()
+                .onChange(of: date.wrappedValue) { _ in
+                    updateItem()
+                }
+            
+            Button("Done") {
+                onDismiss()
+            }
+            .font(.headline)
+            .padding(.bottom, 20)
+        }
+        .presentationDetents([.height(350)]) // iOS16+ (optional)
     }
-
-    // MARK: - Firestore / Item Updating
+    
+    /// Save item to Firestore (or local model)
     private func updateItem() {
         Task {
-            // Optional: guard user != nil if you want to be sure the user is logged in
-            guard onboardingViewModel.user != nil else {
-                print("Error: OnboardingViewModel user is nil.")
-                return
-            }
-            
-            // Now that your method no longer needs userId, just pass `item`
             bucketListViewModel.addOrUpdateItem(item)
         }
     }
-
+    
+    /// Toggle 'completed' state and update item
     private func toggleCompleted() async {
-        // Optional: guard user != nil to confirm authentication
-        guard onboardingViewModel.user != nil else {
-            print("Error: OnboardingViewModel user is missing")
-            return
-        }
         item.completed.toggle()
         bucketListViewModel.addOrUpdateItem(item)
     }
-
-    // MARK: - Photos Upload
-    private func handlePhotoSelection(_ selections: [PhotosPickerItem]) {
-        Task {
-            guard let userId = onboardingViewModel.user?.id else { return }
-            let storageRef = Storage.storage().reference().child("users/\(userId)/images")
-
-            var newUrls: [String] = []
-            for (index, selection) in selections.prefix(3).enumerated() {
-                do {
-                    if let data = try? await selection.loadTransferable(type: Data.self) {
-                        let imageRef = storageRef.child("detail-\(item.id.uuidString)-\(index + 1).jpg")
-                        _ = try await imageRef.putDataAsync(data)
-                        let downloadUrl = try await imageRef.downloadURL()
-                        newUrls.append(downloadUrl.absoluteString)
-                    }
-                } catch {
-                    print("Error uploading selected photo: \(error.localizedDescription)")
-                }
-            }
-
-            if !newUrls.isEmpty {
-                item.imageUrls.append(contentsOf: newUrls)
-                updateItem()
-            }
-        }
-    }
-
-    // MARK: - UI Helpers
+    
+    /// A fallback image placeholder.
     private func placeholderImage() -> some View {
         ZStack {
             Color.white
@@ -405,6 +337,14 @@ struct DetailItemView: View {
                 )
         }
     }
+    
+    /// Convert a Date? to string or show "--".
+    private func formattedDate(_ date: Date?) -> String {
+        guard let date = date else { return "--" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
 }
 
 #if DEBUG
@@ -414,7 +354,7 @@ struct DetailItemView_Previews: PreviewProvider {
         let mockOnboardingVM = OnboardingViewModel()
         let mockListVM = ListViewModel()
 
-        // 2) Create a sample ItemModel with both creationDate and dueDate
+        // 2) Create a sample ItemModel with three placeholder images
         let sampleItem = ItemModel(
             userId: "previewUser",
             name: "Sample Bucket List Item",
@@ -423,14 +363,18 @@ struct DetailItemView_Previews: PreviewProvider {
             location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
             completed: true,
             creationDate: Date().addingTimeInterval(-86400), // 1 day ago
-            imageUrls: []
+            imageUrls: [
+                "https://via.placeholder.com/300",
+                "https://via.placeholder.com/300",
+                "https://via.placeholder.com/300"
+            ]
         )
 
         // 3) Provide a binding to `sampleItem`
         return DetailItemView(item: .constant(sampleItem))
             .environmentObject(mockOnboardingVM)
             .environmentObject(mockListVM)
-            .previewDisplayName("DetailItemViewWorking Preview")
+            .previewDisplayName("DetailItemView with 3 Blank Images")
     }
 }
 #endif

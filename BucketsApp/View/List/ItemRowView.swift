@@ -12,7 +12,7 @@ struct ItemRowView: View {
     
     @Binding var item: ItemModel
     
-    /// The current item ID that is expanded in the parent view. Only one row can be expanded at a time.
+    /// The current item ID that is expanded in the parent view. Only one row can be open at a time.
     @Binding var expandedItemId: UUID?
     
     /// Navigate to detail view (DetailItemView).
@@ -25,6 +25,8 @@ struct ItemRowView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     
     // MARK: - Computed State
+    
+    /// Determines if this row is expanded by comparing `expandedItemId` to the current item ID.
     private var isExpanded: Bool {
         expandedItemId == item.id
     }
@@ -57,13 +59,11 @@ struct ItemRowView: View {
                         ),
                         axis: .vertical
                     )
-                    // Allows it to start as a single line,
-                    // then grow up to (for example) 5 lines if needed.
                     .lineLimit(1...5)
                     .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color(uiColor: .systemGray6))
-                    .cornerRadius(8)
+//                    .padding(.horizontal, 5)
+//                    .background(Color(uiColor: .systemGray6))
+//                    .cornerRadius(8)
                 } else {
                     // Fallback: single-line if iOS < 16
                     TextField(
@@ -101,15 +101,12 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white)
-                    .shadow(
-                        color: .gray.opacity(isExpanded ? 0.4 : 0.0),
-                        radius: 6
-                    )
-            )
+//            .padding()
+//            .background(
+//                RoundedRectangle(cornerRadius: 12)
+//                    .fill(Color.white)
+//                    .shadow(color: .gray.opacity(isExpanded ? 0.4 : 0.0), radius: 6)
+//            )
             
             // 2) Drop-down details (only if expanded)
             if isExpanded {
@@ -143,33 +140,34 @@ struct ItemRowView: View {
                         }
                     }
                     
-                    // d) Image Carousel
+                    // d) Image Carousel (only if item.imageUrls is not empty)
                     if !item.imageUrls.isEmpty {
                         TabView {
-                            ForEach(item.imageUrls, id: \.self) { url in
-                                AsyncImage(url: URL(string: url)) { phase in
-                                    switch phase {
-                                    case .empty:
-                                        ProgressView()
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(maxWidth: .infinity, maxHeight: 200)
-                                            .cornerRadius(10)
-                                            .clipped()
-                                    case .failure:
-                                        placeholderImage()
-                                    @unknown default:
-                                        placeholderImage()
+                            ForEach(item.imageUrls, id: \.self) { urlStr in
+                                if let url = URL(string: urlStr) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .empty:
+                                            ProgressView()
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(maxWidth: .infinity, maxHeight: 200)
+                                                .cornerRadius(10)
+                                                .clipped()
+                                        case .failure:
+                                            // Do nothing if we fail; no placeholder
+                                            EmptyView()
+                                        @unknown default:
+                                            EmptyView()
+                                        }
                                     }
                                 }
                             }
                         }
                         .tabViewStyle(PageTabViewStyle())
-                        .frame(height: 200) // or 400 if you prefer a taller view
-                    } else {
-                        placeholderImage()
+                        .frame(height: 200)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -178,9 +176,9 @@ struct ItemRowView: View {
             }
         }
         .padding(.vertical, 4)
-        .animation(.easeInOut, value: isExpanded)
+//        .animation(.linear, value: isExpanded)
+        // When the row collapses, check if name is empty
         .onChange(of: isExpanded) { newValue in
-            // If row collapses, check if name is empty
             if !newValue {
                 let trimmedName = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedName.isEmpty {
@@ -226,19 +224,6 @@ extension ItemRowView {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
-    }
-    
-    private func placeholderImage() -> some View {
-        ZStack {
-            Color.gray.opacity(0.1)
-                .frame(maxWidth: .infinity, maxHeight: 200)
-                .cornerRadius(10)
-            Image(systemName: "photo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .foregroundColor(.gray)
-        }
     }
 }
 
