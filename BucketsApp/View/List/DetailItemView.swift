@@ -21,23 +21,26 @@ struct DetailItemView: View {
     @Environment(\.presentationMode) var presentationMode
     
     // MARK: - Local States
-    @StateObject private var imagePickerVM = ImagePickerViewModel() // The new view model
+    @StateObject private var imagePickerVM = ImagePickerViewModel() // simplified VM
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
+    
+    // Spinner for uploads
+    @State private var isUploading = false
     
     var body: some View {
         VStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 5) {
                     
-                    // (1) Basic Info Row (toggle + name + image carousel)
+                    // (1) Basic Info Row (toggle + multi-line name)
                     basicInfoRow
-                        .padding()
+                        .padding(.horizontal)
                         .background(Color.white)
                         .cornerRadius(10)
                         .shadow(radius: 2)
                     
-                    // (2) Photos Picker Row
+                    // (2) Photos Picker + Grid (existing or newly picked)
                     photoPickerRow
                     
                     // (3) Date Created
@@ -55,7 +58,9 @@ struct DetailItemView: View {
                 .padding()
             }
         }
-        // Whenever `imagePickerVM.uiImages` changes, upload them and update item.imageUrls
+        .navigationTitle("")                // no text
+        .navigationBarTitleDisplayMode(.inline)
+        // Whenever `imagePickerVM.uiImages` changes, upload them to Firebase for this item
         .onChange(of: imagePickerVM.uiImages) { newImages in
             Task {
                 await uploadPickedImages(newImages)
@@ -67,9 +72,9 @@ struct DetailItemView: View {
 // MARK: - Subviews
 extension DetailItemView {
     
-    /// Basic info row with toggle & name. Also shows a TabView if item.imageUrls is not empty.
+    /// Basic info row with a completion toggle & a multi-line TextField (iOS 16+)
     private var basicInfoRow: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
                 // Completion toggle
                 Button(action: {
@@ -82,24 +87,79 @@ extension DetailItemView {
                 }
                 .buttonStyle(BorderlessButtonStyle())
                 
-                // Editable Text Field
-                TextField(
-                    "📝 What do you want to do before you die?",
-                    text: Binding(
-                        get: { item.name },
-                        set: { newValue in
-                            item.name = newValue
-                            updateItem()
-                        }
+                // Multi-line TextField on iOS 16+, otherwise single line
+                if #available(iOS 16.0, *) {
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { item.name },
+                            set: { newValue in
+                                item.name = newValue
+                                updateItem()
+                            }
+                        ),
+                        axis: .vertical
                     )
-                )
-                .font(.title3)
-                .foregroundColor(item.completed ? .gray : .primary)
+                    .lineLimit(1...10) // Expand up to 10 lines (or use 1... for unlimited)
+                } else {
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { item.name },
+                            set: { newValue in
+                                item.name = newValue
+                                updateItem()
+                            }
+                        )
+                    )
+                    .font(.title3)
+                    .foregroundColor(item.completed ? .gray : .primary)
+                }
             }
+            .padding(.vertical, 10)
+        }
+    }
+    
+    /// Photos Picker + Grid of images
+    private var photoPickerRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Button + Spinner in the same horizontal row
+            HStack {
+                // PhotosPicker button
+                PhotosPicker(
+                    selection: $imagePickerVM.imageSelections,
+                    maxSelectionCount: 3,
+                    matching: .images
+                ) {
+                    Text("📸   Select Photos")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                if isUploading {
+                    ProgressView()
+                        .padding(.trailing, 8)
+                }
+            }
+            .padding()
             
-            // If item already has imageUrls, show them in a TabView (carousel)
-            if !item.imageUrls.isEmpty {
-                TabView {
+            // If the user just picked new images, show them in a grid
+            if !imagePickerVM.uiImages.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+                    ForEach(imagePickerVM.uiImages, id: \.self) { uiImage in
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipped()
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(.vertical, 10)
+            }
+            // Otherwise, if no new images, show existing item.imageUrls
+            else if !item.imageUrls.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
                     ForEach(item.imageUrls, id: \.self) { urlStr in
                         if let url = URL(string: urlStr) {
                             AsyncImage(url: url) { phase in
@@ -110,51 +170,32 @@ extension DetailItemView {
                                     image
                                         .resizable()
                                         .scaledToFill()
-                                        .frame(maxWidth: .infinity, maxHeight: 300)
-                                        .cornerRadius(20)
+                                        .frame(width: 100, height: 100)
                                         .clipped()
+                                        .cornerRadius(8)
                                 case .failure:
-                                    placeholderImage()
+                                    EmptyView() // show nothing if it fails
                                 @unknown default:
-                                    placeholderImage()
+                                    EmptyView()
                                 }
                             }
                         } else {
-                            placeholderImage()
+                            EmptyView()
                         }
                     }
                 }
-                .tabViewStyle(PageTabViewStyle())
-                .frame(height: 300)
-                .padding(.horizontal, 16)
+//                .padding(.vertical, 10)
             }
         }
-        .padding(.vertical, 10)
-    }
-    
-    /// Photos Picker Row
-    private var photoPickerRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            PhotosPicker(
-                selection: $imagePickerVM.imageSelections,
-                maxSelectionCount: 3,
-                matching: .images
-            ) {
-                Text("📸   Select Photos")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(10)
-                    .shadow(radius: 2)
-                    .font(.headline)
-            }
-        }
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 2)
     }
     
     /// Date Created Row
     private var dateCreatedLine: some View {
         HStack {
-            Text("📅   Date Created")
+            Text("📅   Created")
                 .font(.headline)
             Spacer()
             Text(formattedDate(item.creationDate))
@@ -177,7 +218,7 @@ extension DetailItemView {
     /// Date Completed Row
     private var dateCompletedLine: some View {
         HStack {
-            Text("📅   Date Completed")
+            Text("📅   Completed")
                 .font(.headline)
             Spacer()
             Text(formattedDate(item.dueDate))
@@ -256,36 +297,46 @@ extension DetailItemView {
 // MARK: - Private Helpers
 extension DetailItemView {
     
-    /// Upload the newly picked images from `imagePickerVM.uiImages` to Storage,
-    /// then update item.imageUrls with the new download URLs.
+    /// Upload newly picked images to Firebase Storage, then update item.imageUrls with the new URLs.
     private func uploadPickedImages(_ images: [UIImage]) async {
         guard let userId = onboardingViewModel.user?.id else { return }
         
-        let storageRef = Storage.storage().reference().child("users/\(userId)/item-\(item.id.uuidString)")
+        // Start spinner
+        isUploading = true
+        
+        let storageRef = Storage.storage().reference()
+            .child("users/\(userId)/item-\(item.id.uuidString)")
+        
         var newUrls: [String] = []
         
         for (index, uiImage) in images.enumerated() {
             guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else { continue }
             let fileName = "photo\(index + 1).jpg"
             let imageRef = storageRef.child(fileName)
+            
             do {
-                // Upload
+                // 1) Upload
                 try await imageRef.putDataAsync(imageData)
-                // Get URL
+                
+                // 2) Retrieve download URL
                 let downloadUrl = try await imageRef.downloadURL()
                 newUrls.append(downloadUrl.absoluteString)
             } catch {
-                print("Error uploading image: \(error.localizedDescription)")
+                print("Error uploading image \(index): \(error.localizedDescription)")
             }
         }
         
-        // If we got new URLs, append them and update the item
+        // Stop spinner
+        isUploading = false
+        
+        // If we got new URLs, replace item.imageUrls
         if !newUrls.isEmpty {
-            item.imageUrls.append(contentsOf: newUrls)
+            item.imageUrls = newUrls
             updateItem() // Save the item with updated imageUrls
         }
     }
     
+    /// Show a date picker inside a sheet
     private func datePickerSheet(
         title: String,
         date: Binding<Date>,
@@ -300,6 +351,7 @@ extension DetailItemView {
                 .datePickerStyle(WheelDatePickerStyle())
                 .labelsHidden()
                 .onChange(of: date.wrappedValue) { _ in
+                    // Whenever user changes the date, update Firestore
                     updateItem()
                 }
             
@@ -312,33 +364,29 @@ extension DetailItemView {
         .presentationDetents([.height(350)]) // iOS16+ (optional)
     }
     
-    /// Save item to Firestore (or local model)
+    /// Updates the item in your ViewModel (persisting to Firestore or local storage)
     private func updateItem() {
         Task {
             bucketListViewModel.addOrUpdateItem(item)
         }
     }
     
-    /// Toggle 'completed' state and update item
+    /// Toggles 'completed' state. If marking complete, set `item.dueDate` to now; otherwise clear it.
     private func toggleCompleted() async {
-        item.completed.toggle()
+        if !item.completed {
+            // Marking item as complete
+            item.completed = true
+            item.dueDate = Date()
+        } else {
+            // Marking item as incomplete
+            item.completed = false
+            item.dueDate = nil
+        }
+        
         bucketListViewModel.addOrUpdateItem(item)
     }
     
-    /// A fallback image placeholder.
-    private func placeholderImage() -> some View {
-        ZStack {
-            Color.white
-                .frame(width: 100, height: 100)
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.gray, lineWidth: 1)
-                )
-        }
-    }
-    
-    /// Convert a Date? to string or show "--".
+    /// Convert an optional `Date` to a user-friendly string.
     private func formattedDate(_ date: Date?) -> String {
         guard let date = date else { return "--" }
         let formatter = DateFormatter()

@@ -15,7 +15,7 @@ struct ItemRowView: View {
     /// The current item ID that is expanded in the parent view. Only one row can be open at a time.
     @Binding var expandedItemId: UUID?
     
-    /// Navigate to detail view (DetailItemView).
+    /// Navigate to DetailItemView
     let onNavigateToDetail: (() -> Void)?
     
     /// Called if the user collapses the row while the item name is still empty.
@@ -35,10 +35,8 @@ struct ItemRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            
-            // 1) Top Row: Completion toggle, multiline text, up/down arrow, detail arrow
+            // 1) Top Row
             HStack(spacing: 12) {
-                
                 // a) Completion Toggle
                 Button {
                     toggleCompleted()
@@ -49,34 +47,28 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
                 
-                // b) Editable multiline TextField (iOS 16+)
+                // b) Editable multiline TextField (iOS 16+), fallback for older iOS
                 if #available(iOS 16.0, *) {
                     TextField(
-                        "What do you want to do before you die?",
+                        "",
                         text: Binding(
                             get: { item.name },
                             set: { updateItemName($0) }
                         ),
                         axis: .vertical
                     )
-                    .lineLimit(1...5)
+                    .lineLimit(1...5) // up to 5 lines
                     .padding(.vertical, 8)
-//                    .padding(.horizontal, 5)
-//                    .background(Color(uiColor: .systemGray6))
-//                    .cornerRadius(8)
                 } else {
                     // Fallback: single-line if iOS < 16
                     TextField(
-                        "What do you want to do before you die?",
+                        "",
                         text: Binding(
                             get: { item.name },
                             set: { updateItemName($0) }
                         )
                     )
                     .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color(uiColor: .systemGray6))
-                    .cornerRadius(8)
                 }
                 
                 Spacer()
@@ -101,12 +93,7 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
             }
-//            .padding()
-//            .background(
-//                RoundedRectangle(cornerRadius: 12)
-//                    .fill(Color.white)
-//                    .shadow(color: .gray.opacity(isExpanded ? 0.4 : 0.0), radius: 6)
-//            )
+            .padding(.vertical, 4)
             
             // 2) Drop-down details (only if expanded)
             if isExpanded {
@@ -115,7 +102,7 @@ struct ItemRowView: View {
                     // a) Location
                     if let address = item.location?.address, !address.isEmpty {
                         HStack {
-                            Image(systemName: "mappin.and.ellipse")
+                            Image(systemName: "mappin")
                             Text(address)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
@@ -130,7 +117,7 @@ struct ItemRowView: View {
                             .foregroundColor(.secondary)
                     }
                     
-                    // c) Due Date
+                    // c) Completed Date (if any)
                     if let dueDate = item.dueDate {
                         HStack {
                             Image(systemName: "calendar.badge.clock")
@@ -140,7 +127,7 @@ struct ItemRowView: View {
                         }
                     }
                     
-                    // d) Image Carousel (only if item.imageUrls is not empty)
+                    // d) Image Carousel (TabView) if there are images
                     if !item.imageUrls.isEmpty {
                         TabView {
                             ForEach(item.imageUrls, id: \.self) { urlStr in
@@ -153,16 +140,22 @@ struct ItemRowView: View {
                                             image
                                                 .resizable()
                                                 .scaledToFill()
-                                                .frame(maxWidth: .infinity, maxHeight: 200)
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 200)
                                                 .cornerRadius(10)
                                                 .clipped()
                                         case .failure:
-                                            // Do nothing if we fail; no placeholder
-                                            EmptyView()
+                                            // Show a placeholder or just nothing
+                                            Color.gray
+                                                .frame(height: 200)
                                         @unknown default:
                                             EmptyView()
                                         }
                                     }
+                                } else {
+                                    // Invalid URL
+                                    Color.gray
+                                        .frame(height: 200)
                                 }
                             }
                         }
@@ -175,10 +168,8 @@ struct ItemRowView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(.vertical, 4)
-//        .animation(.linear, value: isExpanded)
-        // When the row collapses, check if name is empty
         .onChange(of: isExpanded) { newValue in
+            // If the row collapses and the name is empty, call onEmptyNameLostFocus
             if !newValue {
                 let trimmedName = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedName.isEmpty {
@@ -194,18 +185,21 @@ struct ItemRowView: View {
 // MARK: - Private Helpers
 extension ItemRowView {
     
+    /// Toggle the completed state in the item model
     private func toggleCompleted() {
-        var updatedItem = item
-        updatedItem.completed.toggle()
-        bucketListViewModel.addOrUpdateItem(updatedItem)
+        var updated = item
+        updated.completed.toggle()
+        bucketListViewModel.addOrUpdateItem(updated)
     }
     
+    /// Update the item name
     private func updateItemName(_ newName: String) {
-        var updatedItem = item
-        updatedItem.name = newName
-        bucketListViewModel.addOrUpdateItem(updatedItem)
+        var updated = item
+        updated.name = newName
+        bucketListViewModel.addOrUpdateItem(updated)
     }
     
+    /// Save the item (called when user collapses after editing)
     private func saveItem() {
         bucketListViewModel.addOrUpdateItem(item)
     }
@@ -219,8 +213,9 @@ extension ItemRowView {
         }
     }
     
+    /// Format optional date to a short, readable string
     private func formattedDate(_ date: Date?) -> String {
-        guard let date = date else { return "" }
+        guard let date = date else { return "--" }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
