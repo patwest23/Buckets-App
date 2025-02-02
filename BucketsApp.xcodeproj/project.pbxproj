@@ -36,6 +36,7 @@
 		1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A2029E20C2300868BAC /* SignUpView.swift */; };
 		1FFCE5B92B4200CB001751CA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */; };
 		1FFCE5BB2B420BEF001751CA /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1FFCE5BA2B420BEF001751CA /* FirebaseAuth */; };
+		1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -64,6 +65,7 @@
 		1FED1A1E29E20C1500868BAC /* LogInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogInView.swift; sourceTree = "<group>"; };
 		1FED1A2029E20C2300868BAC /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
 		1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateUserNameView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +93,7 @@
 				1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */,
 				1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */,
 				1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */,
+				1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */,
 			);
 			path = User;
 			sourceTree = "<group>";
@@ -285,6 +288,7 @@
 				1F91D69B2C9678F300947A9D /* MockOnBoardingViewModel.swift in Sources */,
 				1FCE7E462C0C036D00F7B2C6 /* DetailItemView.swift in Sources */,
 				1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */,
+				1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */,
 				1F234B252D21DC85000DF507 /* UserModel.swift in Sources */,
 				1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
 				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,

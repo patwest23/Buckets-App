@@ -44,15 +44,9 @@ class ListViewModel: ObservableObject {
         print("[ListViewModel] init.")
     }
     
-    // Remove from deinit
     deinit {
-        // No more concurrency or calls here
+        // Optionally remove real-time listener or do minimal synchronous cleanup
         print("[ListViewModel] deinit called.")
-    }
-
-    // Somewhere in your SwiftUI view:
-    .onDisappear {
-        bucketListViewModel.stopListeningToItems()
     }
     
     // MARK: - Stop Real-Time Listening
@@ -83,7 +77,6 @@ class ListViewModel: ObservableObject {
             self.items = fetchedItems
             print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
             sortItems()
-            
         } catch {
             print("[ListViewModel] loadItems error:", error.localizedDescription)
         }
@@ -172,7 +165,6 @@ class ListViewModel: ObservableObject {
             
             items.removeAll { $0.id == item.id }
             print("[ListViewModel] deleteItem: Deleted item \(item.id) from /users/\(userId)/items")
-            
         } catch {
             print("[ListViewModel] deleteItem error:", error.localizedDescription)
         }
@@ -193,7 +185,6 @@ class ListViewModel: ObservableObject {
         case .manual:
             // If you want to use a custom 'orderIndex' in ItemModel for manual sorting:
             items.sort { $0.orderIndex < $1.orderIndex }
-            
         case .byDeadline:
             items.sort {
                 ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture)

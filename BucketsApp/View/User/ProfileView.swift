@@ -13,7 +13,8 @@ import FirebaseFirestore
 struct ProfileView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var listViewModel: ListViewModel  // So we can access item counts
-
+    @EnvironmentObject var userViewModel: UserViewModel  // For updating username
+    
     // The boolean to show/hide the picker
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
@@ -21,7 +22,7 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
-
+                
                 // MARK: - Profile Image + Name
                 Button(action: {
                     isPickerPresented = true
@@ -52,64 +53,74 @@ struct ProfileView: View {
                 .onChange(of: selectedImageItem) { newItem in
                     loadProfileImage(newItem)
                 }
-
+                
                 // User’s name below the profile image
                 if let userName = onboardingViewModel.user?.name, !userName.isEmpty {
                     Text(userName)
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(.black)  // Text color set to black
+                        .foregroundColor(.black)
                 } else {
                     Text("Username")
                         .font(.title2)
                         .foregroundColor(.gray)
                 }
-
+                
                 // MARK: - Emoji-based Item Counts
-                HStack(spacing: 60) {
-                    VStack {
-                        Text("🪣")
-                            .font(.headline)
-                        Text("x")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    VStack {
-                        Text("✅")
-                            .font(.headline)
-                        Text("x")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    VStack {
-                        Text("❌")
-                            .font(.headline)
-                        Text("x")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                }
-                .padding(.vertical, 8)
-
-                // MARK: - Account Settings (with Emoji)
+//                HStack(spacing: 60) {
+//                    // 🪣 (Total items)
+//                    VStack {
+//                        Text("🪣")
+//                            .font(.headline)
+//                        Text("\(listViewModel.items.count)")
+//                            .font(.title3)
+//                            .fontWeight(.bold)
+//                    }
+//                    
+//                    // ✅ (Completed items)
+//                    VStack {
+//                        Text("✅")
+//                            .font(.headline)
+//                        Text("\(listViewModel.items.filter { $0.completed }.count)")
+//                            .font(.title3)
+//                            .fontWeight(.bold)
+//                    }
+//                    
+//                    // ❌ (Incomplete items)
+//                    VStack {
+//                        Text("❌")
+//                            .font(.headline)
+//                        Text("\(listViewModel.items.filter { !$0.completed }.count)")
+//                            .font(.title3)
+//                            .fontWeight(.bold)
+//                    }
+//                }
+//                .padding(.vertical, 8)
+                
+                // MARK: - Account Settings
                 VStack(spacing: 10) {
-                    // Left-aligned links with emojis and no borders
+                    // Left-aligned links
                     VStack(alignment: .leading, spacing: 12) {
+                        // 📝 Update Username
+                        NavigationLink("📝 Update Username", destination: UpdateUserNameView())
+                            .foregroundColor(.black)
+                            .buttonStyle(PlainButtonStyle())
+                        
                         NavigationLink("✉️ Update Email", destination: UpdateEmailView())
-                            .foregroundColor(.black)  // Set text color to black
-                            .buttonStyle(PlainButtonStyle()) // Remove border
+                            .foregroundColor(.black)
+                            .buttonStyle(PlainButtonStyle())
                         NavigationLink("🔑 Reset Password", destination: ResetPasswordView())
-                            .foregroundColor(.black)  // Set text color to black
-                            .buttonStyle(PlainButtonStyle()) // Remove border
+                            .foregroundColor(.black)
+                            .buttonStyle(PlainButtonStyle())
                         NavigationLink("🔒 Update Password", destination: UpdatePasswordView())
-                            .foregroundColor(.black)  // Set text color to black
-                            .buttonStyle(PlainButtonStyle()) // Remove border
+                            .foregroundColor(.black)
+                            .buttonStyle(PlainButtonStyle())
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-
+                    
                     Spacer()
                     
-                    // Centered "Log Out" button with a door emoji 🚪
+                    // Centered "Log Out" button
                     HStack {
                         Spacer()
                         Button("🚪 Log Out", role: .destructive) {
@@ -117,12 +128,11 @@ struct ProfileView: View {
                                 await onboardingViewModel.signOut()
                             }
                         }
-                        .foregroundColor(.black)  // Set text color to black
+                        .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .fontWeight(.bold)
                         .padding()
                         .background(.white)
-                        .foregroundColor(.black)
                         .cornerRadius(10)
                         .shadow(radius: 5)
                         Spacer()
@@ -138,9 +148,8 @@ struct ProfileView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Optionally remove or replace nav bar title
             ToolbarItem(placement: .principal) {
-                EmptyView()
+                EmptyView() // Hide default nav title
             }
         }
     }

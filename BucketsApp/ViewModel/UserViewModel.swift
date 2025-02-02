@@ -32,7 +32,10 @@ class UserViewModel: ObservableObject {
     // MARK: - One-Time Fetch
     func fetchUserData(userId: String) async {
         do {
-            let fetchedUser: UserModel = try await withCheckedThrowingContinuation { continuation in
+            // Example of explicit generic in withCheckedThrowingContinuation:
+            let fetchedUser: UserModel = try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<UserModel, Error>) in
+                
                 db.collection("users").document(userId).getDocument { snapshot, error in
                     if let error = error {
                         continuation.resume(throwing: error)
@@ -42,7 +45,9 @@ class UserViewModel: ObservableObject {
                         let noDocError = NSError(
                             domain: "NoDocumentFound",
                             code: 404,
-                            userInfo: [NSLocalizedDescriptionKey: "No user document found for ID \(userId)."]
+                            userInfo: [
+                                NSLocalizedDescriptionKey: "No user document found for ID \(userId)."
+                            ]
                         )
                         continuation.resume(throwing: noDocError)
                         return
@@ -86,7 +91,9 @@ class UserViewModel: ObservableObject {
                 let noDocError = NSError(
                     domain: "NoDocumentFound",
                     code: 404,
-                    userInfo: [NSLocalizedDescriptionKey: "No user document found for ID \(userId)."]
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "No user document found for ID \(userId)."
+                    ]
                 )
                 self.handleError(noDocError, prefix: "startListeningToUserDoc")
                 return
@@ -116,8 +123,9 @@ class UserViewModel: ObservableObject {
         }
         
         do {
-            // 1) Merge updated fields into /users/<userId>
-            try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
+                
                 do {
                     try db.collection("users")
                         .document(userId)
@@ -133,12 +141,64 @@ class UserViewModel: ObservableObject {
                 }
             }
             
-            // 2) Update local user property
             self.user = updatedUser
             print("[UserViewModel] updateUserProfile: User doc updated for /users/\(userId). user.id =", updatedUser.id ?? "nil")
             
         } catch {
             handleError(error, prefix: "updateUserProfile")
+        }
+    }
+    
+    // MARK: - Update Username for User & All Items
+    /// Updates the user's name to `newName` (e.g. "@JaneDoe") and then
+    /// batch-updates all item docs in `/users/<userId>/items` to reflect this new `userName`.
+    func updateUserName(to newName: String) async {
+        // 1) Validate new name
+        guard newName.hasPrefix("@") else {
+            let err = NSError(domain: "InvalidUsername",
+                              code: 400,
+                              userInfo: [NSLocalizedDescriptionKey: "Username must start with @"])
+            handleError(err, prefix: "updateUserName")
+            return
+        }
+        
+        // 2) Ensure user doc ID is known
+        guard let userId = user?.id else {
+            let err = NSError(domain: "AuthError",
+                              code: 401,
+                              userInfo: [NSLocalizedDescriptionKey: "No user ID found."])
+            handleError(err, prefix: "updateUserName")
+            return
+        }
+        
+        // 3) Start a Firestore batch
+        let batch = db.batch()
+        
+        // 4) Update the user doc's "name" field
+        let userRef = db.collection("users").document(userId)
+        batch.updateData(["name": newName], forDocument: userRef)
+        
+        // 5) Fetch all item docs in `/users/<userId>/items`
+        do {
+            let itemsSnapshot = try await db.collection("users")
+                .document(userId)
+                .collection("items")
+                .getDocuments()
+            
+            // 6) For each item doc, update "userName" to `newName`
+            for itemDoc in itemsSnapshot.documents {
+                batch.updateData(["userName": newName], forDocument: itemDoc.reference)
+            }
+            
+            // 7) Commit the batch
+            try await batch.commit()
+            print("[UserViewModel] updateUserName: Batch updated user doc + \(itemsSnapshot.documents.count) item docs.")
+            
+            // 8) Update local user object
+            user?.name = newName
+            
+        } catch {
+            handleError(error, prefix: "updateUserName")
         }
     }
     

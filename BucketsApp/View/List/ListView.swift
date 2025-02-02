@@ -14,16 +14,16 @@ struct ListView: View {
     @State private var isLoading = true
     @State private var showProfileView = false
     @State private var selectedItem: ItemModel?
-    @State private var expandedItemId: UUID?
     @State private var itemToDelete: ItemModel?
     
-    // 1) Define view style enum & local state
+    // MARK: - View Style Enum
     private enum ViewStyle: String {
         case list = "List View"
         case detailed = "Detailed View"
         case completed = "Completed Only"
         case incomplete = "Incomplete Only"
     }
+    
     @State private var selectedViewStyle: ViewStyle = .list
     
     var body: some View {
@@ -31,6 +31,7 @@ struct ListView: View {
             if #available(iOS 17.0, *) {
                 ZStack {
                     contentView
+                    
                     addButton
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
@@ -49,21 +50,22 @@ struct ListView: View {
                         }
                     }
                     
-                    // Trailing: HStack of sorting menu + profile
+                    // Trailing: Sorting menu + Profile button
                     ToolbarItem(placement: .navigationBarTrailing) {
                         HStack {
-                            // 2) The sorting/view-style Menu
+                            // Sorting/View-Style Menu
                             Menu {
-                                Button("List View")      { selectedViewStyle = .list }
-                                Button("Detailed View")  { selectedViewStyle = .detailed }
-                                Button("Completed Only") { selectedViewStyle = .completed }
-                                Button("Incomplete")     { selectedViewStyle = .incomplete }
+                                Button("List")       { selectedViewStyle = .list }
+                                Button("Detailed")   { selectedViewStyle = .detailed }
+                                Button("Complete")   { selectedViewStyle = .completed }
+                                Button("Incomplete") { selectedViewStyle = .incomplete }
                             } label: {
                                 Image(systemName: "line.3.horizontal.decrease.circle")
-                                    .font(.title3)
+                                    .font(.title)
+                                    .foregroundColor(.accentColor)
                             }
                             
-                            // Existing profile button
+                            // Profile
                             Button {
                                 showProfileView = true
                             } label: {
@@ -72,18 +74,22 @@ struct ListView: View {
                         }
                     }
                 }
+                // Load items on appear (simulated delay)
                 .onAppear {
                     loadItems()
                 }
+                // Navigate to ProfileView
                 .navigationDestination(isPresented: $showProfileView) {
                     ProfileView()
                         .environmentObject(onboardingViewModel)
                 }
+                // Navigate to DetailItemView
                 .navigationDestination(item: $selectedItem) { item in
                     DetailItemView(item: bindingForItem(item))
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                 }
+                // Delete confirmation dialog
                 .confirmationDialog(
                     "Are you sure you want to delete this item?",
                     isPresented: $bucketListViewModel.showDeleteAlert
@@ -101,7 +107,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Content
+    // MARK: - Main Content
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
@@ -113,12 +119,11 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Filter/Style Items Based on selectedViewStyle
+    // MARK: - Derived Items
     private var displayedItems: [ItemModel] {
         switch selectedViewStyle {
-        case .list:
-            return bucketListViewModel.items
-        case .detailed:
+        case .list, .detailed:
+            // Return all items in these two modes.
             return bucketListViewModel.items
         case .completed:
             return bucketListViewModel.items.filter { $0.completed }
@@ -127,6 +132,7 @@ struct ListView: View {
         }
     }
     
+    // MARK: - List of Items
     private var itemListView: some View {
         ScrollView {
             VStack(spacing: 5) {
@@ -135,7 +141,9 @@ struct ListView: View {
                     
                     ItemRowView(
                         item: itemBinding,
-                        expandedItemId: $expandedItemId,
+                        // If you want to show extra fields inline for "Detailed",
+                        // pass showDetailed: (selectedViewStyle == .detailed)
+                        showDetailed: (selectedViewStyle == .detailed),
                         onNavigateToDetail: {
                             selectedItem = aItem
                         },
@@ -143,6 +151,7 @@ struct ListView: View {
                             deleteItemIfEmpty(aItem)
                         }
                     )
+                    // Swipe-to-delete
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             showDeleteConfirmation(for: aItem)
@@ -163,7 +172,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Load & Empty State & etc
+    // MARK: - Loading / Empty States
     private var loadingView: some View {
         ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
@@ -173,13 +182,14 @@ struct ListView: View {
     
     private var emptyStateView: some View {
         Text("What do you want to do before you die?")
-            .foregroundColor(.accentColor)
-            .font(.largeTitle)
+            .foregroundColor(.primary)
+            .font(.title)
             .fontWeight(.bold)
             .multilineTextAlignment(.center)
             .padding()
     }
     
+    // MARK: - Load Items (Simulated)
     private func loadItems() {
         Task {
             isLoading = true
@@ -236,7 +246,7 @@ struct ListView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 40, height: 40)
                     .clipShape(Circle())
-                    .foregroundColor(.gray)
+                    .foregroundColor(.accentColor)
             )
         }
     }
@@ -267,10 +277,11 @@ struct ListView: View {
     }
 }
 
+// MARK: - Preview
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockListViewModel = ListViewModel()         // Or your mock list VM
-        let mockOnboardingViewModel = OnboardingViewModel() // Or a mock onboarding VM
+        let mockListViewModel = ListViewModel()
+        let mockOnboardingViewModel = OnboardingViewModel()
         
         return NavigationStack {
             ListView()
