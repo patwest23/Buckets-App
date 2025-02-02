@@ -23,175 +23,162 @@ enum SortingMode: String, CaseIterable {
 class ListViewModel: ObservableObject {
     
     // MARK: - Published Properties
-    
-    /// The array of items in memory for the UI.
     @Published var items: [ItemModel] = []
-    
-    /// Controls whether images are shown in the UI (if you have toggles, you can hide them).
     @Published var showImages: Bool = true
-    
-    /// If `true`, completed items are hidden in the UI.
     @Published var hideCompleted: Bool = false
-    
-    /// Current sorting mode used by `sortItems()`.
     @Published var sortingMode: SortingMode = .manual
-    
-    /// The item currently being edited in detail, if any.
     @Published var currentEditingItem: ItemModel?
-    
-    /// Alert state for deletion confirmation.
     @Published var showDeleteAlert: Bool = false
-    
-    /// The item to be deleted if the user confirms.
     @Published var itemToDelete: ItemModel?
     
     // MARK: - Firestore
-    
     private let db = Firestore.firestore()
     private var listenerRegistration: ListenerRegistration?
     
-    /// Convenience property to get the current logged-in user’s ID.
     private var userId: String? {
         Auth.auth().currentUser?.uid
     }
     
     // MARK: - Initialization
+    init() {
+        print("[ListViewModel] init.")
+    }
     
-    init() {}
-    
+    // Remove from deinit
     deinit {
-            // No longer calling `stopListeningToItems()` here
-            print("[ListViewModel] deinit called.")
-        }
+        // No more concurrency or calls here
+        print("[ListViewModel] deinit called.")
+    }
 
-        func stopListeningToItems() {
-            listenerRegistration?.remove()
-            listenerRegistration = nil
-            print("[ListViewModel] Stopped listening to items.")
-        }
+    // Somewhere in your SwiftUI view:
+    .onDisappear {
+        bucketListViewModel.stopListeningToItems()
+    }
+    
+    // MARK: - Stop Real-Time Listening
+    func stopListeningToItems() {
+        listenerRegistration?.remove()
+        listenerRegistration = nil
+        print("[ListViewModel] Stopped listening to items.")
+    }
     
     // MARK: - One-Time Fetch
-    
-    /// Loads all items once from Firestore for the current user (no real-time updates).
     func loadItems() async {
         guard let userId = userId else {
-            print("[ListViewModel] Error: User is not authenticated.")
+            print("[ListViewModel] loadItems: Error: userId is nil (not authenticated).")
             return
         }
+        
         do {
-            let snapshot = try await db.collection("users")
+            let snapshot = try await db
+                .collection("users")
                 .document(userId)
                 .collection("items")
                 .getDocuments()
             
-            let fetchedItems = try snapshot.documents.compactMap { document -> ItemModel? in
-                try document.data(as: ItemModel.self)
+            let fetchedItems = try snapshot.documents.compactMap {
+                try $0.data(as: ItemModel.self)
             }
-            self.items = fetchedItems
-            print("[ListViewModel] Successfully loaded \(items.count) items (one-time fetch).")
             
-            // Sort after loading
+            self.items = fetchedItems
+            print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
             sortItems()
             
         } catch {
-            print("[ListViewModel] Error loading items: \(error.localizedDescription)")
+            print("[ListViewModel] loadItems error:", error.localizedDescription)
         }
     }
     
     // MARK: - Real-Time Updates
-    
-    /// Starts listening to Firestore in real time. Call this method instead of `loadItems()`
-    /// if you want continuous sync.
     func startListeningToItems() {
         guard let userId = userId else {
-            print("[ListViewModel] Error: User is not authenticated.")
+            print("[ListViewModel] startListeningToItems: Error: userId is nil (not authenticated).")
             return
         }
         
-        stopListeningToItems() // Ensure we don't set up multiple listeners
+        stopListeningToItems()  // avoid multiple listeners
         
-        let collectionRef = db.collection("users")
+        let collectionRef = db
+            .collection("users")
             .document(userId)
             .collection("items")
         
         listenerRegistration = collectionRef.addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
+            
             if let error = error {
-                print("[ListViewModel] Error listening to items: \(error.localizedDescription)")
+                print("[ListViewModel] startListeningToItems error:", error.localizedDescription)
                 return
             }
+            
             guard let snapshot = snapshot else { return }
             
             do {
-                let fetchedItems = try snapshot.documents.compactMap { document -> ItemModel? in
-                    try document.data(as: ItemModel.self)
+                let fetched = try snapshot.documents.compactMap {
+                    try $0.data(as: ItemModel.self)
                 }
-                self.items = fetchedItems
-                print("[ListViewModel] Received \(self.items.count) items (real-time).")
-                
-                // Sort after receiving updates
+                self.items = fetched
+                print("[ListViewModel] startListeningToItems: Received \(self.items.count) items for userId \(userId)")
                 self.sortItems()
-                
             } catch {
-                print("[ListViewModel] Decoding error: \(error.localizedDescription)")
+                print("[ListViewModel] Decoding error:", error.localizedDescription)
             }
         }
     }
     
-    // MARK: - Add or Update Item
-    
-    /// Adds or updates an item in Firestore and updates local state.
+    // MARK: - Add/Update Item
     func addOrUpdateItem(_ item: ItemModel) {
-        guard let userId = userId else { return }
+        guard let userId = userId else {
+            print("[ListViewModel] addOrUpdateItem: Error: userId is nil. Cannot save item.")
+            return
+        }
+        
+        let docRef = db
+            .collection("users")
+            .document(userId)
+            .collection("items")
+            .document(item.id.uuidString)
+        
         do {
-            let docRef = db.collection("users")
-                .document(userId)
-                .collection("items")
-                .document(item.id.uuidString)
-            
             try docRef.setData(from: item, merge: true)
-            // Synchronously update local items
+            print("[ListViewModel] addOrUpdateItem: Wrote item \(item.id) to /users/\(userId)/items/\(item.id.uuidString)")
+            
+            // Update local array
             if let index = items.firstIndex(where: { $0.id == item.id }) {
                 items[index] = item
             } else {
                 items.append(item)
             }
             sortItems()
-            
         } catch {
-            print("Error: \(error)")
+            print("[ListViewModel] addOrUpdateItem: Error:", error.localizedDescription)
         }
     }
     
     // MARK: - Delete Item
-    
-    /// Deletes an item from Firestore and from local state.
     func deleteItem(_ item: ItemModel) async {
         guard let userId = userId else {
-            print("[ListViewModel] Error: User is not authenticated.")
+            print("[ListViewModel] deleteItem: Error: userId is nil (not authenticated).")
             return
         }
+        
         do {
-            try await db.collection("users")
+            try await db
+                .collection("users")
                 .document(userId)
                 .collection("items")
                 .document(item.id.uuidString)
                 .delete()
             
-            // Remove from local list if using one-time fetch or non-real-time approach
             items.removeAll { $0.id == item.id }
-            print("[ListViewModel] Deleted item with ID \(item.id).")
+            print("[ListViewModel] deleteItem: Deleted item \(item.id) from /users/\(userId)/items")
             
         } catch {
-            print("[ListViewModel] Error deleting item: \(error.localizedDescription)")
+            print("[ListViewModel] deleteItem error:", error.localizedDescription)
         }
     }
     
-    /// Deletes multiple items (by index set) from Firestore and local state.
     func deleteItems(at indexSet: IndexSet) async {
-        // If real-time is on, you only need to remove them from Firestore,
-        // the snapshot listener will update `items` automatically.
-        
         let itemsToDelete = indexSet.map { items[$0] }
         for item in itemsToDelete {
             await deleteItem(item)
@@ -199,15 +186,12 @@ class ListViewModel: ObservableObject {
     }
     
     // MARK: - Sorting
-    
-    /// Sorts `items` based on the current `sortingMode`.
     func sortItems() {
-        print("[ListViewModel] Sorting items with mode: \(sortingMode.rawValue)")
+        print("[ListViewModel] sortItems by \(sortingMode.rawValue)")
         
         switch sortingMode {
         case .manual:
-            // If you want pure "insertion order" from Firestore, do nothing.
-            // But if you store a custom 'orderIndex' in ItemModel, you can do:
+            // If you want to use a custom 'orderIndex' in ItemModel for manual sorting:
             items.sort { $0.orderIndex < $1.orderIndex }
             
         case .byDeadline:
@@ -226,22 +210,16 @@ class ListViewModel: ObservableObject {
     }
     
     // MARK: - Filtering
-    
-    /// If `hideCompleted` is true, filters out completed items.
     var filteredItems: [ItemModel] {
         hideCompleted ? items.filter { !$0.completed } : items
     }
     
     // MARK: - Helpers
-    
-    /// Sets up the item that the user is trying to delete
-    /// so the View can show a confirmation dialog.
     func setItemForDeletion(_ item: ItemModel) {
         self.itemToDelete = item
         self.showDeleteAlert = true
     }
     
-    /// Finds an item in `items` by its UUID.
     func getItem(by id: UUID) -> ItemModel? {
         items.first { $0.id == id }
     }

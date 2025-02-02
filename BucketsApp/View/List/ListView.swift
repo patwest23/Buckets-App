@@ -13,26 +13,32 @@ struct ListView: View {
     
     @State private var isLoading = true
     @State private var showProfileView = false
-    
-    // For programmatic navigation to DetailItemView
     @State private var selectedItem: ItemModel?
     @State private var expandedItemId: UUID?
+    @State private var itemToDelete: ItemModel?
     
-    // For delete confirmation
-    @State private var itemToDelete: ItemModel? = nil
+    // 1) Define view style enum & local state
+    private enum ViewStyle: String {
+        case list = "List View"
+        case detailed = "Detailed View"
+        case completed = "Completed Only"
+        case incomplete = "Incomplete Only"
+    }
+    @State private var selectedViewStyle: ViewStyle = .list
     
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
                 ZStack {
                     contentView
-                    
                     addButton
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
                 .navigationTitle("Bucket List")
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
+                    
+                    // Leading: user name
                     ToolbarItem(placement: .navigationBarLeading) {
                         if let user = onboardingViewModel.user {
                             Text(user.name ?? "Unknown")
@@ -42,36 +48,47 @@ struct ListView: View {
                                 .font(.headline)
                         }
                     }
+                    
+                    // Trailing: HStack of sorting menu + profile
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            showProfileView = true
-                        } label: {
-                            profileImageView
+                        HStack {
+                            // 2) The sorting/view-style Menu
+                            Menu {
+                                Button("List View")      { selectedViewStyle = .list }
+                                Button("Detailed View")  { selectedViewStyle = .detailed }
+                                Button("Completed Only") { selectedViewStyle = .completed }
+                                Button("Incomplete")     { selectedViewStyle = .incomplete }
+                            } label: {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                    .font(.title3)
+                            }
+                            
+                            // Existing profile button
+                            Button {
+                                showProfileView = true
+                            } label: {
+                                profileImageView
+                            }
                         }
                     }
                 }
                 .onAppear {
-                    // In production, call your real data-fetch method here
-                    // e.g. await bucketListViewModel.fetchItemsFromFirestore()
-                    loadItems() // Simulates a short delay
+                    loadItems()
                 }
-                // Navigate to ProfileView
                 .navigationDestination(isPresented: $showProfileView) {
                     ProfileView()
                         .environmentObject(onboardingViewModel)
                 }
-                // Navigate to DetailItemView
                 .navigationDestination(item: $selectedItem) { item in
                     DetailItemView(item: bindingForItem(item))
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                 }
-                // Delete confirmation dialog
                 .confirmationDialog(
                     "Are you sure you want to delete this item?",
                     isPresented: $bucketListViewModel.showDeleteAlert
                 ) {
-                    if let itemToDelete = itemToDelete {
+                    if let itemToDelete {
                         Button("Delete", role: .destructive) {
                             deleteItem(itemToDelete)
                         }
@@ -79,28 +96,74 @@ struct ListView: View {
                     Button("Cancel", role: .cancel) {}
                 }
             } else {
-                // Fallback on earlier versions
                 Text("Please use iOS 17 or later.")
             }
         }
     }
     
-    // MARK: - Main Content View
+    // MARK: - Content
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
-            // 1) Show a loading spinner first
             loadingView
         } else if bucketListViewModel.items.isEmpty {
-            // 2) Show empty-state message if no items exist
             emptyStateView
         } else {
-            // 3) Otherwise show the list of items
             itemListView
         }
     }
     
-    // MARK: - Loading Indicator
+    // MARK: - Filter/Style Items Based on selectedViewStyle
+    private var displayedItems: [ItemModel] {
+        switch selectedViewStyle {
+        case .list:
+            return bucketListViewModel.items
+        case .detailed:
+            return bucketListViewModel.items
+        case .completed:
+            return bucketListViewModel.items.filter { $0.completed }
+        case .incomplete:
+            return bucketListViewModel.items.filter { !$0.completed }
+        }
+    }
+    
+    private var itemListView: some View {
+        ScrollView {
+            VStack(spacing: 5) {
+                ForEach(displayedItems, id: \.id) { aItem in
+                    let itemBinding = bindingForItem(aItem)
+                    
+                    ItemRowView(
+                        item: itemBinding,
+                        expandedItemId: $expandedItemId,
+                        onNavigateToDetail: {
+                            selectedItem = aItem
+                        },
+                        onEmptyNameLostFocus: {
+                            deleteItemIfEmpty(aItem)
+                        }
+                    )
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation(for: aItem)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation(for: aItem)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - Load & Empty State & etc
     private var loadingView: some View {
         ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
@@ -108,7 +171,6 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Empty State
     private var emptyStateView: some View {
         Text("What do you want to do before you die?")
             .foregroundColor(.accentColor)
@@ -118,43 +180,41 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Item List
-    private var itemListView: some View {
-        ScrollView {
-            VStack(spacing: 5) {
-                ForEach($bucketListViewModel.items, id: \.id) { $item in
-                    ItemRowView(
-                        item: $item,
-                        expandedItemId: $expandedItemId,
-                        onNavigateToDetail: {
-                            // When row is tapped, navigate to detail screen
-                            selectedItem = item
-                        },
-                        onEmptyNameLostFocus: {
-                            // If user didn't type anything, delete the item from the model
-                            deleteItemIfEmpty(item)
-                        }
-                    )
-                    // Swipe left (trailing edge) to delete
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            showDeleteConfirmation(for: item)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                    // Swipe right (leading edge) to delete
-                    .swipeActions(edge: .leading) {
-                        Button(role: .destructive) {
-                            showDeleteConfirmation(for: item)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
-            }
-            .padding()
+    private func loadItems() {
+        Task {
+            isLoading = true
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            isLoading = false
         }
+    }
+    
+    // MARK: - Add Button
+    private var addButton: some View {
+        Button {
+            let alreadyHasEmptyItem = bucketListViewModel.items.contains {
+                $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            guard !alreadyHasEmptyItem else {
+                print("There's already an empty item. Not adding another.")
+                return
+            }
+            let newItem = ItemModel(
+                userId: onboardingViewModel.user?.id ?? "",
+                name: ""
+            )
+            bucketListViewModel.items.append(newItem)
+        } label: {
+            ZStack {
+                Circle()
+                    .frame(width: 60, height: 60)
+                    .foregroundColor(.accentColor)
+                    .shadow(color: .gray, radius: 10, x: 0, y: 5)
+                Image(systemName: "plus")
+                    .foregroundColor(.white)
+                    .font(.system(size: 30, weight: .bold))
+            }
+        }
+        .padding()
     }
     
     // MARK: - Profile Image
@@ -167,6 +227,7 @@ struct ListView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 40, height: 40)
                     .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.accentColor, lineWidth: 1))
             )
         } else {
             AnyView(
@@ -180,80 +241,31 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Add Button
-    private var addButton: some View {
-        Button {
-            // 1) Prevent multiple empty items
-            let alreadyHasEmptyItem = bucketListViewModel.items.contains {
-                $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            }
-            guard !alreadyHasEmptyItem else {
-                print("There's already an empty item. Not adding another.")
-                return
-            }
-            
-            let newItem = ItemModel(
-                userId: onboardingViewModel.user?.id ?? "",
-                name: ""
-            )
-            bucketListViewModel.items.append(newItem)
-        } label: {
-            ZStack {
-                Circle()
-                    .frame(width: 60, height: 60)
-                    .foregroundColor(.accentColor)
-                    .shadow(color: .gray, radius: 10, x: 0, y: 5)
-                
-                Image(systemName: "plus")
-                    .foregroundColor(.white)
-                    .font(.system(size: 30, weight: .bold))
-            }
-        }
-        .padding()
-    }
-    
-    // MARK: - Helper Methods
-    
-    /// Simulates a short delay, then stops showing the loader.
-    /// In a real app, you'd fetch items from Firestore or local DB here.
-    private func loadItems() {
-        Task {
-            isLoading = true
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            isLoading = false
-        }
-    }
-    
-    /// Create a binding to the item in the array, so changes propagate.
+    // MARK: - Binding & Deletion
     private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
         guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
-            // Fallback to a constant binding if item not found in array
             return .constant(item)
         }
         return $bucketListViewModel.items[index]
     }
     
-    /// Set up the delete confirmation for a specific item.
     private func showDeleteConfirmation(for item: ItemModel) {
         itemToDelete = item
         bucketListViewModel.showDeleteAlert = true
     }
     
-    /// Delete the item if its name is empty (invoked when textfield loses focus).
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             showDeleteConfirmation(for: item)
         }
     }
     
-    /// Actually perform the deletion (called from the confirmation dialog).
     private func deleteItem(_ item: ItemModel) {
         Task {
             await bucketListViewModel.deleteItem(item)
         }
     }
 }
-
 
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {

@@ -11,36 +11,25 @@ import FirebaseFirestore
 @MainActor
 class UserViewModel: ObservableObject {
     // MARK: - Published Properties
-    
-    /// The user document from Firestore.
     @Published var user: UserModel?
-    
-    /// If you want to show errors in the UI, you can store them here
-    /// and display them in an alert or a text label.
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
     
-    // MARK: - Firestore Reference
-    
+    // MARK: - Firestore
     private let db = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
     
     // MARK: - Initialization
-    
     init() {
-        // Nothing special here.
-        // If you want, you can automatically call fetch or listen to user doc, e.g.:
-        // startListeningToUserDoc(for: someUserID)
+        print("[UserViewModel] init.")
     }
     
     deinit {
-        // Remove the listener to avoid memory leaks
         userDocListener?.remove()
+        print("[UserViewModel] deinit.")
     }
     
     // MARK: - One-Time Fetch
-    
-    /// Fetches user data for a given userID (one-time only).
     func fetchUserData(userId: String) async {
         do {
             let fetchedUser: UserModel = try await withCheckedThrowingContinuation { continuation in
@@ -53,9 +42,7 @@ class UserViewModel: ObservableObject {
                         let noDocError = NSError(
                             domain: "NoDocumentFound",
                             code: 404,
-                            userInfo: [
-                                NSLocalizedDescriptionKey: "No user document found for ID \(userId)."
-                            ]
+                            userInfo: [NSLocalizedDescriptionKey: "No user document found for ID \(userId)."]
                         )
                         continuation.resume(throwing: noDocError)
                         return
@@ -71,18 +58,20 @@ class UserViewModel: ObservableObject {
             }
             
             self.user = fetchedUser
-            print("[UserViewModel] User data fetched successfully for user \(userId).")
+            print("[UserViewModel] fetchUserData: Successfully fetched user doc for /users/\(userId). user.id =", fetchedUser.id ?? "nil")
+            
+            // If doc ID doesn't match, log a warning
+            if fetchedUser.id != userId {
+                print("[UserViewModel] Warning: User doc ID (\(fetchedUser.id ?? "nil")) != Auth UID (\(userId))")
+            }
+            
         } catch {
             handleError(error, prefix: "fetchUserData")
         }
     }
     
-    // MARK: - Real-Time Listener (Optional)
-    
-    /// If you want continuous real-time updates to the user doc, call this method instead of `fetchUserData`.
-    /// The `user` property will automatically update whenever the Firestore doc changes.
+    // MARK: - Real-Time Listener
     func startListeningToUserDoc(for userId: String) {
-        // Remove old listener if any
         userDocListener?.remove()
         
         let docRef = db.collection("users").document(userId)
@@ -93,29 +82,26 @@ class UserViewModel: ObservableObject {
                 self.handleError(error, prefix: "startListeningToUserDoc")
                 return
             }
-            
             guard let snapshot = snapshot, snapshot.exists else {
                 let noDocError = NSError(
                     domain: "NoDocumentFound",
                     code: 404,
-                    userInfo: [
-                        NSLocalizedDescriptionKey: "No user document found for ID \(userId)."
-                    ]
+                    userInfo: [NSLocalizedDescriptionKey: "No user document found for ID \(userId)."]
                 )
                 self.handleError(noDocError, prefix: "startListeningToUserDoc")
                 return
             }
             
             do {
-                self.user = try snapshot.data(as: UserModel.self)
-                print("[UserViewModel] User doc updated in real-time for user \(userId).")
+                let updatedUser = try snapshot.data(as: UserModel.self)
+                self.user = updatedUser
+                print("[UserViewModel] Real-time update for /users/\(userId). user.id =", updatedUser.id ?? "nil")
             } catch {
                 self.handleError(error, prefix: "startListeningToUserDoc")
             }
         }
     }
     
-    /// Stop listening to the user document.
     func stopListeningToUserDoc() {
         userDocListener?.remove()
         userDocListener = nil
@@ -123,16 +109,15 @@ class UserViewModel: ObservableObject {
     }
     
     // MARK: - Update User Profile
-    
-    /// Writes a new version of the user doc to Firestore (merging fields).
     func updateUserProfile(_ updatedUser: UserModel) async {
         guard let userId = updatedUser.id else {
-            print("[UserViewModel] Error: User ID is nil in `updatedUser`.")
+            print("[UserViewModel] updateUserProfile: Error: updatedUser.id is nil.")
             return
         }
         
         do {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            // 1) Merge updated fields into /users/<userId>
+            try await withCheckedThrowingContinuation { continuation in
                 do {
                     try db.collection("users")
                         .document(userId)
@@ -148,17 +133,18 @@ class UserViewModel: ObservableObject {
                 }
             }
             
+            // 2) Update local user property
             self.user = updatedUser
-            print("[UserViewModel] User profile updated successfully for user \(userId).")
+            print("[UserViewModel] updateUserProfile: User doc updated for /users/\(userId). user.id =", updatedUser.id ?? "nil")
+            
         } catch {
             handleError(error, prefix: "updateUserProfile")
         }
     }
     
     // MARK: - Error Handling
-    
     private func handleError(_ error: Error, prefix: String) {
-        print("[UserViewModel] \(prefix) Error: \(error.localizedDescription)")
+        print("[UserViewModel] \(prefix) Error:", error.localizedDescription)
         errorMessage = error.localizedDescription
         showErrorAlert = true
     }
