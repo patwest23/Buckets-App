@@ -14,35 +14,42 @@ struct ResetPasswordView: View {
     @State private var showAlert: Bool = false
 
     var body: some View {
+        // 1) Use systemBackground so it’s white in Light, black in Dark
         ScrollView {
-            VStack(spacing: 20) {  // Adjusted spacing to match profile view style
-                
+            VStack(spacing: 20) {
+
                 // MARK: - Email Input Field
                 TextField("✉️ Enter your email address", text: $email)
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
-                
+
                 Spacer()
-                
+
                 // MARK: - Send Reset Link Button
-                Button(action: { Task { await sendResetLink() } }) {
+                Button(action: {
+                    Task { await sendResetLink() }
+                }) {
+                    // a) If email is empty => gray text, else red
                     Text("🔗 Send Reset Link")
-                        .foregroundColor(email.isEmpty ? Color.black : Color.red)
+                        .foregroundColor(email.isEmpty ? .gray : .red)
                         .frame(maxWidth: .infinity)
                         .fontWeight(.bold)
                         .padding()
-                        .background(.white)
-                        .foregroundColor(.black)
+                        // b) Button background uses dynamic color
+                        .background(Color(uiColor: .secondarySystemBackground))
+                        // c) Button text color adapts to light/dark
+                        .foregroundColor(.primary)
                         .cornerRadius(10)
                         .shadow(radius: 5)
                 }
-                .disabled(email.isEmpty) // Disable button if email is empty
+                .disabled(email.isEmpty) // disable if no email
                 .padding(.horizontal)
             }
             .padding()
-            .background(Color.white)
+            // 2) Rely on system colors to adapt in both modes
+            .background(Color(uiColor: .systemBackground))
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Password Reset"),
@@ -51,18 +58,17 @@ struct ResetPasswordView: View {
                 )
             }
         }
+        .background(Color(uiColor: .systemBackground))
+        // If you want some extra spacing at the edges, you can keep `.padding()`
         .padding()
     }
 
     // MARK: - Helper Functions
-
-    /// Send the reset password link
     private func sendResetLink() async {
         guard !email.isEmpty else {
             showErrorMessage("Please enter a valid email address.")
             return
         }
-
         let result = await viewModel.resetPassword(for: email)
         switch result {
         case .success(let message):
@@ -72,22 +78,39 @@ struct ResetPasswordView: View {
         }
     }
 
-    /// Display an error message
     private func showErrorMessage(_ message: String) {
         resetMessage = message
         showAlert = true
     }
 
-    /// Display a success message
     private func showSuccessMessage(_ message: String) {
         resetMessage = message
         showAlert = true
     }
 }
 
+// MARK: - Preview
+#if DEBUG
 struct ResetPasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        ResetPasswordView()
-            .environmentObject(MockOnboardingViewModel()) // Use mock view model for preview
+        let mockViewModel = OnboardingViewModel()
+
+        return Group {
+            // Light Mode
+            NavigationView {
+                ResetPasswordView()
+                    .environmentObject(mockViewModel)
+            }
+            .previewDisplayName("ResetPasswordView - Light Mode")
+
+            // Dark Mode
+            NavigationView {
+                ResetPasswordView()
+                    .environmentObject(mockViewModel)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("ResetPasswordView - Dark Mode")
+        }
     }
 }
+#endif

@@ -21,7 +21,7 @@ struct DetailItemView: View {
     @Environment(\.presentationMode) var presentationMode
     
     // MARK: - Local States
-    @StateObject private var imagePickerVM = ImagePickerViewModel() // simplified VM
+    @StateObject private var imagePickerVM = ImagePickerViewModel()
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
     
@@ -31,36 +31,24 @@ struct DetailItemView: View {
     var body: some View {
         VStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 5) {
+                // Main VStack with default spacing for each row
+                VStack(alignment: .leading, spacing: 10) {
                     
-                    // (1) Basic Info Row (toggle + multi-line name)
                     basicInfoRow
-                        .padding(.horizontal)
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .shadow(radius: 2)
-                    
-                    // (2) Photos Picker + Grid (existing or newly picked)
                     photoPickerRow
-                    
-                    // (3) Date Created
                     dateCreatedLine
-                    
-                    // (4) Date Completed
                     dateCompletedLine
-                    
-                    // (5) Location
                     locationRow
-                    
-                    // (6) Notes at the Bottom
                     descriptionRow
+                    
                 }
                 .padding()
+                .background(Color(uiColor: .systemBackground)) // Full background
             }
+            .background(Color(uiColor: .systemBackground)) // Full background
         }
-        .navigationTitle("")                // no text
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        // Whenever `imagePickerVM.uiImages` changes, upload them to Firebase for this item
         .onChange(of: imagePickerVM.uiImages) { newImages in
             Task {
                 await uploadPickedImages(newImages)
@@ -72,22 +60,21 @@ struct DetailItemView: View {
 // MARK: - Subviews
 extension DetailItemView {
     
-    /// Basic info row with a completion toggle & a multi-line TextField (iOS 16+)
+    /// (1) Basic info row: toggle + multi-line name
     private var basicInfoRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 // Completion toggle
-                Button(action: {
+                Button {
                     Task { await toggleCompleted() }
-                }) {
+                } label: {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
-                        .font(.title2)
                         .foregroundColor(item.completed ? .accentColor : .gray)
                 }
-                .buttonStyle(BorderlessButtonStyle())
+                .buttonStyle(.borderless)
                 
-                // Multi-line TextField on iOS 16+, otherwise single line
+                // Multi-line TextField
                 if #available(iOS 16.0, *) {
                     TextField(
                         "",
@@ -100,7 +87,8 @@ extension DetailItemView {
                         ),
                         axis: .vertical
                     )
-                    .lineLimit(1...10) // Expand up to 10 lines (or use 1... for unlimited)
+                    .lineLimit(1...10)
+                    .foregroundColor(item.completed ? .gray : .primary)
                 } else {
                     TextField(
                         "",
@@ -112,20 +100,18 @@ extension DetailItemView {
                             }
                         )
                     )
-                    .font(.title3)
                     .foregroundColor(item.completed ? .gray : .primary)
                 }
             }
-            .padding(.vertical, 10)
         }
+        .padding(.vertical, 8)
     }
     
-    /// Photos Picker + Grid of images
+    /// (2) Photos Picker + grid
     private var photoPickerRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Button + Spinner in the same horizontal row
+            // Button + spinner
             HStack {
-                // PhotosPicker button
                 PhotosPicker(
                     selection: $imagePickerVM.imageSelections,
                     maxSelectionCount: 3,
@@ -133,6 +119,7 @@ extension DetailItemView {
                 ) {
                     Text("📸   Select Photos")
                         .font(.headline)
+                        .foregroundColor(.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 
@@ -141,9 +128,9 @@ extension DetailItemView {
                         .padding(.trailing, 8)
                 }
             }
-            .padding()
+            .padding(.vertical, 8)
             
-            // If the user just picked new images, show them in a grid
+            // If user just picked new images...
             if !imagePickerVM.uiImages.isEmpty {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
                     ForEach(imagePickerVM.uiImages, id: \.self) { uiImage in
@@ -152,12 +139,11 @@ extension DetailItemView {
                             .scaledToFill()
                             .frame(width: 100, height: 100)
                             .clipped()
-                            .cornerRadius(8)
                     }
                 }
                 .padding(.vertical, 10)
             }
-            // Otherwise, if no new images, show existing item.imageUrls
+            // Otherwise show existing item.imageUrls
             else if !item.imageUrls.isEmpty {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
                     ForEach(item.imageUrls, id: \.self) { urlStr in
@@ -172,9 +158,8 @@ extension DetailItemView {
                                         .scaledToFill()
                                         .frame(width: 100, height: 100)
                                         .clipped()
-                                        .cornerRadius(8)
                                 case .failure:
-                                    EmptyView() // show nothing if it fails
+                                    EmptyView()
                                 @unknown default:
                                     EmptyView()
                                 }
@@ -184,28 +169,23 @@ extension DetailItemView {
                         }
                     }
                 }
-//                .padding(.vertical, 10)
+                .padding(.vertical, 10)
             }
         }
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(radius: 2)
     }
     
-    /// Date Created Row
+    /// (3) Date Created Row
     private var dateCreatedLine: some View {
         HStack {
             Text("📅   Created")
                 .font(.headline)
+                .foregroundColor(.primary)
             Spacer()
             Text(formattedDate(item.creationDate))
                 .foregroundColor(.accentColor)
         }
+        .padding(.vertical, 8)
         .onTapGesture { showDateCreatedSheet = true }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(radius: 2)
         .sheet(isPresented: $showDateCreatedSheet) {
             datePickerSheet(
                 title: "Select Date Created",
@@ -215,20 +195,18 @@ extension DetailItemView {
         }
     }
     
-    /// Date Completed Row
+    /// (4) Date Completed Row
     private var dateCompletedLine: some View {
         HStack {
             Text("📅   Completed")
                 .font(.headline)
+                .foregroundColor(.primary)
             Spacer()
             Text(formattedDate(item.dueDate))
                 .foregroundColor(.accentColor)
         }
+        .padding(.vertical, 8)
         .onTapGesture { showDateCompletedSheet = true }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(radius: 2)
         .sheet(isPresented: $showDateCompletedSheet) {
             datePickerSheet(
                 title: "Select Date Completed",
@@ -244,11 +222,12 @@ extension DetailItemView {
         }
     }
     
-    /// Location Row
+    /// (5) Location Row
     private var locationRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("📍")
+                    .foregroundColor(.primary)
                 TextField(
                     "Enter location...",
                     text: Binding(
@@ -261,20 +240,19 @@ extension DetailItemView {
                         }
                     )
                 )
+                .foregroundColor(.primary)
             }
             .font(.headline)
-            .padding()
-            .background(Color.white)
-            .cornerRadius(10)
-            .shadow(radius: 2)
+            .padding(.vertical, 8)
         }
     }
     
-    /// Notes (Description) at the bottom
+    /// (6) Notes (Description)
     private var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("📝   Notes")
                 .font(.headline)
+                .foregroundColor(.primary)
             
             TextEditor(
                 text: Binding(
@@ -286,22 +264,19 @@ extension DetailItemView {
                 )
             )
             .frame(minHeight: 150)
+            .foregroundColor(.primary)
         }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(10)
-        .shadow(radius: 2)
+        .padding(.vertical, 8)
     }
 }
 
 // MARK: - Private Helpers
 extension DetailItemView {
     
-    /// Upload newly picked images to Firebase Storage, then update item.imageUrls with the new URLs.
+    /// Upload newly picked images => Firebase => update item.imageUrls
     private func uploadPickedImages(_ images: [UIImage]) async {
         guard let userId = onboardingViewModel.user?.id else { return }
         
-        // Start spinner
         isUploading = true
         
         let storageRef = Storage.storage().reference()
@@ -315,10 +290,7 @@ extension DetailItemView {
             let imageRef = storageRef.child(fileName)
             
             do {
-                // 1) Upload
                 try await imageRef.putDataAsync(imageData)
-                
-                // 2) Retrieve download URL
                 let downloadUrl = try await imageRef.downloadURL()
                 newUrls.append(downloadUrl.absoluteString)
             } catch {
@@ -326,17 +298,15 @@ extension DetailItemView {
             }
         }
         
-        // Stop spinner
         isUploading = false
         
-        // If we got new URLs, replace item.imageUrls
         if !newUrls.isEmpty {
             item.imageUrls = newUrls
-            updateItem() // Save the item with updated imageUrls
+            updateItem()
         }
     }
     
-    /// Show a date picker inside a sheet
+    /// Show date picker in a sheet
     private func datePickerSheet(
         title: String,
         date: Binding<Date>,
@@ -348,10 +318,9 @@ extension DetailItemView {
                 .padding(.top)
             
             DatePicker("", selection: date, displayedComponents: .date)
-                .datePickerStyle(WheelDatePickerStyle())
+                .datePickerStyle(.wheel)
                 .labelsHidden()
                 .onChange(of: date.wrappedValue) { _ in
-                    // Whenever user changes the date, update Firestore
                     updateItem()
                 }
             
@@ -364,29 +333,26 @@ extension DetailItemView {
         .presentationDetents([.height(350)]) // iOS16+ (optional)
     }
     
-    /// Updates the item in your ViewModel (persisting to Firestore or local storage)
+    /// Update the item in Firestore
     private func updateItem() {
         Task {
             bucketListViewModel.addOrUpdateItem(item)
         }
     }
     
-    /// Toggles 'completed' state. If marking complete, set `item.dueDate` to now; otherwise clear it.
+    /// Toggle completed => set or clear dueDate
     private func toggleCompleted() async {
         if !item.completed {
-            // Marking item as complete
             item.completed = true
             item.dueDate = Date()
         } else {
-            // Marking item as incomplete
             item.completed = false
             item.dueDate = nil
         }
-        
         bucketListViewModel.addOrUpdateItem(item)
     }
     
-    /// Convert an optional `Date` to a user-friendly string.
+    /// Format optional date
     private func formattedDate(_ date: Date?) -> String {
         guard let date = date else { return "--" }
         let formatter = DateFormatter()
@@ -401,8 +367,8 @@ struct DetailItemView_Previews: PreviewProvider {
         // 1) Create mock environment objects
         let mockOnboardingVM = OnboardingViewModel()
         let mockListVM = ListViewModel()
-
-        // 2) Create a sample ItemModel with three placeholder images
+        
+        // 2) Create a sample ItemModel with placeholder images
         let sampleItem = ItemModel(
             userId: "previewUser",
             name: "Sample Bucket List Item",
@@ -417,12 +383,20 @@ struct DetailItemView_Previews: PreviewProvider {
                 "https://via.placeholder.com/300"
             ]
         )
+        
+        // 3) Provide a binding to sampleItem and preview in both color schemes
+        return Group {
+            DetailItemView(item: .constant(sampleItem))
+                .environmentObject(mockOnboardingVM)
+                .environmentObject(mockListVM)
+                .previewDisplayName("DetailItemView - Light Mode")
 
-        // 3) Provide a binding to `sampleItem`
-        return DetailItemView(item: .constant(sampleItem))
-            .environmentObject(mockOnboardingVM)
-            .environmentObject(mockListVM)
-            .previewDisplayName("DetailItemView with 3 Blank Images")
+            DetailItemView(item: .constant(sampleItem))
+                .environmentObject(mockOnboardingVM)
+                .environmentObject(mockListVM)
+                .preferredColorScheme(.dark)
+                .previewDisplayName("DetailItemView - Dark Mode")
+        }
     }
 }
 #endif

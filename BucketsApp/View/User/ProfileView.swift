@@ -15,18 +15,19 @@ struct ProfileView: View {
     @EnvironmentObject var listViewModel: ListViewModel  // So we can access item counts
     @EnvironmentObject var userViewModel: UserViewModel  // For updating username
     
-    // The boolean to show/hide the picker
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
-
+    
     var body: some View {
+        // ScrollView using systemBackground
         ScrollView {
             VStack(spacing: 30) {
                 
                 // MARK: - Profile Image + Name
-                Button(action: {
+                Button {
                     isPickerPresented = true
-                }) {
+                } label: {
+                    // If user has profile image => show it, else placeholder
                     if let imageData = onboardingViewModel.profileImageData,
                        let uiImage = UIImage(data: imageData) {
                         Image(uiImage: uiImage)
@@ -45,6 +46,7 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                // PhotosPicker for changing profile image
                 .photosPicker(
                     isPresented: $isPickerPresented,
                     selection: $selectedImageItem,
@@ -54,73 +56,44 @@ struct ProfileView: View {
                     loadProfileImage(newItem)
                 }
                 
-                // User’s name below the profile image
+                // User’s name
                 if let userName = onboardingViewModel.user?.name, !userName.isEmpty {
                     Text(userName)
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(.black)
+                        .foregroundColor(.primary)
                 } else {
                     Text("Username")
                         .font(.title2)
                         .foregroundColor(.gray)
                 }
                 
-                // MARK: - Emoji-based Item Counts
-//                HStack(spacing: 60) {
-//                    // 🪣 (Total items)
-//                    VStack {
-//                        Text("🪣")
-//                            .font(.headline)
-//                        Text("\(listViewModel.items.count)")
-//                            .font(.title3)
-//                            .fontWeight(.bold)
-//                    }
-//                    
-//                    // ✅ (Completed items)
-//                    VStack {
-//                        Text("✅")
-//                            .font(.headline)
-//                        Text("\(listViewModel.items.filter { $0.completed }.count)")
-//                            .font(.title3)
-//                            .fontWeight(.bold)
-//                    }
-//                    
-//                    // ❌ (Incomplete items)
-//                    VStack {
-//                        Text("❌")
-//                            .font(.headline)
-//                        Text("\(listViewModel.items.filter { !$0.completed }.count)")
-//                            .font(.title3)
-//                            .fontWeight(.bold)
-//                    }
-//                }
-//                .padding(.vertical, 8)
+                // If you have emoji-based item counts, place them here...
+                // ...
                 
                 // MARK: - Account Settings
                 VStack(spacing: 10) {
-                    // Left-aligned links
+                    // a) Navigation links
                     VStack(alignment: .leading, spacing: 12) {
-                        // 📝 Update Username
                         NavigationLink("📝 Update Username", destination: UpdateUserNameView())
-                            .foregroundColor(.black)
-                            .buttonStyle(PlainButtonStyle())
+                            .foregroundColor(.primary)
+                            .buttonStyle(.plain)
                         
                         NavigationLink("✉️ Update Email", destination: UpdateEmailView())
-                            .foregroundColor(.black)
-                            .buttonStyle(PlainButtonStyle())
+                            .foregroundColor(.primary)
+                            .buttonStyle(.plain)
+                        
                         NavigationLink("🔑 Reset Password", destination: ResetPasswordView())
-                            .foregroundColor(.black)
-                            .buttonStyle(PlainButtonStyle())
+                            .foregroundColor(.primary)
+                            .buttonStyle(.plain)
+                        
                         NavigationLink("🔒 Update Password", destination: UpdatePasswordView())
-                            .foregroundColor(.black)
-                            .buttonStyle(PlainButtonStyle())
+                            .foregroundColor(.primary)
+                            .buttonStyle(.plain)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    Spacer()
-                    
-                    // Centered "Log Out" button
+                    // b) Log Out button in the center
                     HStack {
                         Spacer()
                         Button("🚪 Log Out", role: .destructive) {
@@ -128,32 +101,34 @@ struct ProfileView: View {
                                 await onboardingViewModel.signOut()
                             }
                         }
-                        .foregroundColor(.black)
+                        .foregroundColor(.primary)
                         .frame(maxWidth: .infinity)
                         .fontWeight(.bold)
                         .padding()
-                        .background(.white)
+                        .background(Color(uiColor: .secondarySystemBackground))
                         .cornerRadius(10)
                         .shadow(radius: 5)
                         Spacer()
                     }
                 }
                 .padding()
-                .background(Color.white)
+                .background(Color(uiColor: .systemBackground))
                 .onAppear {
                     onboardingViewModel.checkIfUserIsAuthenticated()
                 }
             }
             .padding()
         }
+        .background(Color(uiColor: .systemBackground))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                EmptyView() // Hide default nav title
+                // Hide default nav title
+                EmptyView()
             }
         }
     }
-
+    
     // MARK: - Load Profile Image
     private func loadProfileImage(_ newItem: PhotosPickerItem?) {
         guard let newItem = newItem else { return }
@@ -170,22 +145,42 @@ struct ProfileView: View {
     }
 }
 
+// MARK: - Preview
+#if DEBUG
 struct ProfileView_Previews: PreviewProvider {
     static var previews: some View {
-        // Mock environment objects
         let mockOnboardingVM = OnboardingViewModel()
         let mockListVM = ListViewModel()
+        let mockUserVM = UserViewModel()
+        
         mockListVM.items = [
             ItemModel(userId: "abc", name: "Bucket 1", completed: false),
             ItemModel(userId: "abc", name: "Bucket 2", completed: true)
         ]
-
-        return ProfileView()
-            .environmentObject(mockOnboardingVM)
-            .environmentObject(mockListVM)
+        
+        return Group {
+            // Light Mode
+            NavigationView {
+                ProfileView()
+                    .environmentObject(mockOnboardingVM)
+                    .environmentObject(mockListVM)
+                    .environmentObject(mockUserVM)
+            }
+            .previewDisplayName("ProfileView - Light Mode")
+            
+            // Dark Mode
+            NavigationView {
+                ProfileView()
+                    .environmentObject(mockOnboardingVM)
+                    .environmentObject(mockListVM)
+                    .environmentObject(mockUserVM)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("ProfileView - Dark Mode")
+        }
     }
 }
-
+#endif
 
 
 

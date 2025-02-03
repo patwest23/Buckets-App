@@ -17,58 +17,63 @@ struct OnboardingView: View {
             ZStack {
                 VStack(spacing: 40) {
 
-                    // App Icon or Logo
-                    Image("Image2")
+                    // MARK: - App Icon or Logo
+                    Image(systemName: "checkmark.circle.fill")
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: 60, maxHeight: 60)
+                        .foregroundColor(.accentColor)
                         .padding()
 
                     Spacer()
                     
-                    // Main Title
+                    // MARK: - Main Title
                     Text("What do you want to do before you die?")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .multilineTextAlignment(.center)
+                        .foregroundColor(.primary) // adapt to Light/Dark
                         .padding(.horizontal, 40.0)
 
                     Spacer()
 
-                    // Buttons for Sign Up and Log In
+                    // MARK: - Buttons (Sign Up & Log In)
                     VStack(spacing: 20) {
+                        
+                        // Sign Up Button
                         Button(action: {
                             showSignUp.toggle()
                         }) {
                             Text("✍️ Sign Up")
                                 .fontWeight(.bold)
-                                .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(.white)
-                                .foregroundColor(.black)
+                                .padding()
+                                .background(Color(uiColor: .secondarySystemBackground))
+                                .foregroundColor(.primary)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
                         }
                         .sheet(isPresented: $showSignUp) {
                             SignUpView()
-                                .environmentObject(onboardingViewModel) // Pass environment object
+                                .environmentObject(onboardingViewModel)
                         }
 
+                        // Log In Button
                         Button(action: {
                             showLogIn.toggle()
                         }) {
                             Text("🪵 Log In")
                                 .fontWeight(.bold)
-                                .padding()
                                 .frame(maxWidth: .infinity)
-                                .background(.white)
-                                .foregroundColor(.black)
+                                .padding()
+                                .background(Color(uiColor: .secondarySystemBackground))
+                                .foregroundColor(.primary)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
                         }
                         .sheet(isPresented: $showLogIn) {
                             LogInView()
-                                .environmentObject(onboardingViewModel) // Pass environment object
+                                .environmentObject(onboardingViewModel)
                         }
                     }
                     .padding(.horizontal)
@@ -77,15 +82,35 @@ struct OnboardingView: View {
                 }
                 .padding()
             }
-            .background(Color.white)  // Ensure background is consistent
+            // Overall background color adapts to Light/Dark
+            .background(Color(uiColor: .systemBackground))
         }
-        .navigationBarHidden(true)  // Hide navigation bar for a cleaner look
+        .navigationBarHidden(true) // Hide navigation bar
     }
 }
 
+// MARK: - Preview
+#if DEBUG
 struct OnboardingView_Previews: PreviewProvider {
     static var previews: some View {
-        OnboardingView()
-            .environmentObject(OnboardingViewModel()) // Use mock or real view model for preview
+        let mockViewModel = OnboardingViewModel()
+
+        return Group {
+            // Light Mode
+            NavigationStack {
+                OnboardingView()
+                    .environmentObject(mockViewModel)
+            }
+            .previewDisplayName("OnboardingView - Light Mode")
+
+            // Dark Mode
+            NavigationStack {
+                OnboardingView()
+                    .environmentObject(mockViewModel)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("OnboardingView - Dark Mode")
+        }
     }
 }
+#endif

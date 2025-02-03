@@ -13,17 +13,10 @@ struct LogInView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {  // Adjusted spacing to match ProfileView layout
+            VStack(spacing: 20) {
                 
-                // MARK: - App Logo
-                Image("Image2")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 60, maxHeight: 60)
-                    .padding()
+                Spacer() // Remove the logo; just a spacer
                 
-                Spacer()
-
                 // MARK: - Email Input
                 TextField("✉️ Email Address", text: $viewModel.email)
                     .keyboardType(.emailAddress)
@@ -39,7 +32,7 @@ struct LogInView: View {
                 Spacer()
 
                 // MARK: - Log In Button
-                Button(action: {
+                Button {
                     if validateInput() {
                         isLoading = true
                         Task {
@@ -47,7 +40,7 @@ struct LogInView: View {
                             isLoading = false
                         }
                     }
-                }) {
+                } label: {
                     if isLoading {
                         ProgressView()
                             .padding()
@@ -60,8 +53,12 @@ struct LogInView: View {
                             .fontWeight(.bold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.white)
-                            .foregroundColor(viewModel.email.isEmpty || viewModel.password.isEmpty ? Color.red : Color.black)
+                            // Use secondarySystemBackground instead of white
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            // If fields are empty => red text, else .primary
+                            .foregroundColor(
+                                viewModel.email.isEmpty || viewModel.password.isEmpty ? .red : .primary
+                            )
                             .cornerRadius(10)
                             .shadow(radius: 5)
                     }
@@ -72,13 +69,16 @@ struct LogInView: View {
 
             }
             .padding()
-            .background(Color.white)  // Ensure background is consistent
+            // Base background color that adapts to Light/Dark
+            .background(Color(uiColor: .systemBackground))
             .alert("Error", isPresented: $viewModel.showErrorAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(viewModel.errorMessage ?? "Unknown error")
             }
         }
+        // Another background layer if desired
+        .background(Color(uiColor: .systemBackground))
         .padding()
     }
 
@@ -94,11 +94,30 @@ struct LogInView: View {
     }
 }
 
+// MARK: - Preview
+#if DEBUG
 struct LogInView_Previews: PreviewProvider {
     static var previews: some View {
-        LogInView()
-            .environmentObject(OnboardingViewModel()) // Use mock view model for preview
+        let mockViewModel = OnboardingViewModel()
+        
+        return Group {
+            // Light Mode
+            NavigationView {
+                LogInView()
+                    .environmentObject(mockViewModel)
+            }
+            .previewDisplayName("LogInView - Light Mode")
+            
+            // Dark Mode
+            NavigationView {
+                LogInView()
+                    .environmentObject(mockViewModel)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("LogInView - Dark Mode")
+        }
     }
 }
+#endif
 
 

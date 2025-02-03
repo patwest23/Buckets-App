@@ -17,19 +17,19 @@ struct UpdatePasswordView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {  // Adjusted spacing to match profile view
-
-                // MARK: - Current Password Input
+            VStack(spacing: 20) {
+                
+                // MARK: - Current Password
                 SecureField("🔒 Current Password", text: $currentPassword)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
 
-                // MARK: - New Password Input
+                // MARK: - New Password
                 SecureField("🔑 New Password", text: $newPassword)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
 
-                // MARK: - Confirm New Password Input
+                // MARK: - Confirm New Password
                 SecureField("🔐 Confirm New Password", text: $confirmPassword)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
@@ -37,22 +37,27 @@ struct UpdatePasswordView: View {
                 Spacer()
 
                 // MARK: - Update Password Button
-                Button(action: { Task { await updatePassword() } }) {
+                Button {
+                    Task { await updatePassword() }
+                } label: {
                     Text("✅ Update Password")
-                        .foregroundColor(isFormValid ? Color.accentColor : Color.red)
+                        // If form valid => .accentColor, else .red
+                        .foregroundColor(isFormValid ? .accentColor : .red)
                         .frame(maxWidth: .infinity)
                         .fontWeight(.bold)
                         .padding()
-                        .background(.white)
+                        // Use system color that adapts to Light/Dark
+                        .background(Color(uiColor: .secondarySystemBackground))
                         .cornerRadius(10)
                         .shadow(radius: 5)
                 }
-                .disabled(!isFormValid) // Disable button if form is invalid
+                .disabled(!isFormValid) // disable if not valid
                 .padding(.horizontal)
 
             }
             .padding()
-            .background(Color.white)
+            // Overall background color - white in Light, black in Dark
+            .background(Color(uiColor: .systemBackground))
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Password Update"),
@@ -61,6 +66,8 @@ struct UpdatePasswordView: View {
                 )
             }
         }
+        // Another layer of system background if desired
+        .background(Color(uiColor: .systemBackground))
         .padding()
     }
 
@@ -75,7 +82,6 @@ struct UpdatePasswordView: View {
             showError("Passwords do not match.")
             return
         }
-
         do {
             let message = try await viewModel.updatePassword(
                 currentPassword: currentPassword,
@@ -87,7 +93,6 @@ struct UpdatePasswordView: View {
         }
     }
 
-    // MARK: - Helper Methods
     private func showSuccess(_ message: String) {
         updateMessage = message
         showAlert = true
@@ -99,11 +104,30 @@ struct UpdatePasswordView: View {
     }
 }
 
+// MARK: - Preview
+#if DEBUG
 struct UpdatePasswordView_Previews: PreviewProvider {
     static var previews: some View {
-        UpdatePasswordView()
-            .environmentObject(MockOnboardingViewModel()) // Use mock view model for preview
+        let mockViewModel = OnboardingViewModel()
+        
+        return Group {
+            // Light Mode
+            NavigationView {
+                UpdatePasswordView()
+                    .environmentObject(mockViewModel)
+            }
+            .previewDisplayName("UpdatePasswordView - Light Mode")
+            
+            // Dark Mode
+            NavigationView {
+                UpdatePasswordView()
+                    .environmentObject(mockViewModel)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("UpdatePasswordView - Dark Mode")
+        }
     }
 }
+#endif
 
 

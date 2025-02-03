@@ -36,21 +36,27 @@ struct UpdateUserNameView: View {
                 Spacer()
                 
                 // MARK: - Update Username Button
-                Button(action: { Task { await updateUserName() } }) {
+                Button {
+                    Task { await updateUserName() }
+                } label: {
                     Text("✅ Update Username")
+                        // If form is valid => accentColor, else red
                         .foregroundColor(isFormValid ? .accentColor : .red)
                         .frame(maxWidth: .infinity)
                         .fontWeight(.bold)
                         .padding()
-                        .background(.white)
+                        // Use system background that adapts to Light/Dark
+                        .background(Color(uiColor: .secondarySystemBackground))
                         .cornerRadius(10)
                         .shadow(radius: 5)
                 }
                 .disabled(!isFormValid)
                 .padding(.horizontal)
+                
             }
             .padding()
-            .background(Color.white)
+            // Base layer that adapts to Light/Dark
+            .background(Color(uiColor: .systemBackground))
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Username Update"),
@@ -59,6 +65,7 @@ struct UpdateUserNameView: View {
                 )
             }
         }
+        .background(Color(uiColor: .systemBackground))
         .padding()
     }
     
@@ -82,7 +89,7 @@ struct UpdateUserNameView: View {
         // Attempt to update the username
         await userViewModel.updateUserName(to: newUserName)
         
-        // If there's an error, userViewModel should set its errorMessage, but let's do a local check
+        // If there's an error
         if let error = userViewModel.errorMessage, userViewModel.showErrorAlert {
             showError(error)
         } else {
@@ -103,20 +110,28 @@ struct UpdateUserNameView: View {
     }
 }
 
+// MARK: - Preview
 #if DEBUG
 struct UpdateUserNameView_Previews: PreviewProvider {
     static var previews: some View {
-        NavigationView {
-            UpdateUserNameView()
-                .environmentObject(mockUserViewModel)
+        let mockUserVM = UserViewModel()
+        
+        return Group {
+            // Light Mode
+            NavigationView {
+                UpdateUserNameView()
+                    .environmentObject(mockUserVM)
+            }
+            .previewDisplayName("UpdateUserNameView - Light")
+            
+            // Dark Mode
+            NavigationView {
+                UpdateUserNameView()
+                    .environmentObject(mockUserVM)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("UpdateUserNameView - Dark")
         }
-    }
-
-    /// A simple mock UserViewModel for preview purposes.
-    private static var mockUserViewModel: UserViewModel {
-        let vm = UserViewModel()
-        // Optionally set any preview values here (vm.user = ...).
-        return vm
     }
 }
 #endif

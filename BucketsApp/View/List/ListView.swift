@@ -16,7 +16,10 @@ struct ListView: View {
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
-    // MARK: - View Style Enum
+    // We’ll use this FocusState to focus newly added items
+    @FocusState private var focusedItemId: UUID?
+    
+    // MARK: - View Style
     private enum ViewStyle: String {
         case list = "List View"
         case detailed = "Detailed View"
@@ -31,7 +34,6 @@ struct ListView: View {
             if #available(iOS 17.0, *) {
                 ZStack {
                     contentView
-                    
                     addButton
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
@@ -53,7 +55,6 @@ struct ListView: View {
                     // Trailing: Sorting menu + Profile button
                     ToolbarItem(placement: .navigationBarTrailing) {
                         HStack {
-                            // Sorting/View-Style Menu
                             Menu {
                                 Button("List")       { selectedViewStyle = .list }
                                 Button("Detailed")   { selectedViewStyle = .detailed }
@@ -65,7 +66,6 @@ struct ListView: View {
                                     .foregroundColor(.accentColor)
                             }
                             
-                            // Profile
                             Button {
                                 showProfileView = true
                             } label: {
@@ -74,22 +74,16 @@ struct ListView: View {
                         }
                     }
                 }
-                // Load items on appear (simulated delay)
-                .onAppear {
-                    loadItems()
-                }
-                // Navigate to ProfileView
+                .onAppear { loadItems() }
                 .navigationDestination(isPresented: $showProfileView) {
                     ProfileView()
                         .environmentObject(onboardingViewModel)
                 }
-                // Navigate to DetailItemView
                 .navigationDestination(item: $selectedItem) { item in
                     DetailItemView(item: bindingForItem(item))
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                 }
-                // Delete confirmation dialog
                 .confirmationDialog(
                     "Are you sure you want to delete this item?",
                     isPresented: $bucketListViewModel.showDeleteAlert
@@ -107,7 +101,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Main Content
+    // MARK: - Content
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
@@ -123,7 +117,6 @@ struct ListView: View {
     private var displayedItems: [ItemModel] {
         switch selectedViewStyle {
         case .list, .detailed:
-            // Return all items in these two modes.
             return bucketListViewModel.items
         case .completed:
             return bucketListViewModel.items.filter { $0.completed }
@@ -134,15 +127,15 @@ struct ListView: View {
     
     // MARK: - List of Items
     private var itemListView: some View {
+        // Wrap the scroll content in a container that dismisses the keyboard on tap
         ScrollView {
             VStack(spacing: 5) {
                 ForEach(displayedItems, id: \.id) { aItem in
                     let itemBinding = bindingForItem(aItem)
                     
+                    // Our row with optional "detailed" style
                     ItemRowView(
                         item: itemBinding,
-                        // If you want to show extra fields inline for "Detailed",
-                        // pass showDetailed: (selectedViewStyle == .detailed)
                         showDetailed: (selectedViewStyle == .detailed),
                         onNavigateToDetail: {
                             selectedItem = aItem
@@ -151,7 +144,9 @@ struct ListView: View {
                             deleteItemIfEmpty(aItem)
                         }
                     )
-                    // Swipe-to-delete
+                    // 1) Make the row’s TextField focusable with our FocusState
+                    .focused($focusedItemId, equals: aItem.id)
+                    // 2) Optional swipe actions for delete
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             showDeleteConfirmation(for: aItem)
@@ -169,10 +164,14 @@ struct ListView: View {
                 }
             }
             .padding()
+            // 3) Tap anywhere to dismiss the keyboard
+            .onTapGesture {
+                focusedItemId = nil
+            }
         }
     }
     
-    // MARK: - Loading / Empty States
+    // MARK: - Loading / Empty
     private var loadingView: some View {
         ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
@@ -189,7 +188,7 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Load Items (Simulated)
+    // MARK: - Simulated Load
     private func loadItems() {
         Task {
             isLoading = true
@@ -208,11 +207,18 @@ struct ListView: View {
                 print("There's already an empty item. Not adding another.")
                 return
             }
+            
             let newItem = ItemModel(
                 userId: onboardingViewModel.user?.id ?? "",
                 name: ""
             )
+            
+            // 1) Append the new item
             bucketListViewModel.items.append(newItem)
+            
+            // 2) Immediately focus its text field
+            focusedItemId = newItem.id
+            
         } label: {
             ZStack {
                 Circle()

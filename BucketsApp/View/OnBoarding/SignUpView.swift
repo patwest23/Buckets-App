@@ -14,8 +14,8 @@ enum SignUpNavigationDestination {
 
 struct SignUpView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
-    
-    @State private var username: String = ""       // Local property to store typed username
+
+    @State private var username: String = ""
     @State private var confirmPassword: String = ""
     @State private var agreedToTerms = false
     @State private var showErrorAlert = false
@@ -26,15 +26,8 @@ struct SignUpView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 20) {
-                    
-                    // MARK: - App Logo
-                    Image("Image2")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 60, maxHeight: 60)
-                        .padding()
-                    
-                    Spacer()
+
+                    Spacer()  // Removed the image/logo, just a spacer now
 
                     // MARK: - Input Fields
                     usernameTextField
@@ -46,9 +39,12 @@ struct SignUpView: View {
                     // MARK: - Sign Up Button
                     signUpButton
                         .padding(.top, 20)
+
+                    Spacer()
                 }
                 .padding()
-                .background(Color.white)
+                // Base background that adapts to Light/Dark
+                .background(Color(uiColor: .systemBackground))
                 .alert("Error", isPresented: $showErrorAlert) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -56,6 +52,8 @@ struct SignUpView: View {
                 }
             }
             .padding(.horizontal)
+            // Another background layer if you want
+            .background(Color(uiColor: .systemBackground))
             .navigationDestination(for: SignUpNavigationDestination.self) { destination in
                 switch destination {
                 case .listView:
@@ -69,7 +67,7 @@ struct SignUpView: View {
 
     // MARK: - Text Fields
     
-    /// Username field at the top
+    /// Username field
     var usernameTextField: some View {
         TextField("📛 Username", text: $username)
             .textFieldModifiers()
@@ -95,10 +93,11 @@ struct SignUpView: View {
 
     // MARK: - Terms and Conditions
     
-    /// A row with a text link to T&C and a toggle
+    /// A row with a link to T&C and a toggle
     var termsAndConditionsSection: some View {
         HStack {
             Text("I agree to the")
+                .foregroundColor(.primary)
             Button("Terms and Conditions") {
                 openTermsAndConditions()
             }
@@ -112,9 +111,9 @@ struct SignUpView: View {
 
     // MARK: - Sign Up Button
     
-    /// The "Sign Up" button that checks input validity, username availability, and then calls signUpUser.
+    /// The "Sign Up" button checks input validity, username, then calls signUpUser
     var signUpButton: some View {
-        Button(action: {
+        Button {
             Task {
                 if validateInput() {
                     // 1) Check if username is used
@@ -128,13 +127,15 @@ struct SignUpView: View {
                     showErrorAlert = true
                 }
             }
-        }) {
+        } label: {
             Text("Sign Up")
                 .fontWeight(.bold)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.white)
-                .foregroundColor(agreedToTerms ? Color.black : Color.red)
+                // Use secondarySystemBackground for button background
+                .background(Color(uiColor: .secondarySystemBackground))
+                // If not agreed => text is red, else .primary
+                .foregroundColor(agreedToTerms ? .primary : .red)
                 .cornerRadius(10)
                 .shadow(radius: 5)
         }
@@ -143,7 +144,7 @@ struct SignUpView: View {
 
     // MARK: - Validation
     
-    /// Validates the username, email, password, etc.
+    /// Validates username, email, password, terms, etc.
     private func validateInput() -> Bool {
         guard !username.trimmingCharacters(in: .whitespaces).isEmpty else {
             errorMessage = "Please enter a username."
@@ -168,7 +169,7 @@ struct SignUpView: View {
         return true
     }
 
-    /// Basic email regex check
+    /// Simple regex check
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Z0-9a-z.-]+\\.[A-Za-z]{2,}"
         let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
@@ -180,14 +181,13 @@ struct SignUpView: View {
         showErrorAlert = true
     }
 
-    // MARK: - Sign Up User
+    // MARK: - Sign Up Logic
     
-    /// Actually performs the sign-up in OnboardingViewModel after storing the chosen username
+    /// Actually performs the sign-up in OnboardingViewModel after storing typed username
     private func signUpUser() async {
-        // Optionally store the typed username so it can be saved to Firestore in createUserDocument
         viewModel.username = username
-        
         await viewModel.createUser()
+        
         if viewModel.isAuthenticated {
             navigationPath.append(SignUpNavigationDestination.listView)
         } else if let msg = viewModel.errorMessage {
@@ -207,7 +207,7 @@ private extension View {
     func textFieldModifiers() -> some View {
         self
             .padding()
-            .background(Color(.systemGray6))
+            .background(Color(uiColor: .systemGray6))
             .cornerRadius(8)
             .autocapitalization(.none)
             .disableAutocorrection(true)
@@ -215,11 +215,28 @@ private extension View {
 }
 
 // MARK: - Preview
+#if DEBUG
 struct SignUpView_Previews: PreviewProvider {
     static var previews: some View {
-        SignUpView()
-            .environmentObject(OnboardingViewModel())
+        let mockViewModel = OnboardingViewModel()
+        
+        return Group {
+            // Light Mode
+            NavigationStack {
+                SignUpView()
+                    .environmentObject(mockViewModel)
+            }
+            .previewDisplayName("SignUpView - Light Mode")
+            
+            // Dark Mode
+            NavigationStack {
+                SignUpView()
+                    .environmentObject(mockViewModel)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("SignUpView - Dark Mode")
+        }
     }
 }
-
+#endif
 

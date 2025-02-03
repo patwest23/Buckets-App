@@ -9,13 +9,14 @@ import SwiftUI
 
 struct UpdateEmailView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    
     @State private var newEmail: String = ""
     @State private var updateMessage: String = ""
     @State private var showAlert: Bool = false
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {  // Adjusted spacing for more compact layout
+            VStack(spacing: 20) {
                 
                 // MARK: - Email Input Field
                 TextField("✉️ Enter New Email Address", text: $newEmail)
@@ -23,29 +24,32 @@ struct UpdateEmailView: View {
                     .autocapitalization(.none)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-                
+
                 Spacer()
 
                 // MARK: - Update Email Button
                 HStack {
-                    Button(action: { Task { await updateEmail() } }) {
+                    Button {
+                        Task { await updateEmail() }
+                    } label: {
                         Text("✅ Update Email")
-                            .foregroundColor(.black)
+                            // If email is empty => .gray, else .accentColor
+                            .foregroundColor(newEmail.isEmpty ? .gray : .accentColor)
                             .frame(maxWidth: .infinity)
                             .fontWeight(.bold)
                             .padding()
-                            .background(.white)
-                            .foregroundColor(.black)
+                            .background(Color(uiColor: .secondarySystemBackground))
                             .cornerRadius(10)
                             .shadow(radius: 5)
                     }
-                    .disabled(newEmail.isEmpty) // Disable button when no input
+                    .disabled(newEmail.isEmpty) // disable if email is empty
                     .padding(.horizontal)
                 }
 
             }
-            .padding() // Adding some top padding to avoid the text field being too close to the top
-            .background(Color.white)
+            .padding()
+            // Use system background for the entire screen
+            .background(Color(uiColor: .systemBackground))
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Email Update"),
@@ -54,12 +58,12 @@ struct UpdateEmailView: View {
                 )
             }
         }
+        .background(Color(uiColor: .systemBackground)) // Another layer if you prefer
         .padding()
     }
 
     // MARK: - Helper Functions
 
-    /// Handles the email update process
     private func updateEmail() async {
         guard !newEmail.isEmpty else {
             showError("Please enter a valid email address.")
@@ -77,22 +81,39 @@ struct UpdateEmailView: View {
         }
     }
 
-    /// Show error message in the alert
     private func showError(_ message: String) {
         updateMessage = message
         showAlert = true
     }
 
-    /// Show success message in the alert
     private func showSuccess(_ message: String) {
         updateMessage = message
         showAlert = true
     }
 }
 
+// MARK: - Preview
+#if DEBUG
 struct UpdateEmailView_Previews: PreviewProvider {
     static var previews: some View {
-        UpdateEmailView()
-            .environmentObject(MockOnboardingViewModel()) // Use mock view model for preview
+        let mockViewModel = OnboardingViewModel()
+        
+        return Group {
+            // Light Mode
+            NavigationView {
+                UpdateEmailView()
+                    .environmentObject(mockViewModel)
+            }
+            .previewDisplayName("UpdateEmailView - Light")
+            
+            // Dark Mode
+            NavigationView {
+                UpdateEmailView()
+                    .environmentObject(mockViewModel)
+                    .preferredColorScheme(.dark)
+            }
+            .previewDisplayName("UpdateEmailView - Dark")
+        }
     }
 }
+#endif
