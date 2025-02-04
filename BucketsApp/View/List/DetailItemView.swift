@@ -28,27 +28,44 @@ struct DetailItemView: View {
     // Spinner for uploads
     @State private var isUploading = false
     
+    // MARK: - Focus States for text editing
+    @FocusState private var isNameFocused: Bool
+    @FocusState private var isNotesFocused: Bool
+    
     var body: some View {
         VStack {
             ScrollView {
-                // Main VStack with default spacing for each row
                 VStack(alignment: .leading, spacing: 10) {
                     
-                    basicInfoRow
+                    basicInfoRow       // Name toggle & textfield
                     photoPickerRow
                     dateCreatedLine
                     dateCompletedLine
                     locationRow
-                    descriptionRow
+                    descriptionRow     // Notes text editor
                     
                 }
                 .padding()
-                .background(Color(uiColor: .systemBackground)) // Full background
+                .background(Color(uiColor: .systemBackground))
             }
-            .background(Color(uiColor: .systemBackground)) // Full background
+            .background(Color(uiColor: .systemBackground))
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        // MARK: - Conditionally show "Done" button if name or notes are focused
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if isNameFocused || isNotesFocused {
+                    Button("Done") {
+                        // Clear focus => dismiss keyboard
+                        isNameFocused = false
+                        isNotesFocused = false
+                    }
+                    .foregroundColor(.accentColor)
+                }
+            }
+        }
+        // Whenever `imagePickerVM.uiImages` changes, upload them
         .onChange(of: imagePickerVM.uiImages) { newImages in
             Task {
                 await uploadPickedImages(newImages)
@@ -61,7 +78,7 @@ struct DetailItemView: View {
 extension DetailItemView {
     
     /// (1) Basic info row: toggle + multi-line name
-    private var basicInfoRow: some View {
+    fileprivate var basicInfoRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 // Completion toggle
@@ -74,7 +91,7 @@ extension DetailItemView {
                 }
                 .buttonStyle(.borderless)
                 
-                // Multi-line TextField
+                // Multi-line TextField for item.name
                 if #available(iOS 16.0, *) {
                     TextField(
                         "",
@@ -89,6 +106,7 @@ extension DetailItemView {
                     )
                     .lineLimit(1...10)
                     .foregroundColor(item.completed ? .gray : .primary)
+                    .focused($isNameFocused) // Focus binding
                 } else {
                     TextField(
                         "",
@@ -101,6 +119,7 @@ extension DetailItemView {
                         )
                     )
                     .foregroundColor(item.completed ? .gray : .primary)
+                    .focused($isNameFocused) // For iOS < 16, won't multiline, but we can still focus
                 }
             }
         }
@@ -108,9 +127,8 @@ extension DetailItemView {
     }
     
     /// (2) Photos Picker + grid
-    private var photoPickerRow: some View {
+    fileprivate var photoPickerRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Button + spinner
             HStack {
                 PhotosPicker(
                     selection: $imagePickerVM.imageSelections,
@@ -130,8 +148,8 @@ extension DetailItemView {
             }
             .padding(.vertical, 8)
             
-            // If user just picked new images...
             if !imagePickerVM.uiImages.isEmpty {
+                // Show newly picked images
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
                     ForEach(imagePickerVM.uiImages, id: \.self) { uiImage in
                         Image(uiImage: uiImage)
@@ -143,8 +161,8 @@ extension DetailItemView {
                 }
                 .padding(.vertical, 10)
             }
-            // Otherwise show existing item.imageUrls
             else if !item.imageUrls.isEmpty {
+                // Show existing images from item.imageUrls
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
                     ForEach(item.imageUrls, id: \.self) { urlStr in
                         if let url = URL(string: urlStr) {
@@ -175,7 +193,7 @@ extension DetailItemView {
     }
     
     /// (3) Date Created Row
-    private var dateCreatedLine: some View {
+    fileprivate var dateCreatedLine: some View {
         HStack {
             Text("📅   Created")
                 .font(.headline)
@@ -196,7 +214,7 @@ extension DetailItemView {
     }
     
     /// (4) Date Completed Row
-    private var dateCompletedLine: some View {
+    fileprivate var dateCompletedLine: some View {
         HStack {
             Text("📅   Completed")
                 .font(.headline)
@@ -223,7 +241,7 @@ extension DetailItemView {
     }
     
     /// (5) Location Row
-    private var locationRow: some View {
+    fileprivate var locationRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("📍")
@@ -248,7 +266,7 @@ extension DetailItemView {
     }
     
     /// (6) Notes (Description)
-    private var descriptionRow: some View {
+    fileprivate var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("📝   Notes")
                 .font(.headline)
@@ -265,6 +283,8 @@ extension DetailItemView {
             )
             .frame(minHeight: 150)
             .foregroundColor(.primary)
+            // Focus this text editor as well
+            .focused($isNotesFocused)
         }
         .padding(.vertical, 8)
     }

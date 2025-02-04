@@ -16,7 +16,7 @@ struct ListView: View {
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
-    // We’ll use this FocusState to focus newly added items
+    // FocusState to focus newly added items
     @FocusState private var focusedItemId: UUID?
     
     // MARK: - View Style
@@ -26,7 +26,6 @@ struct ListView: View {
         case completed = "Completed Only"
         case incomplete = "Incomplete Only"
     }
-    
     @State private var selectedViewStyle: ViewStyle = .list
     
     var body: some View {
@@ -41,7 +40,7 @@ struct ListView: View {
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
                     
-                    // Leading: user name
+                    // MARK: - Leading: user name
                     ToolbarItem(placement: .navigationBarLeading) {
                         if let user = onboardingViewModel.user {
                             Text(user.name ?? "Unknown")
@@ -52,24 +51,35 @@ struct ListView: View {
                         }
                     }
                     
-                    // Trailing: Sorting menu + Profile button
+                    // MARK: - Trailing: Conditionally show “Done” or (sorting + profile)
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            Menu {
-                                Button("List")       { selectedViewStyle = .list }
-                                Button("Detailed")   { selectedViewStyle = .detailed }
-                                Button("Complete")   { selectedViewStyle = .completed }
-                                Button("Incomplete") { selectedViewStyle = .incomplete }
-                            } label: {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                                    .font(.title)
-                                    .foregroundColor(.accentColor)
+                        if focusedItemId != nil {
+                            // If user is editing, show a "Done" button
+                            Button("Done") {
+                                // Clear focus => dismiss keyboard
+                                focusedItemId = nil
                             }
-                            
-                            Button {
-                                showProfileView = true
-                            } label: {
-                                profileImageView
+                            .font(.headline)
+                            .foregroundColor(.accentColor)
+                        } else {
+                            // Otherwise show Sorting Menu + Profile Button
+                            HStack {
+                                Menu {
+                                    Button("List")       { selectedViewStyle = .list }
+                                    Button("Detailed")   { selectedViewStyle = .detailed }
+                                    Button("Complete")   { selectedViewStyle = .completed }
+                                    Button("Incomplete") { selectedViewStyle = .incomplete }
+                                } label: {
+                                    Image(systemName: "line.3.horizontal.decrease.circle")
+                                        .font(.title)
+                                        .foregroundColor(.accentColor)
+                                }
+                                
+                                Button {
+                                    showProfileView = true
+                                } label: {
+                                    profileImageView
+                                }
                             }
                         }
                     }
@@ -101,7 +111,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Content
+    // MARK: - Main Content
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
@@ -127,13 +137,11 @@ struct ListView: View {
     
     // MARK: - List of Items
     private var itemListView: some View {
-        // Wrap the scroll content in a container that dismisses the keyboard on tap
         ScrollView {
             VStack(spacing: 5) {
                 ForEach(displayedItems, id: \.id) { aItem in
                     let itemBinding = bindingForItem(aItem)
                     
-                    // Our row with optional "detailed" style
                     ItemRowView(
                         item: itemBinding,
                         showDetailed: (selectedViewStyle == .detailed),
@@ -144,9 +152,9 @@ struct ListView: View {
                             deleteItemIfEmpty(aItem)
                         }
                     )
-                    // 1) Make the row’s TextField focusable with our FocusState
+                    // Make row’s TextField focusable with our FocusState
                     .focused($focusedItemId, equals: aItem.id)
-                    // 2) Optional swipe actions for delete
+                    // Swipe to delete
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
                             showDeleteConfirmation(for: aItem)
@@ -164,14 +172,14 @@ struct ListView: View {
                 }
             }
             .padding()
-            // 3) Tap anywhere to dismiss the keyboard
+            // Tap anywhere to dismiss the keyboard
             .onTapGesture {
                 focusedItemId = nil
             }
         }
     }
     
-    // MARK: - Loading / Empty
+    // MARK: - Loading/Empty
     private var loadingView: some View {
         ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
@@ -213,10 +221,10 @@ struct ListView: View {
                 name: ""
             )
             
-            // 1) Append the new item
+            // Append the new item
             bucketListViewModel.items.append(newItem)
             
-            // 2) Immediately focus its text field
+            // Immediately focus its text field
             focusedItemId = newItem.id
             
         } label: {
