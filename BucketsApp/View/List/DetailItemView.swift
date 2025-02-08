@@ -296,33 +296,39 @@ extension DetailItemView {
     /// Upload newly picked images => Firebase => update item.imageUrls
     private func uploadPickedImages(_ images: [UIImage]) async {
         guard let userId = onboardingViewModel.user?.id else { return }
-        
+
         isUploading = true
-        
+
+        // 1) Construct a reference to the folder:  "users/<userId>/item-<itemUUID>"
         let storageRef = Storage.storage().reference()
-            .child("users/\(userId)/item-\(item.id.uuidString)")
-        
+                         .child("users/\(userId)/item-\(item.id.uuidString)")
+
         var newUrls: [String] = []
-        
+
         for (index, uiImage) in images.enumerated() {
             guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else { continue }
-            let fileName = "photo\(index + 1).jpg"
-            let imageRef = storageRef.child(fileName)
-            
+
+            // 2) For each image, build a reference to "photo\(index+1).jpg" in that folder
+            let imageRef = storageRef.child("photo\(index + 1).jpg")
+
             do {
+                // 3) Upload the data
                 try await imageRef.putDataAsync(imageData)
+
+                // 4) Retrieve its download URL
                 let downloadUrl = try await imageRef.downloadURL()
                 newUrls.append(downloadUrl.absoluteString)
             } catch {
                 print("Error uploading image \(index): \(error.localizedDescription)")
             }
         }
-        
+
         isUploading = false
-        
+
+        // 5) Update item.imageUrls and sync to Firestore
         if !newUrls.isEmpty {
-            item.imageUrls = newUrls
-            updateItem()
+            item.imageUrls.append(contentsOf: newUrls)  // or = newUrls if you want to replace
+            updateItem()  // calls bucketListViewModel.addOrUpdateItem(item)
         }
     }
     

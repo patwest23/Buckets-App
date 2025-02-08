@@ -51,7 +51,7 @@ struct ListView: View {
                         }
                     }
                     
-                    // MARK: - Trailing: Conditionally show “Done” or (sorting + profile)
+                    // MARK: - Trailing: "Done" or Sorting + Profile
                     ToolbarItem(placement: .navigationBarTrailing) {
                         if focusedItemId != nil {
                             // If user is editing, show a "Done" button
@@ -62,7 +62,6 @@ struct ListView: View {
                             .font(.headline)
                             .foregroundColor(.accentColor)
                         } else {
-                            // Otherwise show Sorting Menu + Profile Button
                             HStack {
                                 Menu {
                                     Button("List")       { selectedViewStyle = .list }
@@ -119,6 +118,7 @@ struct ListView: View {
         } else if bucketListViewModel.items.isEmpty {
             emptyStateView
         } else {
+            // The actual List of items
             itemListView
         }
     }
@@ -137,46 +137,41 @@ struct ListView: View {
     
     // MARK: - List of Items
     private var itemListView: some View {
-        ScrollView {
-            VStack(spacing: 5) {
-                ForEach(displayedItems, id: \.id) { aItem in
-                    let itemBinding = bindingForItem(aItem)
-                    
-                    ItemRowView(
-                        item: itemBinding,
-                        showDetailed: (selectedViewStyle == .detailed),
-                        onNavigateToDetail: {
-                            selectedItem = aItem
-                        },
-                        onEmptyNameLostFocus: {
-                            deleteItemIfEmpty(aItem)
-                        }
-                    )
-                    // Make row’s TextField focusable with our FocusState
-                    .focused($focusedItemId, equals: aItem.id)
-                    // Swipe to delete
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            showDeleteConfirmation(for: aItem)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                    .swipeActions(edge: .leading) {
-                        Button(role: .destructive) {
-                            showDeleteConfirmation(for: aItem)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
+        // Use a List, so .swipeActions(...) works
+        List(displayedItems, id: \.id) { aItem in
+            let itemBinding = bindingForItem(aItem)
+            
+            // Our row
+            ItemRowView(
+                item: itemBinding,
+                showDetailed: (selectedViewStyle == .detailed),
+                onNavigateToDetail: {
+                    selectedItem = aItem
+                },
+                onEmptyNameLostFocus: {
+                    deleteItemIfEmpty(aItem)
+                }
+            )
+            // Focus the row’s TextField using our FocusState
+            .focused($focusedItemId, equals: aItem.id)
+            // Swipe to delete
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    showDeleteConfirmation(for: aItem)
+                } label: {
+                    Label("Delete", systemImage: "trash")
                 }
             }
-            .padding()
-            // Tap anywhere to dismiss the keyboard
-            .onTapGesture {
-                focusedItemId = nil
+            .swipeActions(edge: .leading) {
+                Button(role: .destructive) {
+                    showDeleteConfirmation(for: aItem)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
+        // Optional: let the list style be plain if you want
+        .listStyle(.plain)
     }
     
     // MARK: - Loading/Empty
@@ -221,10 +216,10 @@ struct ListView: View {
                 name: ""
             )
             
-            // Append the new item
+            // Add the new item
             bucketListViewModel.items.append(newItem)
             
-            // Immediately focus its text field
+            // Focus the new row’s TextField
             focusedItemId = newItem.id
             
         } label: {
@@ -285,6 +280,7 @@ struct ListView: View {
     }
     
     private func deleteItem(_ item: ItemModel) {
+        print("Deleting item: \(item.name)")
         Task {
             await bucketListViewModel.deleteItem(item)
         }

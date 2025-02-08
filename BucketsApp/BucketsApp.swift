@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Firebase
+import FirebaseAuth
 import FirebaseFirestore
 
 @main
@@ -19,7 +20,9 @@ struct BucketsApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // 1) Check if user is authenticated
             if onboardingViewModel.isAuthenticated {
+                // 2) Main content
                 NavigationStack {
                     ListView()
                         .environmentObject(bucketListViewModel)
@@ -27,18 +30,22 @@ struct BucketsApp: App {
                         .environmentObject(userViewModel)
                         .onAppear {
                             Task {
-                                // Load profile image asynchronously after successful login
-                                await onboardingViewModel.loadProfileImage()
+                                // If we have a current Firebase user, load items (or start listening)
+                                if Auth.auth().currentUser != nil {
+                                    bucketListViewModel.startListeningToItems()
+                                    await onboardingViewModel.loadProfileImage()
+                                }
                             }
                         }
                 }
             } else {
+                // 3) Onboarding / Authentication screen
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
                     .onAppear {
-                        // Could add any additional logic for unauthenticated state here
+                        // Could do minimal logic for unauth state here
                     }
             }
         }
@@ -63,9 +70,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let db = Firestore.firestore()
         let settings = db.settings
         
-        // Example of customizing cache size
+        // Example: customizing cache size
         let persistentCache = PersistentCacheSettings()
-        // persistentCache.sizeBytes = 10_485_760 // For example, 10MB
+        // persistentCache.sizeBytes = 10_485_760 // e.g., 10MB
         settings.cacheSettings = persistentCache
         db.settings = settings
 

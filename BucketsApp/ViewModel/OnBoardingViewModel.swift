@@ -115,8 +115,19 @@ final class OnboardingViewModel: ObservableObject {
             
             print("[OnboardingViewModel] signIn success. Auth UID:", authResult.user.uid)
             
+            // 1) Immediately ensure Firestore doc has up-to-date "email" from the Auth user
+            if let actualEmail = authResult.user.email {
+                let userDocRef = firestore.collection("users").document(authResult.user.uid)
+                // Merge in the official Auth email
+                try await userDocRef.setData(["email": actualEmail], merge: true)
+            }
+            
+            // 2) Load the user doc into `self.user`
             await fetchUserDocument(userId: authResult.user.uid)
+            
+            // 3) Also load profile image (optional)
             await loadProfileImage()
+            
         } catch {
             handleError(error)
         }
