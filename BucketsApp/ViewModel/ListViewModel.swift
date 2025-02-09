@@ -45,7 +45,6 @@ class ListViewModel: ObservableObject {
     }
     
     deinit {
-        // Optionally remove real-time listener or do minimal synchronous cleanup
         print("[ListViewModel] deinit called.")
     }
     
@@ -126,6 +125,22 @@ class ListViewModel: ObservableObject {
             return
         }
         
+        // The blank-check logic has been REMOVED.
+
+        // Determine if this is a new item
+        var isNewItem = false
+        if !items.contains(where: { $0.id == item.id }) {
+            isNewItem = true
+        }
+        
+        // If new, set orderIndex so it goes to the bottom
+        var newItem = item
+        if isNewItem {
+            let currentMaxOrder = items.map { $0.orderIndex }.max() ?? -1
+            newItem.orderIndex = currentMaxOrder + 1
+        }
+        
+        // Save to Firestore
         let docRef = db
             .collection("users")
             .document(userId)
@@ -133,16 +148,19 @@ class ListViewModel: ObservableObject {
             .document(item.id.uuidString)
         
         do {
-            try docRef.setData(from: item, merge: true)
-            print("[ListViewModel] addOrUpdateItem: Wrote item \(item.id) to /users/\(userId)/items/\(item.id.uuidString)")
+            try docRef.setData(from: newItem, merge: true)
+            print("[ListViewModel] addOrUpdateItem: Wrote item \(newItem.id) to Firestore.")
             
             // Update local array
-            if let index = items.firstIndex(where: { $0.id == item.id }) {
-                items[index] = item
+            if let index = items.firstIndex(where: { $0.id == newItem.id }) {
+                items[index] = newItem
             } else {
-                items.append(item)
+                items.append(newItem)
             }
+            
+            // Sort again (in case user is using another mode)
             sortItems()
+            
         } catch {
             print("[ListViewModel] addOrUpdateItem: Error:", error.localizedDescription)
         }
@@ -183,12 +201,9 @@ class ListViewModel: ObservableObject {
         
         switch sortingMode {
         case .manual:
-            // If you want to use a custom 'orderIndex' in ItemModel for manual sorting:
             items.sort { $0.orderIndex < $1.orderIndex }
         case .byDeadline:
-            items.sort {
-                ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture)
-            }
+            items.sort { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
         case .byCreationDate:
             items.sort { $0.creationDate < $1.creationDate }
         case .byPriority:

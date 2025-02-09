@@ -8,25 +8,19 @@
 import SwiftUI
 
 struct ItemRowView: View {
-    // MARK: - Properties
-    
     @Binding var item: ItemModel
     
-    /// Whether to show detailed info (images, etc.) inline
-    let showDetailed: Bool
-    
-    /// Called when the user taps to navigate to DetailItemView
+    // We’ll always show “detailed” (images) if the item has image URLs.
     let onNavigateToDetail: (() -> Void)?
-    
-    /// Called if the user’s name is empty after editing
     let onEmptyNameLostFocus: (() -> Void)?
     
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     
-    // MARK: - Body
+    /// Tracks whether we’re showing the full-screen image carousel
+    @State private var showFullScreenGallery = false
+
     var body: some View {
-        // Use spacing = 0 to remove vertical gaps
         VStack(alignment: .leading, spacing: 0) {
             
             // 1) Top row: Completion toggle + multiline name + detail button
@@ -72,52 +66,69 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
             }
-            // minimal vertical padding around the top row
             .padding(.vertical, 4)
             
-            // 2) Additional fields if showDetailed
-            if showDetailed {
-                
-                // (Optional) location or date rows are commented out in your code.
-                // Insert them here if you like.
-                
-                // (c) Image Carousel (if any)
-                if !item.imageUrls.isEmpty {
-                    TabView {
-                        ForEach(item.imageUrls, id: \.self) { urlStr in
-                            if let url = URL(string: urlStr) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .empty:
-                                        ProgressView()
-                                    case .success(let loadedImage):
-                                        loadedImage
-                                            .resizable()
-                                            .scaledToFill()
-                                            // Make the image fill the entire width
-                                            .frame(maxWidth: .infinity)
-                                            .frame(height: 600)
-                                            .clipped()
-                                    case .failure:
-                                        Color.gray
-                                            .frame(height: 600)
-                                    @unknown default:
-                                        EmptyView()
+            // 2) GeometryReader-based carousel if there are images
+            if !item.imageUrls.isEmpty {
+                HStack {
+                    Spacer()
+                    
+                    GeometryReader { geo in
+                        // Let’s clamp the carousel size to something reasonable
+                        let sideLength = min(geo.size.width * 0.9, 500)
+                        
+                        TabView {
+                            ForEach(item.imageUrls, id: \.self) { urlStr in
+                                if let url = URL(string: urlStr) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .empty:
+                                            ProgressView()
+                                                .frame(width: sideLength, height: sideLength)
+                                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                                .padding(4)
+                                        case .success(let loadedImage):
+                                            loadedImage
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: sideLength, height: sideLength)
+                                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                                .padding(4)
+                                        case .failure:
+                                            Color.gray
+                                                .frame(width: sideLength, height: sideLength)
+                                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                                .padding(4)
+                                        @unknown default:
+                                            EmptyView()
+                                        }
                                     }
+                                } else {
+                                    // If the URL is invalid
+                                    Color.gray
+                                        .frame(width: sideLength, height: sideLength)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                        .padding(4)
                                 }
-                            } else {
-                                // If the URL is invalid
-                                Color.gray
-                                    .frame(height: 600)
                             }
                         }
+                        .tabViewStyle(.page)
+                        .frame(width: geo.size.width, height: sideLength)
+                        .onTapGesture {
+                            showFullScreenGallery = true
+                        }
+                        .fullScreenCover(isPresented: $showFullScreenGallery) {
+                            FullScreenCarouselView(imageUrls: item.imageUrls)
+                        }
                     }
-                    .tabViewStyle(PageTabViewStyle())
-                    .frame(height: 600) // Force the TabView to be 600 points tall
+                    .frame(height: 400) // optional: controls the overall vertical space
+                                        // you can remove or adjust this as you prefer
+                    
+                    Spacer()
                 }
             }
         }
-        // 3) Watch for item.name changes
+        // 3) Blank-name detection & saving
         .onChange(of: item.name) { newValue in
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
@@ -131,27 +142,20 @@ struct ItemRowView: View {
 
 // MARK: - Private Helpers
 extension ItemRowView {
-    
-    /// Toggle the completed state
     private func toggleCompleted() {
         var updated = item
-        if !updated.completed {
-            updated.completed = true
-            updated.dueDate = Date()
-        } else {
-            updated.completed = false
-            updated.dueDate = nil
-        }
+        updated.completed.toggle()
+        updated.dueDate = updated.completed ? Date() : nil
         bucketListViewModel.addOrUpdateItem(updated)
     }
     
-    /// Update the item name
     private func updateItemName(_ newName: String) {
         var updated = item
         updated.name = newName
         bucketListViewModel.addOrUpdateItem(updated)
     }
 }
+
 // MARK: - Preview
 struct ItemRowView_Previews: PreviewProvider {
     static var previews: some View {
@@ -167,23 +171,12 @@ struct ItemRowView_Previews: PreviewProvider {
             ]
         )
         
-        return VStack(spacing: 40) {
-            // 1) Collapsed style
-            ItemRowView(
-                item: .constant(sampleItem),
-                showDetailed: false,
-                onNavigateToDetail: { print("Navigate detail!") },
-                onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
-            )
-            
-            // 2) Detailed style
-            ItemRowView(
-                item: .constant(sampleItem),
-                showDetailed: true,
-                onNavigateToDetail: { print("Navigate detail!") },
-                onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
-            )
-        }
+        return ItemRowView(
+            item: .constant(sampleItem),
+            // Removed `showDetailed` parameter
+            onNavigateToDetail: { print("Navigate detail!") },
+            onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
+        )
         .environmentObject(ListViewModel())
         .environmentObject(OnboardingViewModel())
         .previewLayout(.sizeThatFits)

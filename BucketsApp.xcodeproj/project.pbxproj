@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */; };
 		1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B222D21DAE7000DF507 /* UserViewModel.swift */; };
 		1F234B252D21DC85000DF507 /* UserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B242D21DC7E000DF507 /* UserModel.swift */; };
 		1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */; };
@@ -40,6 +41,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenCarouselView.swift; sourceTree = "<group>"; };
 		1F234B222D21DAE7000DF507 /* UserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserViewModel.swift; sourceTree = "<group>"; };
 		1F234B242D21DC7E000DF507 /* UserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserModel.swift; sourceTree = "<group>"; };
 		1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerViewModel.swift; sourceTree = "<group>"; };
@@ -193,6 +195,7 @@
 				1F64774D29E5025000B66F63 /* ListView.swift */,
 				1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */,
 				1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */,
+				1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
 			);
 			path = List;
 			sourceTree = "<group>";
@@ -293,6 +296,7 @@
 				1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
 				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
 				1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
+				1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */,
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,

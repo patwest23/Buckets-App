@@ -10,7 +10,7 @@ import SwiftUI
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    
+
     @State private var isLoading = true
     @State private var showProfileView = false
     @State private var selectedItem: ItemModel?
@@ -19,11 +19,11 @@ struct ListView: View {
     // FocusState to focus newly added items
     @FocusState private var focusedItemId: UUID?
     
-    // MARK: - View Style
+    // MARK: - View Style (kept in case you revisit sorting later)
     private enum ViewStyle: String {
-        case list = "List View"
-        case detailed = "Detailed View"
-        case completed = "Completed Only"
+        case list       = "List View"
+        case detailed   = "Detailed View"
+        case completed  = "Completed Only"
         case incomplete = "Incomplete Only"
     }
     @State private var selectedViewStyle: ViewStyle = .list
@@ -33,6 +33,7 @@ struct ListView: View {
             if #available(iOS 17.0, *) {
                 ZStack {
                     contentView
+                    
                     addButton
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
@@ -51,18 +52,23 @@ struct ListView: View {
                         }
                     }
                     
-                    // MARK: - Trailing: "Done" or Sorting + Profile
+                    // MARK: - Trailing: "Done" or [Sorting + Profile]
                     ToolbarItem(placement: .navigationBarTrailing) {
                         if focusedItemId != nil {
-                            // If user is editing, show a "Done" button
+                            // If user is editing a TextField, show a "Done" button
                             Button("Done") {
-                                // Clear focus => dismiss keyboard
+                                // 1) Remove focus => dismiss keyboard
                                 focusedItemId = nil
+                                
+                                // 2) Optionally remove any blank items
+                                removeBlankItems()
                             }
                             .font(.headline)
                             .foregroundColor(.accentColor)
                         } else {
                             HStack {
+                                // COMMENTED OUT SORTING MENU:
+                                /*
                                 Menu {
                                     Button("List")       { selectedViewStyle = .list }
                                     Button("Detailed")   { selectedViewStyle = .detailed }
@@ -70,10 +76,11 @@ struct ListView: View {
                                     Button("Incomplete") { selectedViewStyle = .incomplete }
                                 } label: {
                                     Image(systemName: "line.3.horizontal.decrease.circle")
-//                                        .font(.title)
                                         .foregroundColor(.accentColor)
                                 }
+                                */
                                 
+                                // Profile button
                                 Button {
                                     showProfileView = true
                                 } label: {
@@ -137,14 +144,12 @@ struct ListView: View {
     
     // MARK: - List of Items
     private var itemListView: some View {
-        // Use a List, so .swipeActions(...) works
         List(displayedItems, id: \.id) { aItem in
             let itemBinding = bindingForItem(aItem)
             
-            // Our row
+            // Use the revised initializer without `showDetailed`
             ItemRowView(
                 item: itemBinding,
-                showDetailed: (selectedViewStyle == .detailed),
                 onNavigateToDetail: {
                     selectedItem = aItem
                 },
@@ -170,7 +175,6 @@ struct ListView: View {
                 }
             }
         }
-        // Optional: let the list style be plain if you want
         .listStyle(.plain)
     }
     
@@ -191,7 +195,7 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Simulated Load
+    // MARK: - Simulated Load (just a placeholder delay)
     private func loadItems() {
         Task {
             isLoading = true
@@ -212,12 +216,11 @@ struct ListView: View {
             }
             
             let newItem = ItemModel(
-                userId: onboardingViewModel.user?.id ?? "",
-                name: ""
+                userId: onboardingViewModel.user?.id ?? ""
             )
             
-            // Add the new item
-            bucketListViewModel.items.append(newItem)
+            // Call addOrUpdateItem so it gets proper orderIndex & stored in Firestore
+            bucketListViewModel.addOrUpdateItem(newItem)
             
             // Focus the new row’s TextField
             focusedItemId = newItem.id
@@ -260,7 +263,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Binding & Deletion
+    // MARK: - Binding
     private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
         guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
             return .constant(item)
@@ -268,6 +271,7 @@ struct ListView: View {
         return $bucketListViewModel.items[index]
     }
     
+    // MARK: - Deletion Logic
     private func showDeleteConfirmation(for item: ItemModel) {
         itemToDelete = item
         bucketListViewModel.showDeleteAlert = true
@@ -275,7 +279,10 @@ struct ListView: View {
     
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            showDeleteConfirmation(for: item)
+            // Directly delete the blank item (no confirmation).
+            Task {
+                await bucketListViewModel.deleteItem(item)
+            }
         }
     }
     
@@ -283,6 +290,18 @@ struct ListView: View {
         print("Deleting item: \(item.name)")
         Task {
             await bucketListViewModel.deleteItem(item)
+        }
+    }
+    
+    /// Removes any items that remain blank
+    private func removeBlankItems() {
+        let blankItems = bucketListViewModel.items.filter {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        for item in blankItems {
+            Task {
+                await bucketListViewModel.deleteItem(item)
+            }
         }
     }
 }

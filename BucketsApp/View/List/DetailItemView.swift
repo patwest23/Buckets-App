@@ -268,7 +268,7 @@ extension DetailItemView {
     /// (6) Notes (Description)
     fileprivate var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("📝   Notes")
+            Text("📝   Caption")
                 .font(.headline)
                 .foregroundColor(.primary)
             
