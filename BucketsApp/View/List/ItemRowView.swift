@@ -12,7 +12,7 @@ struct ItemRowView: View {
     
     @Binding var item: ItemModel
     
-    /// Whether to show detailed info (location, dates, images) inline
+    /// Whether to show detailed info (images, etc.) inline
     let showDetailed: Bool
     
     /// Called when the user taps to navigate to DetailItemView
@@ -26,9 +26,10 @@ struct ItemRowView: View {
     
     // MARK: - Body
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        // Use spacing = 0 to remove vertical gaps
+        VStack(alignment: .leading, spacing: 0) {
             
-            // 1) Top row: toggle + multiline name + detail button
+            // 1) Top row: Completion toggle + multiline name + detail button
             HStack(spacing: 12) {
                 // a) Completion Toggle
                 Button(action: toggleCompleted) {
@@ -50,6 +51,7 @@ struct ItemRowView: View {
                     )
                     .lineLimit(1...5)
                 } else {
+                    // Fallback for older iOS
                     TextField(
                         "",
                         text: Binding(
@@ -70,68 +72,49 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
             }
+            // minimal vertical padding around the top row
             .padding(.vertical, 4)
             
             // 2) Additional fields if showDetailed
             if showDetailed {
-                VStack(alignment: .leading, spacing: 2) {
-                    
-                    // a) Location
-                    if let address = item.location?.address, !address.isEmpty {
-                        HStack(alignment: .top, spacing: 4) {
-                            Image(systemName: "mappin")
-                                .foregroundColor(.gray)
-                            Text(address)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    
-                    // b) Creation & optional completed date
-                    HStack(alignment: .top, spacing: 4) {
-                        Image(systemName: "calendar")
-                            .foregroundColor(.gray)
-                        Text(
-                            formattedDate(item.creationDate) +
-                            (item.completed ? " - \(formattedDate(item.dueDate))" : "")
-                        )
-                        .foregroundColor(.gray)
-                    }
-                    
-                    // c) Image Carousel if any
-                    if !item.imageUrls.isEmpty {
-                        TabView {
-                            ForEach(item.imageUrls, id: \.self) { urlStr in
-                                if let url = URL(string: urlStr) {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .empty:
-                                            ProgressView()
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFit()
-                                                .colorMultiply(.gray)
-                                                .frame(maxWidth: .infinity)
-                                                .cornerRadius(8)
-                                                .padding(.horizontal, 4)
-                                        case .failure:
-                                            Color.gray.frame(height: 150)
-                                        @unknown default:
-                                            EmptyView()
-                                        }
+                
+                // (Optional) location or date rows are commented out in your code.
+                // Insert them here if you like.
+                
+                // (c) Image Carousel (if any)
+                if !item.imageUrls.isEmpty {
+                    TabView {
+                        ForEach(item.imageUrls, id: \.self) { urlStr in
+                            if let url = URL(string: urlStr) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .empty:
+                                        ProgressView()
+                                    case .success(let loadedImage):
+                                        loadedImage
+                                            .resizable()
+                                            .scaledToFill()
+                                            // Make the image fill the entire width
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 600)
+                                            .clipped()
+                                    case .failure:
+                                        Color.gray
+                                            .frame(height: 600)
+                                    @unknown default:
+                                        EmptyView()
                                     }
-                                } else {
-                                    Color.gray.frame(height: 150)
                                 }
+                            } else {
+                                // If the URL is invalid
+                                Color.gray
+                                    .frame(height: 600)
                             }
                         }
-                        .tabViewStyle(PageTabViewStyle())
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 150)
                     }
+                    .tabViewStyle(PageTabViewStyle())
+                    .frame(height: 600) // Force the TabView to be 600 points tall
                 }
-                .font(.footnote)        // smaller text
-                .padding(.leading, 30)  // indent detail area
             }
         }
         // 3) Watch for item.name changes
@@ -149,34 +132,24 @@ struct ItemRowView: View {
 // MARK: - Private Helpers
 extension ItemRowView {
     
-    /// Toggle completed state. If marking complete, set item.dueDate = now; else clear it.
+    /// Toggle the completed state
     private func toggleCompleted() {
         var updated = item
         if !updated.completed {
-            // Marking item as complete
             updated.completed = true
             updated.dueDate = Date()
         } else {
-            // Marking item as incomplete
             updated.completed = false
             updated.dueDate = nil
         }
         bucketListViewModel.addOrUpdateItem(updated)
     }
     
-    /// Update item name
+    /// Update the item name
     private func updateItemName(_ newName: String) {
         var updated = item
         updated.name = newName
         bucketListViewModel.addOrUpdateItem(updated)
-    }
-    
-    /// Format optional Date for display
-    private func formattedDate(_ date: Date?) -> String {
-        guard let date = date else { return "--" }
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        return df.string(from: date)
     }
 }
 // MARK: - Preview

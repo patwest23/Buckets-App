@@ -70,7 +70,7 @@ struct ListView: View {
                                     Button("Incomplete") { selectedViewStyle = .incomplete }
                                 } label: {
                                     Image(systemName: "line.3.horizontal.decrease.circle")
-                                        .font(.title)
+//                                        .font(.title)
                                         .foregroundColor(.accentColor)
                                 }
                                 
@@ -244,7 +244,7 @@ struct ListView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 20, height: 20)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color.accentColor, lineWidth: 1))
             )
@@ -253,7 +253,7 @@ struct ListView: View {
                 Image(systemName: "person.crop.circle.fill")
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 25, height: 25)
                     .clipShape(Circle())
                     .foregroundColor(.accentColor)
             )

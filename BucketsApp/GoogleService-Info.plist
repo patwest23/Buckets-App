@@ -17,7 +17,7 @@
 	<key>PROJECT_ID</key>
 	<string>buckets-app</string>
 	<key>STORAGE_BUCKET</key>
-	<string>buckets-app.appspot.com</string>
+	<string>buckets-app.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false/>
 	<key>IS_ANALYTICS_ENABLED</key>
