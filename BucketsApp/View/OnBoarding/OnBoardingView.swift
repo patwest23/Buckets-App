@@ -75,6 +75,30 @@ struct OnboardingView: View {
                             LogInView()
                                 .environmentObject(onboardingViewModel)
                         }
+
+                        // MARK: - Google Sign-In Button
+                        Button(action: {
+                            // You'll implement the signInWithGoogle() method in your ViewModel
+                            onboardingViewModel.signInWithGoogle()
+                        }) {
+                            HStack {
+                                // If you have a Google logo in your Assets,
+                                // replace "google_logo" with that image name
+                                Image("google_logo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 24, height: 24)
+
+                                Text("Sign in with Google")
+                                    .fontWeight(.bold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .foregroundColor(.primary)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                        }
                     }
                     .padding(.horizontal)
 

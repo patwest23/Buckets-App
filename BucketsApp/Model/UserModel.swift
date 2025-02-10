@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseFirestore
 
+
 /// Represents a user document in Firestore.
 struct UserModel: Identifiable, Codable {
     
@@ -23,21 +24,26 @@ struct UserModel: Identifiable, Codable {
     /// URL to the user’s profile image (stored in Firebase Storage or elsewhere).
     var profileImageUrl: String?
     
-    /// Display name for this user. Defaults to "Guest" if none is provided.
+    /// The user’s full display name (e.g., “John Doe”). Defaults to "Guest" if none is provided.
     var name: String?
     
+    /// A separate handle (like “@john123”). May be nil if user never set it.
+    var username: String?
+
     // MARK: - Custom Initializer
     init(
         id: String? = nil,
         email: String,
         createdAt: Date? = nil,
         profileImageUrl: String? = nil,
-        name: String? = "Guest"
+        name: String? = "Guest",
+        username: String? = nil
     ) {
         self.id = id
         self.email = email
         self.createdAt = createdAt ?? Date()
         self.profileImageUrl = profileImageUrl
         self.name = name
+        self.username = username
     }
 }

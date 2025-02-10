@@ -30,7 +30,7 @@ struct SignUpView: View {
                     Spacer()  // Removed the image/logo, just a spacer now
 
                     // MARK: - Input Fields
-                    usernameTextField
+                    usernameTextField  // <--- Updated
                     emailTextField
                     passwordSecureField
                     confirmPasswordSecureField
@@ -67,10 +67,32 @@ struct SignUpView: View {
 
     // MARK: - Text Fields
     
-    /// Username field
+    /// Username field with a custom Binding to always enforce "@" at the start
     var usernameTextField: some View {
-        TextField("📛 Username", text: $username)
-            .textFieldModifiers()
+        TextField("📛 Username", text: Binding(
+            get: {
+                // If empty, return blank. Otherwise ensure it starts with "@"
+                username.isEmpty
+                    ? ""
+                    : (username.hasPrefix("@") ? username : "@" + username)
+            },
+            set: { newVal in
+                // If user clears everything, we allow blank
+                if newVal.isEmpty {
+                    username = ""
+                }
+                // Otherwise enforce a single "@" at the start
+                else if !newVal.hasPrefix("@") {
+                    // Remove any existing "@" to avoid @@
+                    let rawVal = newVal.replacingOccurrences(of: "@", with: "")
+                    username = "@" + rawVal
+                } else {
+                    // Already has @ at start, so just update
+                    username = newVal
+                }
+            }
+        ))
+        .textFieldModifiers()
     }
 
     /// Email address field (stored in OnboardingViewModel)
@@ -146,7 +168,9 @@ struct SignUpView: View {
     
     /// Validates username, email, password, terms, etc.
     private func validateInput() -> Bool {
-        guard !username.trimmingCharacters(in: .whitespaces).isEmpty else {
+        // Check final trimmed username
+        let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedUsername.isEmpty else {
             errorMessage = "Please enter a username."
             return false
         }
@@ -185,6 +209,7 @@ struct SignUpView: View {
     
     /// Actually performs the sign-up in OnboardingViewModel after storing typed username
     private func signUpUser() async {
+        // Transfer the final username (with "@") to the ViewModel
         viewModel.username = username
         await viewModel.createUser()
         

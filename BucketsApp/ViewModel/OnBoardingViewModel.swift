@@ -9,17 +9,28 @@ import Foundation
 import FirebaseAuth
 import FirebaseStorage
 import FirebaseFirestore
+import GoogleSignIn  // <-- Import Google Sign-In
+import FirebaseCore
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
+    
     // MARK: - Published Properties
     
     /// The user’s email and password (for authentication).
     @Published var email: String = ""
     @Published var password: String = ""
     
-    /// The user’s chosen username (e.g., "JohnDoe" or "@JohnDoe").
-    @Published var username: String = ""
+    /// The user’s chosen handle (e.g., "john123" or "@john123").
+    /// Automatically ensures an "@" prefix.
+    @Published var username: String = "" {
+        didSet {
+            // If the user typed something, ensure the string starts with "@"
+            if !username.isEmpty && !username.hasPrefix("@") {
+                username = "@" + username
+            }
+        }
+    }
     
     /// Whether the user is currently signed in.
     @Published var isAuthenticated: Bool = false
@@ -57,7 +68,6 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Check Auth State
     
-    /// Checks if there's a current user. If so, load Firestore doc & profile image.
     func checkIfUserIsAuthenticated() {
         Task {
             if let currentUser = Auth.auth().currentUser {
@@ -76,26 +86,135 @@ final class OnboardingViewModel: ObservableObject {
     func validateAuthSession() -> Bool {
         guard Auth.auth().currentUser != nil else {
             self.isAuthenticated = false
-            handleError(NSError(
-                domain: "AuthError",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "User session expired."]
-            ))
+            handleError(NSError(domain: "AuthError",
+                                code: -1,
+                                userInfo: [NSLocalizedDescriptionKey: "User session expired."]))
             return false
         }
         return true
     }
     
+    // MARK: - Google Sign-In
+        
+    func signInWithGoogle() {
+        // 1) Get the Firebase clientID
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            handleError(NSError(
+                domain: "MissingGoogleClientID",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Missing Google ClientID in Firebase config."]
+            ))
+            return
+        }
+        
+        // 2) Create Google Sign-In configuration
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        
+        // 3) Determine where to present the sign-in UI
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController
+        else {
+            handleError(NSError(
+                domain: "UIError",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to find rootViewController."]
+            ))
+            return
+        }
+        
+        // 4) Begin sign-in flow
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [weak self] result, error in
+            guard let self = self else { return }
+            
+            // a) Check for an immediate error
+            if let error = error {
+                self.handleError(error)
+                return
+            }
+            
+            // b) Validate user
+            guard let user = result?.user else {
+                // handle error
+                return
+            }
+
+            // c) If user.idToken is non-optional:
+            let idToken = user.idToken              // GIDToken
+            let accessToken = user.accessToken      // GIDAccessToken
+
+            // d) Extract the strings
+            let idTokenString = idToken!.tokenString
+            let accessTokenString = accessToken.tokenString
+
+            // e) Check if empty
+            if idTokenString.isEmpty || accessTokenString.isEmpty {
+                // handle error
+                return
+            }
+
+            // f) Build credential
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idTokenString,
+                accessToken: accessTokenString
+            )
+            
+            // f) Sign in to Firebase
+            Auth.auth().signIn(with: credential) { authResult, error in
+                if let error = error {
+                    self.handleError(error)
+                    return
+                }
+                
+                guard let authUser = authResult?.user else {
+                    self.handleError(NSError(
+                        domain: "AuthError",
+                        code: 0,
+                        userInfo: [NSLocalizedDescriptionKey: "No Auth user found after Google sign-in."]
+                    ))
+                    return
+                }
+                
+                self.isAuthenticated = true
+                self.clearErrorState()
+                
+                // g) Update Firestore user doc + load profile
+                Task {
+                    if let userEmail = authUser.email {
+                        let userDocRef = self.firestore.collection("users").document(authUser.uid)
+                        do {
+                            // If you want to store Google’s displayName:
+                            // let googleName = user.profile?.name ?? "GoogleUser"
+                            
+                            try await userDocRef.setData([
+                                "email": userEmail
+                                // "name": googleName
+                            ], merge: true)
+                        } catch {
+                            self.handleError(error)
+                        }
+                    }
+                    
+                    await self.fetchUserDocument(userId: authUser.uid)
+                    await self.loadProfileImage()
+                    
+                    print("[OnboardingViewModel] Google sign-in success. UID:", authUser.uid)
+                }
+            }
+        }
+    }
+    
     // MARK: - Username Availability
     
+    /// Checks if a particular username is already used by querying Firestore.
     func isUsernameUsed(_ username: String) async -> Bool {
-        guard !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return true
-        }
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        
         do {
+            // Query for "username" rather than "name"
             let snapshot = try await firestore
                 .collection("users")
-                .whereField("name", isEqualTo: username)
+                .whereField("username", isEqualTo: trimmed)
                 .getDocuments()
             
             return !snapshot.documents.isEmpty
@@ -115,17 +234,16 @@ final class OnboardingViewModel: ObservableObject {
             
             print("[OnboardingViewModel] signIn success. Auth UID:", authResult.user.uid)
             
-            // 1) Immediately ensure Firestore doc has up-to-date "email" from the Auth user
+            // 1) Ensure Firestore doc has up-to-date "email"
             if let actualEmail = authResult.user.email {
                 let userDocRef = firestore.collection("users").document(authResult.user.uid)
-                // Merge in the official Auth email
                 try await userDocRef.setData(["email": actualEmail], merge: true)
             }
             
-            // 2) Load the user doc into `self.user`
+            // 2) Load user doc
             await fetchUserDocument(userId: authResult.user.uid)
             
-            // 3) Also load profile image (optional)
+            // 3) Load profile image
             await loadProfileImage()
             
         } catch {
@@ -301,14 +419,14 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Firestore Integration
     
-    /// Creates a doc at /users/<userId> with "email", "createdAt", and "name" (from `username`).
     private func createUserDocument(userId: String) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
             let docData: [String: Any] = [
                 "email": email,
                 "createdAt": Date(),
-                "name": username
+                // store the “@” handle as “username” in Firestore
+                "username": username
             ]
             
             try await userDoc.setData(docData)
@@ -318,7 +436,6 @@ final class OnboardingViewModel: ObservableObject {
         }
     }
     
-    /// Fetches the user doc from /users/<userId>, updates `self.user` if it exists.
     func fetchUserDocument(userId: String) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
