@@ -12,14 +12,19 @@ import FirebaseFirestore
 
 struct ProfileView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @EnvironmentObject var listViewModel: ListViewModel  // So we can access item counts
-    @EnvironmentObject var userViewModel: UserViewModel  // For updating username
+    @EnvironmentObject var listViewModel: ListViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
     
+    // Each sheet has its own boolean
+    @State private var showUsernameSheet = false
+    @State private var showEmailSheet = false
+    @State private var showResetPasswordSheet = false
+    @State private var showUpdatePasswordSheet = false
+    
     var body: some View {
-        // ScrollView using systemBackground
         ScrollView {
             VStack(spacing: 30) {
                 
@@ -27,7 +32,6 @@ struct ProfileView: View {
                 Button {
                     isPickerPresented = true
                 } label: {
-                    // If user has profile image => show it, else placeholder
                     if let imageData = onboardingViewModel.profileImageData,
                        let uiImage = UIImage(data: imageData) {
                         Image(uiImage: uiImage)
@@ -46,7 +50,6 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                // PhotosPicker for changing profile image
                 .photosPicker(
                     isPresented: $isPickerPresented,
                     selection: $selectedImageItem,
@@ -56,7 +59,7 @@ struct ProfileView: View {
                     loadProfileImage(newItem)
                 }
                 
-                // User’s name
+                // Display the user’s username or fallback placeholder
                 if let userName = onboardingViewModel.user?.name, !userName.isEmpty {
                     Text(userName)
                         .font(.title2)
@@ -68,32 +71,57 @@ struct ProfileView: View {
                         .foregroundColor(.gray)
                 }
                 
-                // If you have emoji-based item counts, place them here...
-                // ...
-                
                 // MARK: - Account Settings
                 VStack(spacing: 10) {
-                    // a) Navigation links
                     VStack(alignment: .leading, spacing: 12) {
-                        NavigationLink("📝 Update Username", destination: UpdateUserNameView())
-                            .foregroundColor(.primary)
-                            .buttonStyle(.plain)
                         
-                        NavigationLink("✉️ Update Email", destination: UpdateEmailView())
-                            .foregroundColor(.primary)
-                            .buttonStyle(.plain)
+                        // 1) "Update Username" => sheet
+                        Button("📝 Update Username") {
+                            showUsernameSheet = true
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.primary)
+                        .sheet(isPresented: $showUsernameSheet) {
+                            UpdateUserNameView()
+                                .environmentObject(userViewModel)
+                        }
                         
-                        NavigationLink("🔑 Reset Password", destination: ResetPasswordView())
-                            .foregroundColor(.primary)
-                            .buttonStyle(.plain)
+                        // 2) "Update Email" => sheet
+                        Button("✉️ Update Email") {
+                            showEmailSheet = true
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.primary)
+                        .sheet(isPresented: $showEmailSheet) {
+                            UpdateEmailView()
+                                .environmentObject(onboardingViewModel)
+                        }
                         
-                        NavigationLink("🔒 Update Password", destination: UpdatePasswordView())
-                            .foregroundColor(.primary)
-                            .buttonStyle(.plain)
+                        // 3) "Reset Password" => sheet
+                        Button("🔑 Reset Password") {
+                            showResetPasswordSheet = true
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.primary)
+                        .sheet(isPresented: $showResetPasswordSheet) {
+                            ResetPasswordView()
+                                .environmentObject(onboardingViewModel)
+                        }
+                        
+                        // 4) "Update Password" => sheet
+                        Button("🔒 Update Password") {
+                            showUpdatePasswordSheet = true
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.primary)
+                        .sheet(isPresented: $showUpdatePasswordSheet) {
+                            UpdatePasswordView()
+                                .environmentObject(onboardingViewModel)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    // b) Log Out button in the center
+                    // b) Log Out button
                     HStack {
                         Spacer()
                         Button("🚪 Log Out", role: .destructive) {
@@ -123,8 +151,7 @@ struct ProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                // Hide default nav title
-                EmptyView()
+                EmptyView() // Hide default nav title
             }
         }
     }
@@ -135,7 +162,6 @@ struct ProfileView: View {
         Task {
             do {
                 if let data = try await newItem.loadTransferable(type: Data.self) {
-                    // Upload to Firebase Storage and update Firestore
                     await onboardingViewModel.updateProfileImage(with: data)
                 }
             } catch {

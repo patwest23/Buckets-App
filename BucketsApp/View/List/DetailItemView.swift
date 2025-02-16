@@ -37,12 +37,12 @@ struct DetailItemView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     
-                    basicInfoRow       // Name toggle & textfield
-                    photoPickerRow
-                    dateCreatedLine
-                    dateCompletedLine
+                    basicInfoRow         // 1) Name toggle & textfield
+                    photoPickerRow       // 2) Photos row => disabled if not completed
+                    dateCreatedLine      // 3) Always shown
+                    dateCompletedLine    // 4) Only interactive if item.completed
                     locationRow
-                    descriptionRow     // Notes text editor
+                    descriptionRow       // 5) Notes text editor
                     
                 }
                 .padding()
@@ -119,80 +119,105 @@ extension DetailItemView {
                         )
                     )
                     .foregroundColor(item.completed ? .gray : .primary)
-                    .focused($isNameFocused) // For iOS < 16, won't multiline, but we can still focus
+                    .focused($isNameFocused)
                 }
             }
         }
         .padding(.vertical, 8)
     }
     
-    /// (2) Photos Picker + grid
+    /// (2) Photos Picker + grid, DISABLED or HIDDEN if item is not completed
     fileprivate var photoPickerRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                PhotosPicker(
-                    selection: $imagePickerVM.imageSelections,
-                    maxSelectionCount: 3,
-                    matching: .images
-                ) {
-                    Text("📸   Select Photos")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            if item.completed {
+                // Normal state: user can pick photos
+                HStack {
+                    PhotosPicker(
+                        selection: $imagePickerVM.imageSelections,
+                        maxSelectionCount: 3,
+                        matching: .images
+                    ) {
+                        Text("📸   Select Photos")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    
+                    if isUploading {
+                        ProgressView()
+                            .padding(.trailing, 8)
+                    }
+                }
+                .padding(.vertical, 8)
+                
+                // Show either newly picked images or existing item.imageUrls
+                if !imagePickerVM.uiImages.isEmpty {
+                    photoGrid(uiImages: imagePickerVM.uiImages)
+                } else if !item.imageUrls.isEmpty {
+                    photoGrid(urlStrings: item.imageUrls)
                 }
                 
-                if isUploading {
-                    ProgressView()
-                        .padding(.trailing, 8)
+            } else {
+                // If not completed => disable photo picker
+                HStack {
+                    Text("📸   Select Photos")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-            }
-            .padding(.vertical, 8)
-            
-            if !imagePickerVM.uiImages.isEmpty {
-                // Show newly picked images
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                    ForEach(imagePickerVM.uiImages, id: \.self) { uiImage in
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 100, height: 100)
-                            .clipped()
-                    }
-                }
-                .padding(.vertical, 10)
-            }
-            else if !item.imageUrls.isEmpty {
-                // Show existing images from item.imageUrls
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-                    ForEach(item.imageUrls, id: \.self) { urlStr in
-                        if let url = URL(string: urlStr) {
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .empty:
-                                    ProgressView()
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 100, height: 100)
-                                        .clipped()
-                                case .failure:
-                                    EmptyView()
-                                @unknown default:
-                                    EmptyView()
-                                }
-                            }
-                        } else {
-                            EmptyView()
-                        }
-                    }
-                }
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
+                // And do NOT show any images if user unchecks the item
+                // (They're still stored in Firestore but hidden)
             }
         }
     }
     
-    /// (3) Date Created Row
+    /// Helper for a grid of local UIImages
+    private func photoGrid(uiImages: [UIImage]) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+            ForEach(uiImages, id: \.self) { uiImage in
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 100, height: 100)
+                    .clipped()
+                    .cornerRadius(8)  // add rounded corners
+            }
+        }
+        .padding(.vertical, 10)
+    }
+
+    /// Helper for a grid of existing URL strings
+    private func photoGrid(urlStrings: [String]) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
+            ForEach(urlStrings, id: \.self) { urlStr in
+                if let url = URL(string: urlStr) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .clipped()
+                                .cornerRadius(8)
+                        case .failure:
+                            EmptyView()
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                } else {
+                    EmptyView()
+                }
+            }
+        }
+        .padding(.vertical, 10)
+    }
+    
+    /// (3) Date Created Row (ALWAYS accessible)
     fileprivate var dateCreatedLine: some View {
         HStack {
             Text("📅   Created")
@@ -213,30 +238,41 @@ extension DetailItemView {
         }
     }
     
-    /// (4) Date Completed Row
+    /// (4) Date Completed Row - ONLY interactive if item.completed
     fileprivate var dateCompletedLine: some View {
         HStack {
             Text("📅   Completed")
                 .font(.headline)
-                .foregroundColor(.primary)
+                .foregroundColor(item.completed ? .primary : .gray)
             Spacer()
-            Text(formattedDate(item.dueDate))
-                .foregroundColor(.accentColor)
+            Text(item.completed ? formattedDate(item.dueDate) : "--")
+                .foregroundColor(item.completed ? .accentColor : .gray)
         }
         .padding(.vertical, 8)
-        .onTapGesture { showDateCompletedSheet = true }
+        // Only respond to tap if item is completed
+        .onTapGesture {
+            if item.completed {
+                showDateCompletedSheet = true
+            }
+        }
         .sheet(isPresented: $showDateCompletedSheet) {
-            datePickerSheet(
-                title: "Select Date Completed",
-                date: Binding(
-                    get: { item.dueDate ?? Date() },
-                    set: { newValue in
-                        item.dueDate = newValue
-                        updateItem()
-                    }
-                ),
-                onDismiss: { showDateCompletedSheet = false }
-            )
+            if item.completed {
+                datePickerSheet(
+                    title: "Select Date Completed",
+                    date: Binding(
+                        get: { item.dueDate ?? Date() },
+                        set: { newValue in
+                            item.dueDate = newValue
+                            updateItem()
+                        }
+                    ),
+                    onDismiss: { showDateCompletedSheet = false }
+                )
+            } else {
+                // If item suddenly becomes uncompleted while sheet is up,
+                // we can just dismiss or show a placeholder
+                EmptyView()
+            }
         }
     }
     
@@ -265,7 +301,7 @@ extension DetailItemView {
         }
     }
     
-    /// (6) Notes (Description)
+    /// Notes (Description)
     fileprivate var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("📝   Caption")
@@ -283,7 +319,6 @@ extension DetailItemView {
             )
             .frame(minHeight: 150)
             .foregroundColor(.primary)
-            // Focus this text editor as well
             .focused($isNotesFocused)
         }
         .padding(.vertical, 8)
@@ -296,10 +331,12 @@ extension DetailItemView {
     /// Upload newly picked images => Firebase => update item.imageUrls
     private func uploadPickedImages(_ images: [UIImage]) async {
         guard let userId = onboardingViewModel.user?.id else { return }
-
+        // If item is no longer completed, do nothing
+        guard item.completed else { return }
+        
         isUploading = true
 
-        // 1) Construct a reference to the folder:  "users/<userId>/item-<itemUUID>"
+        // 1) Construct a reference to the folder: "users/<userId>/item-<itemUUID>"
         let storageRef = Storage.storage().reference()
                          .child("users/\(userId)/item-\(item.id.uuidString)")
 
@@ -308,7 +345,7 @@ extension DetailItemView {
         for (index, uiImage) in images.enumerated() {
             guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else { continue }
 
-            // 2) For each image, build a reference to "photo\(index+1).jpg" in that folder
+            // 2) For each image, build a reference: "photo\(index+1).jpg"
             let imageRef = storageRef.child("photo\(index + 1).jpg")
 
             do {
@@ -325,10 +362,10 @@ extension DetailItemView {
 
         isUploading = false
 
-        // 5) Update item.imageUrls and sync to Firestore
-        if !newUrls.isEmpty {
-            item.imageUrls.append(contentsOf: newUrls)  // or = newUrls if you want to replace
-            updateItem()  // calls bucketListViewModel.addOrUpdateItem(item)
+        // 5) If item is STILL completed, append these new URLs
+        if item.completed && !newUrls.isEmpty {
+            item.imageUrls.append(contentsOf: newUrls)
+            updateItem()
         }
     }
     

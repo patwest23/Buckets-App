@@ -10,6 +10,7 @@ import SwiftUI
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
 
     @State private var isLoading = true
     @State private var showProfileView = false
@@ -19,7 +20,7 @@ struct ListView: View {
     // FocusState to focus newly added items
     @FocusState private var focusedItemId: UUID?
     
-    // MARK: - View Style (kept in case you revisit sorting later)
+    // MARK: - View Style
     private enum ViewStyle: String {
         case list       = "List View"
         case detailed   = "Detailed View"
@@ -52,7 +53,7 @@ struct ListView: View {
                         }
                     }
                     
-                    // MARK: - Trailing: "Done" or [Sorting + Profile]
+                    // MARK: - Trailing: "Done" or [Profile]
                     ToolbarItem(placement: .navigationBarTrailing) {
                         if focusedItemId != nil {
                             // If user is editing a TextField, show a "Done" button
@@ -67,19 +68,6 @@ struct ListView: View {
                             .foregroundColor(.accentColor)
                         } else {
                             HStack {
-                                // COMMENTED OUT SORTING MENU:
-                                /*
-                                Menu {
-                                    Button("List")       { selectedViewStyle = .list }
-                                    Button("Detailed")   { selectedViewStyle = .detailed }
-                                    Button("Complete")   { selectedViewStyle = .completed }
-                                    Button("Incomplete") { selectedViewStyle = .incomplete }
-                                } label: {
-                                    Image(systemName: "line.3.horizontal.decrease.circle")
-                                        .foregroundColor(.accentColor)
-                                }
-                                */
-                                
                                 // Profile button
                                 Button {
                                     showProfileView = true
@@ -94,6 +82,7 @@ struct ListView: View {
                 .navigationDestination(isPresented: $showProfileView) {
                     ProfileView()
                         .environmentObject(onboardingViewModel)
+                        .environmentObject(userViewModel)
                 }
                 .navigationDestination(item: $selectedItem) { item in
                     DetailItemView(item: bindingForItem(item))
@@ -125,7 +114,6 @@ struct ListView: View {
         } else if bucketListViewModel.items.isEmpty {
             emptyStateView
         } else {
-            // The actual List of items
             itemListView
         }
     }
@@ -147,19 +135,25 @@ struct ListView: View {
         List(displayedItems, id: \.id) { aItem in
             let itemBinding = bindingForItem(aItem)
             
-            // Use the revised initializer without `showDetailed`
-            ItemRowView(
-                item: itemBinding,
-                onNavigateToDetail: {
-                    selectedItem = aItem
-                },
-                onEmptyNameLostFocus: {
-                    deleteItemIfEmpty(aItem)
+            // We use a VStack so we can include the ItemRowView plus the carousel if needed
+            VStack(alignment: .leading, spacing: 8) {
+                // 1) The normal item row
+                ItemRowView(
+                    item: itemBinding,
+                    onNavigateToDetail: {
+                        selectedItem = aItem
+                    },
+                    onEmptyNameLostFocus: {
+                        deleteItemIfEmpty(aItem)
+                    }
+                )
+                .focused($focusedItemId, equals: aItem.id)
+                
+                // 2) If item is completed AND has images => show the TabView-based carousel
+                if aItem.completed, !aItem.imageUrls.isEmpty {
+                    carouselView(for: aItem.imageUrls)
                 }
-            )
-            // Focus the row’s TextField using our FocusState
-            .focused($focusedItemId, equals: aItem.id)
-            // Swipe to delete
+            }
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
                     showDeleteConfirmation(for: aItem)
@@ -176,6 +170,52 @@ struct ListView: View {
             }
         }
         .listStyle(.plain)
+    }
+    
+    // MARK: - Carousel with corner radius
+    private func carouselView(for urls: [String]) -> some View {
+        HStack {
+            Spacer()
+            
+            GeometryReader { geo in
+                let sideLength = min(geo.size.width * 0.9, 500)
+                
+                TabView {
+                    ForEach(urls, id: \.self) { urlStr in
+                        if let url = URL(string: urlStr) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: sideLength, height: sideLength)
+                                        .clipped()
+                                        .cornerRadius(10)
+                                case .failure:
+                                    Color.gray
+                                        .frame(width: sideLength, height: sideLength)
+                                        .cornerRadius(10)
+                                @unknown default:
+                                    EmptyView()
+                                }
+                            }
+                        } else {
+                            Color.gray
+                                .frame(width: sideLength, height: sideLength)
+                                .cornerRadius(10)
+                        }
+                    }
+                }
+                .tabViewStyle(.page)
+                .frame(width: geo.size.width, height: sideLength)
+            }
+            .frame(height: 300) // The vertical space for the carousel row
+            Spacer()
+        }
+        .padding(.vertical, 8)
     }
     
     // MARK: - Loading/Empty
@@ -195,7 +235,7 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Simulated Load (just a placeholder delay)
+    // MARK: - Simulated Load
     private func loadItems() {
         Task {
             isLoading = true
@@ -219,7 +259,6 @@ struct ListView: View {
                 userId: onboardingViewModel.user?.id ?? ""
             )
             
-            // Call addOrUpdateItem so it gets proper orderIndex & stored in Firestore
             bucketListViewModel.addOrUpdateItem(newItem)
             
             // Focus the new row’s TextField
@@ -247,7 +286,7 @@ struct ListView: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 35, height: 35)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color.accentColor, lineWidth: 1))
             )
@@ -256,7 +295,7 @@ struct ListView: View {
                 Image(systemName: "person.crop.circle.fill")
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 25, height: 25)
+                    .frame(width: 35, height: 35)
                     .clipShape(Circle())
                     .foregroundColor(.accentColor)
             )
@@ -293,7 +332,6 @@ struct ListView: View {
         }
     }
     
-    /// Removes any items that remain blank
     private func removeBlankItems() {
         let blankItems = bucketListViewModel.items.filter {
             $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -311,11 +349,14 @@ struct ListView_Previews: PreviewProvider {
     static var previews: some View {
         let mockListViewModel = ListViewModel()
         let mockOnboardingViewModel = OnboardingViewModel()
+        let mockUserViewModel = UserViewModel()
+        
         
         return NavigationStack {
             ListView()
                 .environmentObject(mockListViewModel)
                 .environmentObject(mockOnboardingViewModel)
+                .environmentObject(mockUserViewModel)
         }
     }
 }
