@@ -18,17 +18,11 @@ struct ProfileView: View {
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
     
-    // Each sheet has its own boolean
-    @State private var showUsernameSheet = false
-    @State private var showEmailSheet = false
-    @State private var showResetPasswordSheet = false
-    @State private var showUpdatePasswordSheet = false
-    
     var body: some View {
         ScrollView {
             VStack(spacing: 30) {
                 
-                // MARK: - Profile Image + Name
+                // MARK: - Profile Image + Username
                 Button {
                     isPickerPresented = true
                 } label: {
@@ -59,9 +53,9 @@ struct ProfileView: View {
                     loadProfileImage(newItem)
                 }
                 
-                // Display the user’s username or fallback placeholder
-                if let userName = onboardingViewModel.user?.username, !userName.isEmpty {
-                    Text(userName)
+                // Show username if set
+                if let handle = onboardingViewModel.user?.username, !handle.isEmpty {
+                    Text(handle)
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
@@ -71,87 +65,29 @@ struct ProfileView: View {
                         .foregroundColor(.gray)
                 }
                 
-                // MARK: - Account Settings
-                VStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        
-                        // 1) "Update Username" => sheet
-                        Button("📝 Update Username") {
-                            showUsernameSheet = true
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.primary)
-                        .sheet(isPresented: $showUsernameSheet) {
-                            UpdateUserNameView()
-                                .environmentObject(userViewModel)
-                        }
-                        
-                        // 2) "Update Email" => sheet
-                        Button("✉️ Update Email") {
-                            showEmailSheet = true
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.primary)
-                        .sheet(isPresented: $showEmailSheet) {
-                            UpdateEmailView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                        
-                        // 3) "Reset Password" => sheet
-                        Button("🔑 Reset Password") {
-                            showResetPasswordSheet = true
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.primary)
-                        .sheet(isPresented: $showResetPasswordSheet) {
-                            ResetPasswordView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                        
-                        // 4) "Update Password" => sheet
-                        Button("🔒 Update Password") {
-                            showUpdatePasswordSheet = true
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.primary)
-                        .sheet(isPresented: $showUpdatePasswordSheet) {
-                            UpdatePasswordView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    // b) Log Out button
-                    HStack {
-                        Spacer()
-                        Button("🚪 Log Out", role: .destructive) {
-                            Task {
-                                await onboardingViewModel.signOut()
-                            }
-                        }
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity)
-                        .fontWeight(.bold)
-                        .padding()
-                        .background(Color(uiColor: .secondarySystemBackground))
-                        .cornerRadius(10)
-                        .shadow(radius: 5)
-                        Spacer()
-                    }
-                }
-                .padding()
-                .background(Color(uiColor: .systemBackground))
-                .onAppear {
-                    onboardingViewModel.checkIfUserIsAuthenticated()
-                }
+                // MARK: - Stats Dashboard
+                statsDashboard
+                
             }
             .padding()
         }
         .background(Color(uiColor: .systemBackground))
+        
+        // MARK: - Navigation Bar
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 EmptyView() // Hide default nav title
+            }
+            // Gear icon that pushes SettingsView
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink {
+                    SettingsView()
+                        .environmentObject(onboardingViewModel)
+                        .environmentObject(userViewModel)
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                }
             }
         }
     }
@@ -168,6 +104,96 @@ struct ProfileView: View {
                 print("Error loading image data: \(error)")
             }
         }
+    }
+}
+
+// MARK: - Stats Dashboard
+extension ProfileView {
+    
+    private var statsDashboard: some View {
+        let totalCount = listViewModel.items.count
+        let completedCount = listViewModel.items.filter { $0.completed }.count
+        let incompleteCount = totalCount - completedCount
+        
+        // Find the most recent completed date
+        let lastCompletedDate = listViewModel.items
+            .filter { $0.completed }
+            .compactMap { $0.dueDate ?? $0.creationDate }
+            .max()
+        
+        // Calculate days since last completed item
+        // e.g. if user completed something 3 days ago => 3
+        let daysSinceLastCompletion: Int = {
+            guard let lastDate = lastCompletedDate else { return 0 }
+            let components = Calendar.current.dateComponents([.day], from: lastDate, to: Date())
+            return max(0, components.day ?? 0)
+        }()
+        
+        return VStack(spacing: 20) {
+            
+            // Row of 3 stats: total, completed, incomplete
+            HStack(spacing: 16) {
+                statCard(
+                    emoji: "📦",
+                    title: "Total",
+                    value: "\(totalCount)",
+                    color: .blue
+                )
+                statCard(
+                    emoji: "✅",
+                    title: "Completed",
+                    value: "\(completedCount)",
+                    color: .green
+                )
+                statCard(
+                    emoji: "🚧",
+                    title: "Incomplete",
+                    value: "\(incompleteCount)",
+                    color: .orange
+                )
+            }
+            
+            // If no completions => show "No items completed yet!"
+            if completedCount == 0 {
+                Text("No items completed yet!")
+                    .foregroundColor(.secondary)
+                    .italic()
+            } else {
+                // Show a new row with "Days since last completed"
+                HStack(spacing: 16) {
+                    statCard(
+                        emoji: "⏰",
+                        title: "Days Since Last Complete",
+                        value: "\(daysSinceLastCompletion)",
+                        color: .purple
+                    )
+                }
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .cornerRadius(12)
+        .shadow(radius: 5)
+    }
+    
+    private func statCard(emoji: String,
+                          title: String,
+                          value: String,
+                          color: Color) -> some View {
+        VStack(spacing: 8) {
+            Text(emoji)
+                .font(.largeTitle)
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+            Text(title)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.15))
+        .cornerRadius(8)
     }
 }
 

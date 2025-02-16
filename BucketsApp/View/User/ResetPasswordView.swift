@@ -38,7 +38,7 @@ struct ResetPasswordView: View {
                         .fontWeight(.bold)
                         .padding()
                         // b) Button background uses dynamic color
-                        .background(Color(uiColor: .secondarySystemBackground))
+                        .background(Color(uiColor: .systemBackground))
                         // c) Button text color adapts to light/dark
                         .foregroundColor(.primary)
                         .cornerRadius(10)

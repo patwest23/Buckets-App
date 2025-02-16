@@ -47,7 +47,7 @@ struct UpdatePasswordView: View {
                         .fontWeight(.bold)
                         .padding()
                         // Use system color that adapts to Light/Dark
-                        .background(Color(uiColor: .secondarySystemBackground))
+                        .background(Color(uiColor: .systemBackground))
                         .cornerRadius(10)
                         .shadow(radius: 5)
                 }

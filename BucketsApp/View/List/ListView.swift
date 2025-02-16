@@ -25,10 +25,7 @@ struct ListView: View {
     @State private var galleryUrls: [String] = []
     
     private enum ViewStyle: String {
-        case list       = "List View"
-        case detailed   = "Detailed View"
-        case completed  = "Completed Only"
-        case incomplete = "Incomplete Only"
+        case list, detailed, completed, incomplete
     }
     @State private var selectedViewStyle: ViewStyle = .list
     
@@ -37,7 +34,6 @@ struct ListView: View {
             if #available(iOS 17.0, *) {
                 ZStack {
                     contentView
-                    
                     addButton
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
@@ -56,7 +52,7 @@ struct ListView: View {
                         }
                     }
                     
-                    // MARK: - Trailing: "Done" or [Profile]
+                    // MARK: - Trailing: "Done" or Profile
                     ToolbarItem(placement: .navigationBarTrailing) {
                         if focusedItemId != nil {
                             Button("Done") {
@@ -99,7 +95,7 @@ struct ListView: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 }
-                // Full-screen cover for the tapped carousel images
+                // Full-screen cover for tapped carousel images
                 .fullScreenCover(isPresented: $showFullScreenGallery) {
                     FullScreenCarouselView(imageUrls: galleryUrls)
                 }
@@ -151,11 +147,23 @@ struct ListView: View {
                 )
                 .focused($focusedItemId, equals: aItem.id)
                 
-                // 2) Completed & has images => show carousel
+                // 2) Completed + has images => show carousel
                 if aItem.completed, !aItem.imageUrls.isEmpty {
                     carouselView(for: aItem.imageUrls)
                 }
             }
+            .padding() // internal padding inside the card
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    // White in light mode, black in dark mode
+                    .fill(Color(uiColor: .systemBackground))
+                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+            )
+            .padding(.vertical, 1)
+            .padding(.horizontal, 1)
+            .listRowBackground(Color.clear)        // Remove default background
+            .listRowSeparator(.hidden)            // Remove the gray line
+            // Swipe Actions
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
                     showDeleteConfirmation(for: aItem)
@@ -172,9 +180,10 @@ struct ListView: View {
             }
         }
         .listStyle(.plain)
+        .listRowSeparator(.hidden) // Hide all separators in the list
     }
     
-    // MARK: - Carousel with corner radius
+    // MARK: - Carousel
     private func carouselView(for urls: [String]) -> some View {
         HStack {
             Spacer()
@@ -213,19 +222,18 @@ struct ListView: View {
                 }
                 .tabViewStyle(.page)
                 .frame(width: geo.size.width, height: sideLength)
-                // Tap => show full screen
                 .onTapGesture {
                     galleryUrls = urls
                     showFullScreenGallery = true
                 }
             }
             .frame(height: 300)
-            Spacer()
+//            Spacer()
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 1)
     }
     
-    // MARK: - Loading/Empty
+    // MARK: - Loading / Empty
     private var loadingView: some View {
         ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
@@ -266,7 +274,6 @@ struct ListView: View {
                 userId: onboardingViewModel.user?.id ?? ""
             )
             bucketListViewModel.addOrUpdateItem(newItem)
-            // Focus the new row’s TextField
             focusedItemId = newItem.id
             
         } label: {
@@ -323,7 +330,6 @@ struct ListView: View {
     
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            // Directly delete the blank item (no confirmation).
             Task {
                 await bucketListViewModel.deleteItem(item)
             }
@@ -352,16 +358,53 @@ struct ListView: View {
 // MARK: - Preview
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockListViewModel = ListViewModel()
-        let mockOnboardingViewModel = OnboardingViewModel()
-        let mockUserViewModel = UserViewModel()
+        let mockListVMEmpty = ListViewModel()
         
+        let mockListVMWithItems = ListViewModel()
+        mockListVMWithItems.items = [
+            ItemModel(
+                userId: "mockUID",
+                name: "Skydive Over the Grand Canyon",
+                completed: false,
+                orderIndex: 0, imageUrls: []
+            ),
+            ItemModel(
+                userId: "mockUID",
+                name: "Visit Tokyo",
+                completed: true,
+                orderIndex: 1, imageUrls: [
+                    "https://picsum.photos/400/400?random=1"
+                ]
+            ),
+            ItemModel(
+                userId: "mockUID",
+                name: "Learn to Play the Guitar",
+                completed: false,
+                orderIndex: 2, imageUrls: []
+            )
+        ]
         
-        return NavigationStack {
-            ListView()
-                .environmentObject(mockListViewModel)
-                .environmentObject(mockOnboardingViewModel)
-                .environmentObject(mockUserViewModel)
+        let mockOnboardingVM = OnboardingViewModel()
+        let mockUserVM = UserViewModel()
+        
+        return Group {
+            // 1) Empty List scenario
+            NavigationStack {
+                ListView()
+                    .environmentObject(mockListVMEmpty)
+                    .environmentObject(mockOnboardingVM)
+                    .environmentObject(mockUserVM)
+            }
+            .previewDisplayName("ListView - Empty")
+            
+            // 2) Populated scenario
+            NavigationStack {
+                ListView()
+                    .environmentObject(mockListVMWithItems)
+                    .environmentObject(mockOnboardingVM)
+                    .environmentObject(mockUserVM)
+            }
+            .previewDisplayName("ListView - With Items")
         }
     }
 }
