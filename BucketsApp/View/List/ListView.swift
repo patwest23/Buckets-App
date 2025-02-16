@@ -45,7 +45,7 @@ struct ListView: View {
                     // MARK: - Leading: user name
                     ToolbarItem(placement: .navigationBarLeading) {
                         if let user = onboardingViewModel.user {
-                            Text(user.name ?? "Unknown")
+                            Text(user.username ?? "Unknown")
                                 .font(.headline)
                         } else {
                             Text("No Name")
@@ -137,6 +137,7 @@ struct ListView: View {
             
             // We use a VStack so we can include the ItemRowView plus the carousel if needed
             VStack(alignment: .leading, spacing: 8) {
+                
                 // 1) The normal item row
                 ItemRowView(
                     item: itemBinding,
@@ -149,7 +150,7 @@ struct ListView: View {
                 )
                 .focused($focusedItemId, equals: aItem.id)
                 
-                // 2) If item is completed AND has images => show the TabView-based carousel
+                // 2) If item is completed & has images => show TabView-based carousel
                 if aItem.completed, !aItem.imageUrls.isEmpty {
                     carouselView(for: aItem.imageUrls)
                 }
@@ -212,7 +213,7 @@ struct ListView: View {
                 .tabViewStyle(.page)
                 .frame(width: geo.size.width, height: sideLength)
             }
-            .frame(height: 300) // The vertical space for the carousel row
+            .frame(height: 300) // how tall the carousel row is
             Spacer()
         }
         .padding(.vertical, 8)
@@ -260,7 +261,6 @@ struct ListView: View {
             )
             
             bucketListViewModel.addOrUpdateItem(newItem)
-            
             // Focus the new row’s TextField
             focusedItemId = newItem.id
             

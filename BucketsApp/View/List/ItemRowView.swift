@@ -19,9 +19,10 @@ struct ItemRowView: View {
     @State private var showFullScreenGallery = false
 
     var body: some View {
+        // NOTE: We removed the in-row carousel code
         VStack(alignment: .leading, spacing: 0) {
             
-            // 1) Top row (completion, name, detail nav)
+            // 1) Top row: completion toggle, name, detail nav
             HStack(spacing: 12) {
                 Button(action: toggleCompleted) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
@@ -61,57 +62,8 @@ struct ItemRowView: View {
                 .buttonStyle(.borderless)
             }
             .padding(.vertical, 4)
-            
-            // 2) Image carousel if images exist
-            if !item.imageUrls.isEmpty {
-                HStack {
-                    Spacer()
-                    
-                    TabView {
-                        ForEach(item.imageUrls, id: \.self) { urlStr in
-                            if let url = URL(string: urlStr) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .empty:
-                                        ProgressView()
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                            .background(Color.secondary.opacity(0.1))
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    case .success(let loadedImage):
-                                        loadedImage
-                                            .resizable()
-                                            .scaledToFill()
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    case .failure:
-                                        Color.gray
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    @unknown default:
-                                        EmptyView()
-                                    }
-                                }
-                            } else {
-                                // Invalid URL => gray placeholder
-                                Color.gray
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }
-                        }
-                    }
-                    .tabViewStyle(.page)
-                    // Constrain the carousel to at most 500 wide, and keep a square aspect ratio.
-                    .frame(maxWidth: 500)
-                    .aspectRatio(1, contentMode: .fit)
-                    .onTapGesture {
-                        showFullScreenGallery = true
-                    }
-                    .fullScreenCover(isPresented: $showFullScreenGallery) {
-                        FullScreenCarouselView(imageUrls: item.imageUrls)
-                    }
-                    
-                    Spacer()
-                }
-            }
         }
-        // 3) Watch for blank name
+        // 2) If the user leaves the item name blank, call `onEmptyNameLostFocus`
         .onChange(of: item.name) { newValue in
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {

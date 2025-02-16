@@ -60,7 +60,7 @@ struct ProfileView: View {
                 }
                 
                 // Display the user’s username or fallback placeholder
-                if let userName = onboardingViewModel.user?.name, !userName.isEmpty {
+                if let userName = onboardingViewModel.user?.username, !userName.isEmpty {
                     Text(userName)
                         .font(.title2)
                         .fontWeight(.semibold)
