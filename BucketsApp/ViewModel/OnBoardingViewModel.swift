@@ -384,7 +384,8 @@ final class OnboardingViewModel: ObservableObject {
         profileImageData = data
         guard let currentUser = Auth.auth().currentUser, let data = data else { return }
         
-        let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
+        let storageRef = storage.reference()
+            .child("users/\(currentUser.uid)/profile_images/\(currentUser.uid).jpg")
         do {
             try await storageRef.putDataAsync(data)
             let downloadURL = try await storageRef.downloadURL()
@@ -407,7 +408,8 @@ final class OnboardingViewModel: ObservableObject {
             return
         }
         
-        let storageRef = storage.reference().child("\(profileImagePath)/\(currentUser.uid).jpg")
+        let storageRef = storage.reference()
+            .child("users/\(currentUser.uid)/profile_images/\(currentUser.uid).jpg")
         do {
             let data = try await storageRef.getDataAsync(maxSize: 5 * 1024 * 1024)
             profileImageData = data
