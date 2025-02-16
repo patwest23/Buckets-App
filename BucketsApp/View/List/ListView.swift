@@ -20,7 +20,10 @@ struct ListView: View {
     // FocusState to focus newly added items
     @FocusState private var focusedItemId: UUID?
     
-    // MARK: - View Style
+    // Full-screen carousel presentation states
+    @State private var showFullScreenGallery = false
+    @State private var galleryUrls: [String] = []
+    
     private enum ViewStyle: String {
         case list       = "List View"
         case detailed   = "Detailed View"
@@ -56,12 +59,8 @@ struct ListView: View {
                     // MARK: - Trailing: "Done" or [Profile]
                     ToolbarItem(placement: .navigationBarTrailing) {
                         if focusedItemId != nil {
-                            // If user is editing a TextField, show a "Done" button
                             Button("Done") {
-                                // 1) Remove focus => dismiss keyboard
                                 focusedItemId = nil
-                                
-                                // 2) Optionally remove any blank items
                                 removeBlankItems()
                             }
                             .font(.headline)
@@ -100,6 +99,10 @@ struct ListView: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 }
+                // Full-screen cover for the tapped carousel images
+                .fullScreenCover(isPresented: $showFullScreenGallery) {
+                    FullScreenCarouselView(imageUrls: galleryUrls)
+                }
             } else {
                 Text("Please use iOS 17 or later.")
             }
@@ -135,10 +138,8 @@ struct ListView: View {
         List(displayedItems, id: \.id) { aItem in
             let itemBinding = bindingForItem(aItem)
             
-            // We use a VStack so we can include the ItemRowView plus the carousel if needed
             VStack(alignment: .leading, spacing: 8) {
-                
-                // 1) The normal item row
+                // 1) Normal row
                 ItemRowView(
                     item: itemBinding,
                     onNavigateToDetail: {
@@ -150,7 +151,7 @@ struct ListView: View {
                 )
                 .focused($focusedItemId, equals: aItem.id)
                 
-                // 2) If item is completed & has images => show TabView-based carousel
+                // 2) Completed & has images => show carousel
                 if aItem.completed, !aItem.imageUrls.isEmpty {
                     carouselView(for: aItem.imageUrls)
                 }
@@ -212,8 +213,13 @@ struct ListView: View {
                 }
                 .tabViewStyle(.page)
                 .frame(width: geo.size.width, height: sideLength)
+                // Tap => show full screen
+                .onTapGesture {
+                    galleryUrls = urls
+                    showFullScreenGallery = true
+                }
             }
-            .frame(height: 300) // how tall the carousel row is
+            .frame(height: 300)
             Spacer()
         }
         .padding(.vertical, 8)
@@ -259,7 +265,6 @@ struct ListView: View {
             let newItem = ItemModel(
                 userId: onboardingViewModel.user?.id ?? ""
             )
-            
             bucketListViewModel.addOrUpdateItem(newItem)
             // Focus the new row’s TextField
             focusedItemId = newItem.id

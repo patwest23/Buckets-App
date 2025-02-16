@@ -26,6 +26,7 @@
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
 		1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */; };
 		1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FCC05822D0E685100892746 /* FirebaseFirestore */; };
+		1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */; };
 		1FCE7E462C0C036D00F7B2C6 /* DetailItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */; };
 		1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE006E72A10541200B0A6D7 /* ProfileView.swift */; };
 		1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
@@ -56,6 +57,7 @@
 		1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 		1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateEmailView.swift; sourceTree = "<group>"; };
 		1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePasswordView.swift; sourceTree = "<group>"; };
+		1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinchZoomImage.swift; sourceTree = "<group>"; };
 		1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemView.swift; sourceTree = "<group>"; };
 		1FE006E72A10541200B0A6D7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingViewModel.swift; sourceTree = "<group>"; };
@@ -196,6 +198,7 @@
 				1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */,
 				1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */,
 				1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
+				1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */,
 			);
 			path = List;
 			sourceTree = "<group>";
@@ -300,6 +303,7 @@
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,
+				1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */,
 				1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */,
 				1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */,
 				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,

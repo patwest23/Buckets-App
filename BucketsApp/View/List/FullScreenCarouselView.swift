@@ -21,12 +21,15 @@ struct FullScreenCarouselView: View {
                             case .empty:
                                 ProgressView()
                             case .success(let loadedImage):
-                                loadedImage
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .background(Color.black) // black background
-                                    .ignoresSafeArea()
+                                // Convert the "AsyncImage phase success" into a SwiftUI Image
+                                // Then wrap it with PinchZoomImage
+                                PinchZoomImage(image:
+                                    loadedImage
+                                        .resizable() // Ensure it's resizable
+                                )
+                                .background(Color.black) // black background
+                                .ignoresSafeArea()
+                                
                             case .failure:
                                 Color.gray
                                     .ignoresSafeArea()
@@ -35,7 +38,7 @@ struct FullScreenCarouselView: View {
                             }
                         }
                     } else {
-                        // Invalid URL
+                        // Invalid URL => gray background
                         Color.gray
                             .ignoresSafeArea()
                     }
