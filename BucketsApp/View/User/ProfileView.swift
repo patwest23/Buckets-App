@@ -74,7 +74,9 @@ struct ProfileView: View {
         .background(Color(uiColor: .systemBackground))
         
         // MARK: - Navigation Bar
-        .navigationBarTitleDisplayMode(.inline)
+        .background(Color(uiColor: .systemBackground))
+        .navigationBarTitle("Profile", displayMode: .inline)
+
         .toolbar {
             ToolbarItem(placement: .principal) {
                 EmptyView() // Hide default nav title

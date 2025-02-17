@@ -38,7 +38,12 @@ struct ListView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
                 .navigationTitle("Bucket List")
-                .navigationBarTitleDisplayMode(.large)
+                
+                
+                // MARK: - Navigation Bar
+                .background(Color(uiColor: .systemBackground))
+                .navigationBarTitle("Bucket List", displayMode: .inline)
+
                 .toolbar {
                     
                     // MARK: - Leading: user name
@@ -78,11 +83,13 @@ struct ListView: View {
                     ProfileView()
                         .environmentObject(onboardingViewModel)
                         .environmentObject(userViewModel)
+                        .environmentObject(bucketListViewModel)
                 }
                 .navigationDestination(item: $selectedItem) { item in
                     DetailItemView(item: bindingForItem(item))
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
+                        .environmentObject(bucketListViewModel)
                 }
                 .confirmationDialog(
                     "Are you sure you want to delete this item?",
