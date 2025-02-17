@@ -11,7 +11,7 @@ struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
-
+    
     // Loading, profile, detail
     @State private var isLoading = true
     @State private var showProfileView = false
@@ -34,17 +34,8 @@ struct ListView: View {
 
     var body: some View {
         GeometryReader { geo in
-            // 1) Measure once
-            let measuredWidth = geo.size.width
             
-            // 2) Write to State if changed
-            // Using DispatchQueue.main.async to avoid layout churn
-            DispatchQueue.main.async {
-                if abs(measuredWidth - rowWidth) > 1 {
-                    rowWidth = measuredWidth
-                }
-            }
-            
+            // NavigationStack is the actual returned View
             NavigationStack {
                 if #available(iOS 17.0, *) {
                     ZStack {
@@ -73,7 +64,7 @@ struct ListView: View {
                                     .font(.headline)
                             }
                         }
-                        
+
                         // MARK: - Trailing: Done or Profile
                         ToolbarItem(placement: .navigationBarTrailing) {
                             if focusedItemId != nil {
@@ -92,7 +83,11 @@ struct ListView: View {
                             }
                         }
                     }
-                    .onAppear { loadItems() }
+
+                    .onAppear {
+                        loadItems()
+                    }
+                    
                     // Navigation to Profile
                     .navigationDestination(isPresented: $showProfileView) {
                         ProfileView()
@@ -100,12 +95,14 @@ struct ListView: View {
                             .environmentObject(userViewModel)
                             .environmentObject(bucketListViewModel)
                     }
+                    
                     // Navigation to Detail
                     .navigationDestination(item: $selectedItem) { item in
                         DetailItemView(item: bindingForItem(item))
                             .environmentObject(bucketListViewModel)
                             .environmentObject(onboardingViewModel)
                     }
+                    
                     // Delete confirmation
                     .alert("Are you sure you want to delete this item?",
                            isPresented: $bucketListViewModel.showDeleteAlert) {
@@ -123,6 +120,15 @@ struct ListView: View {
                     
                 } else {
                     Text("Please use iOS 17 or later.")
+                }
+            }
+            // Move the row-width measurement into onAppear
+            .onAppear {
+                let measuredWidth = geo.size.width
+                DispatchQueue.main.async {
+                    if abs(measuredWidth - rowWidth) > 1 {
+                        rowWidth = measuredWidth
+                    }
                 }
             }
         }
@@ -160,10 +166,9 @@ struct ListView: View {
                 let itemBinding = bindingForItem(aItem)
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    // Pass rowWidth
                     ItemRowView(
                         item: itemBinding,
-                        rowWidth: rowWidth,              // <-----
+                        rowWidth: rowWidth, // pass rowWidth
                         onNavigateToDetail: {
                             selectedItem = aItem
                         },
@@ -213,7 +218,7 @@ struct ListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ItemRowView(
                         item: itemBinding,
-                        rowWidth: rowWidth,              // <-----
+                        rowWidth: rowWidth,
                         onNavigateToDetail: {
                             selectedItem = aItem
                         },
@@ -434,5 +439,37 @@ struct ListView_Previews: PreviewProvider {
 }
 
 
+
+// Explicitly call toolbar(content:)
+//                    .toolbar {
+//                        // MARK: - Leading: user name
+//                        ToolbarItem(placement: .navigationBarLeading) {
+//                            if let user = onboardingViewModel.user {
+//                                Text(user.username ?? "Unknown")
+//                                    .font(.headline)
+//                            } else {
+//                                Text("No Name")
+//                                    .font(.headline)
+//                            }
+//                        }
+//
+//                        // MARK: - Trailing: Done or Profile
+//                        ToolbarItem(placement: .navigationBarTrailing) {
+//                            if focusedItemId != nil {
+//                                Button("Done") {
+//                                    focusedItemId = nil
+//                                    removeBlankItems()
+//                                }
+//                                .font(.headline)
+//                                .foregroundColor(.accentColor)
+//                            } else {
+//                                Button {
+//                                    showProfileView = true
+//                                } label: {
+//                                    profileImageView
+//                                }
+//                            }
+//                        }
+//                    }
 
 
