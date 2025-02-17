@@ -34,18 +34,18 @@ struct ListView: View {
             if #available(iOS 17.0, *) {
                 ZStack {
                     contentView
+                        // Extra bottom padding if user is editing => more space above keyboard
+                        .padding(.bottom, focusedItemId != nil ? 80 : 0)
+                        .animation(.default, value: focusedItemId)
+                    
                     addButton
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
                 .navigationTitle("Bucket List")
-                
-                
-                // MARK: - Navigation Bar
+                .navigationBarTitleDisplayMode(.inline)
                 .background(Color(uiColor: .systemBackground))
-                .navigationBarTitle("Bucket List", displayMode: .inline)
-
+                
                 .toolbar {
-                    
                     // MARK: - Leading: user name
                     ToolbarItem(placement: .navigationBarLeading) {
                         if let user = onboardingViewModel.user {
@@ -89,19 +89,23 @@ struct ListView: View {
                     DetailItemView(item: bindingForItem(item))
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
-                        .environmentObject(bucketListViewModel)
                 }
-                .confirmationDialog(
-                    "Are you sure you want to delete this item?",
-                    isPresented: $bucketListViewModel.showDeleteAlert
-                ) {
-                    if let itemToDelete {
-                        Button("Delete", role: .destructive) {
-                            deleteItem(itemToDelete)
+                // Use .alert instead of .confirmationDialog
+                .alert("Are you sure you want to delete this item?",
+                       isPresented: $bucketListViewModel.showDeleteAlert,
+                       actions: {
+                    Button("Delete", role: .destructive) {
+                        if let toDelete = itemToDelete {
+                            deleteItem(toDelete)
                         }
                     }
                     Button("Cancel", role: .cancel) {}
-                }
+                }, message: {
+                    // Optionally show the item name
+                    if let toDelete = itemToDelete {
+                        Text("Delete “\(toDelete.name)” from your list?")
+                    }
+                })
                 // Full-screen cover for tapped carousel images
                 .fullScreenCover(isPresented: $showFullScreenGallery) {
                     FullScreenCarouselView(imageUrls: galleryUrls)
@@ -159,18 +163,18 @@ struct ListView: View {
                     carouselView(for: aItem.imageUrls)
                 }
             }
-            .padding() // internal padding inside the card
+            .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    // White in light mode, black in dark mode
                     .fill(Color(uiColor: .systemBackground))
                     .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             )
             .padding(.vertical, 1)
             .padding(.horizontal, 1)
-            .listRowBackground(Color.clear)        // Remove default background
-            .listRowSeparator(.hidden)            // Remove the gray line
-            // Swipe Actions
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            
+            // MARK: - Swipe Actions => calls showDeleteConfirmation
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
                     showDeleteConfirmation(for: aItem)
@@ -187,17 +191,15 @@ struct ListView: View {
             }
         }
         .listStyle(.plain)
-        .listRowSeparator(.hidden) // Hide all separators in the list
+        .listRowSeparator(.hidden)
     }
     
     // MARK: - Carousel
     private func carouselView(for urls: [String]) -> some View {
         HStack {
             Spacer()
-            
             GeometryReader { geo in
                 let sideLength = min(geo.size.width * 0.9, 500)
-                
                 TabView {
                     ForEach(urls, id: \.self) { urlStr in
                         if let url = URL(string: urlStr) {
@@ -235,7 +237,6 @@ struct ListView: View {
                 }
             }
             .frame(height: 300)
-//            Spacer()
         }
         .padding(.vertical, 1)
     }
