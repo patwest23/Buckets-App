@@ -11,36 +11,36 @@ struct FullScreenCarouselView: View {
     let imageUrls: [String]
     @Environment(\.dismiss) var dismiss
     
+    // We read from the view model’s `imageCache`.
+    @EnvironmentObject var listViewModel: ListViewModel
+    
     var body: some View {
         ZStack(alignment: .topTrailing) {
             TabView {
                 ForEach(imageUrls, id: \.self) { urlStr in
-                    if let url = URL(string: urlStr) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                            case .success(let loadedImage):
-                                // Convert the "AsyncImage phase success" into a SwiftUI Image
-                                // Then wrap it with PinchZoomImage
-                                PinchZoomImage(image:
-                                    loadedImage
-                                        .resizable() // Ensure it's resizable
-                                )
-                                .background(Color.black) // black background
-                                .ignoresSafeArea()
-                                
-                            case .failure:
-                                Color.gray
-                                    .ignoresSafeArea()
-                            @unknown default:
-                                EmptyView()
-                            }
+                    // 1) Check if this URL is in the cache
+                    if let uiImage = listViewModel.imageCache[urlStr] {
+                        // 2) Display the pinch-zoom image from the cached UIImage
+                        VStack {
+                            PinchZoomImage(
+                                image: Image(uiImage: uiImage)
+                                    .resizable()
+                            )
+                            .padding(.horizontal, 20)
                         }
+                        .background(Color.black)
+                        .ignoresSafeArea()
+                        
                     } else {
-                        // Invalid URL => gray background
-                        Color.gray
-                            .ignoresSafeArea()
+                        // 3) Fallback if not in cache => show a placeholder or color
+                        VStack {
+                            ProgressView("Loading image...")
+                                .foregroundColor(.white)
+                                .padding()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black)
+                        .ignoresSafeArea()
                     }
                 }
             }
@@ -49,9 +49,9 @@ struct FullScreenCarouselView: View {
             .ignoresSafeArea()
             
             // Dismiss button (X) in the top-right corner
-            Button(action: {
+            Button {
                 dismiss()
-            }) {
+            } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 32))
                     .foregroundColor(.white)

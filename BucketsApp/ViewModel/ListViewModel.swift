@@ -12,7 +12,7 @@ import FirebaseAuth
 import FirebaseFirestore
 
 enum SortingMode: String, CaseIterable {
-    case manual       // Preserves insertion order or uses 'orderIndex'
+    case manual
     case byDeadline
     case byCreationDate
     case byPriority
@@ -30,6 +30,9 @@ class ListViewModel: ObservableObject {
     @Published var currentEditingItem: ItemModel?
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
+    
+    /// Stores actual `UIImage`s for each image URL, so we can display them instantly.
+    @Published var imageCache: [String : UIImage] = [:]
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -58,7 +61,7 @@ class ListViewModel: ObservableObject {
     // MARK: - One-Time Fetch
     func loadItems() async {
         guard let userId = userId else {
-            print("[ListViewModel] loadItems: Error: userId is nil (not authenticated).")
+            print("[ListViewModel] loadItems: userId is nil (not authenticated).")
             return
         }
         
@@ -76,6 +79,10 @@ class ListViewModel: ObservableObject {
             self.items = fetchedItems
             print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
             sortItems()
+            
+            // After items are loaded, pre-fetch their image URLs
+            await prefetchItemImages()
+            
         } catch {
             print("[ListViewModel] loadItems error:", error.localizedDescription)
         }
@@ -84,11 +91,11 @@ class ListViewModel: ObservableObject {
     // MARK: - Real-Time Updates
     func startListeningToItems() {
         guard let userId = userId else {
-            print("[ListViewModel] startListeningToItems: Error: userId is nil (not authenticated).")
+            print("[ListViewModel] startListeningToItems: userId is nil (not authenticated).")
             return
         }
         
-        stopListeningToItems()  // avoid multiple listeners
+        stopListeningToItems()
         
         let collectionRef = db
             .collection("users")
@@ -102,7 +109,6 @@ class ListViewModel: ObservableObject {
                 print("[ListViewModel] startListeningToItems error:", error.localizedDescription)
                 return
             }
-            
             guard let snapshot = snapshot else { return }
             
             do {
@@ -110,8 +116,14 @@ class ListViewModel: ObservableObject {
                     try $0.data(as: ItemModel.self)
                 }
                 self.items = fetched
-                print("[ListViewModel] startListeningToItems: Received \(self.items.count) items for userId \(userId)")
+                print("[ListViewModel] startListeningToItems: Received \(self.items.count) items")
                 self.sortItems()
+                
+                // Pre-fetch images in the background
+                Task {
+                    await self.prefetchItemImages()
+                }
+                
             } catch {
                 print("[ListViewModel] Decoding error:", error.localizedDescription)
             }
@@ -121,26 +133,24 @@ class ListViewModel: ObservableObject {
     // MARK: - Add/Update Item
     func addOrUpdateItem(_ item: ItemModel) {
         guard let userId = userId else {
-            print("[ListViewModel] addOrUpdateItem: Error: userId is nil. Cannot save item.")
+            print("[ListViewModel] addOrUpdateItem: userId is nil. Cannot save item.")
             return
         }
         
-        // The blank-check logic has been REMOVED.
-
-        // Determine if this is a new item
+        // Determine if new
         var isNewItem = false
         if !items.contains(where: { $0.id == item.id }) {
             isNewItem = true
         }
         
-        // If new, set orderIndex so it goes to the bottom
+        // If new, set orderIndex to bottom
         var newItem = item
         if isNewItem {
             let currentMaxOrder = items.map { $0.orderIndex }.max() ?? -1
             newItem.orderIndex = currentMaxOrder + 1
         }
         
-        // Save to Firestore
+        // Write to Firestore
         let docRef = db
             .collection("users")
             .document(userId)
@@ -157,9 +167,12 @@ class ListViewModel: ObservableObject {
             } else {
                 items.append(newItem)
             }
-            
-            // Sort again (in case user is using another mode)
             sortItems()
+            
+            // Also prefetch images for this item if any
+            Task {
+                await prefetchImages(for: newItem)
+            }
             
         } catch {
             print("[ListViewModel] addOrUpdateItem: Error:", error.localizedDescription)
@@ -169,7 +182,7 @@ class ListViewModel: ObservableObject {
     // MARK: - Delete Item
     func deleteItem(_ item: ItemModel) async {
         guard let userId = userId else {
-            print("[ListViewModel] deleteItem: Error: userId is nil (not authenticated).")
+            print("[ListViewModel] deleteItem: userId is nil (not authenticated).")
             return
         }
         
@@ -228,6 +241,40 @@ class ListViewModel: ObservableObject {
     
     func getItem(by id: UUID) -> ItemModel? {
         items.first { $0.id == id }
+    }
+    
+    // MARK: - Pre-Fetch Logic
+    
+    /// Calls `prefetchImages(for:)` for all items.
+    func prefetchItemImages() async {
+        for item in items {
+            await prefetchImages(for: item)
+        }
+    }
+    
+    /// Loads all image URLs for a specific item, storing them in `imageCache`.
+    private func prefetchImages(for item: ItemModel) async {
+        for urlStr in item.imageUrls {
+            // Already cached? skip
+            if imageCache[urlStr] != nil {
+                continue
+            }
+            await loadImage(urlStr: urlStr)
+        }
+    }
+    
+    /// Downloads image data from `urlStr`, sets in `imageCache`.
+    private func loadImage(urlStr: String) async {
+        guard let url = URL(string: urlStr) else { return }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let uiImage = UIImage(data: data) {
+                imageCache[urlStr] = uiImage
+                print("[ListViewModel] Cached image for \(urlStr)")
+            }
+        } catch {
+            print("[ListViewModel] loadImage(\(urlStr)) error:", error.localizedDescription)
+        }
     }
 }
 

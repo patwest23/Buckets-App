@@ -71,7 +71,7 @@ struct SettingsView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemBackground))
                 .cornerRadius(10)
                 .shadow(radius: 5)
                 
@@ -87,7 +87,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                     .fontWeight(.bold)
                     .padding()
-                    .background(Color(uiColor: .systemBackground))
+                    .background(Color(uiColor: .secondarySystemBackground))
                     .cornerRadius(10)
                     .shadow(radius: 5)
                     Spacer()

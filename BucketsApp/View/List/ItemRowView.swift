@@ -10,6 +10,9 @@ import SwiftUI
 struct ItemRowView: View {
     @Binding var item: ItemModel
     
+    /// The stable width measured by the parent (ListView).
+    let rowWidth: CGFloat
+    
     let onNavigateToDetail: (() -> Void)?
     let onEmptyNameLostFocus: (() -> Void)?
     
@@ -17,12 +20,15 @@ struct ItemRowView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     
     @State private var showFullScreenGallery = false
-
+    
+    // Grid constants
+    private let columnsCount = 3
+    private let spacing: CGFloat = 8
+    
     var body: some View {
-        // NOTE: We removed the in-row carousel code
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             
-            // 1) Top row: completion toggle, name, detail nav
+            // 1) Top row: completion toggle + multiline name + detail nav
             HStack(spacing: 12) {
                 Button(action: toggleCompleted) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
@@ -31,6 +37,7 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
                 
+                // Editable multiline TextField
                 if #available(iOS 16.0, *) {
                     TextField(
                         "",
@@ -42,13 +49,10 @@ struct ItemRowView: View {
                     )
                     .lineLimit(1...5)
                 } else {
-                    TextField(
-                        "",
-                        text: Binding(
-                            get: { item.name },
-                            set: { updateItemName($0) }
-                        )
-                    )
+                    TextField("", text: Binding(
+                        get: { item.name },
+                        set: { updateItemName($0) }
+                    ))
                 }
                 
                 Spacer()
@@ -62,8 +66,44 @@ struct ItemRowView: View {
                 .buttonStyle(.borderless)
             }
             .padding(.vertical, 4)
+            
+            // 2) If completed + has images => show grid
+            if item.completed, !item.imageUrls.isEmpty {
+                let totalSpacing = spacing * CGFloat(columnsCount - 1)
+                let cellSize = (rowWidth - totalSpacing) / CGFloat(columnsCount)
+                
+                // Build a 3-col LazyVGrid
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.fixed(cellSize), spacing: spacing), count: columnsCount),
+                    spacing: spacing
+                ) {
+                    ForEach(item.imageUrls, id: \.self) { urlStr in
+                        if let uiImage = bucketListViewModel.imageCache[urlStr] {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: cellSize, height: cellSize)
+                                .cornerRadius(8)
+                                .clipped()
+                                .onTapGesture {
+                                    showFullScreenGallery = true
+                                }
+                        } else {
+                            // Placeholder
+                            ProgressView()
+                                .frame(width: cellSize, height: cellSize)
+                                .background(Color.gray.opacity(0.3))
+                                .cornerRadius(8)
+                        }
+                    }
+                }
+                .fullScreenCover(isPresented: $showFullScreenGallery) {
+                    FullScreenCarouselView(imageUrls: item.imageUrls)
+                        .environmentObject(bucketListViewModel)
+                }
+            }
         }
-        // 2) If the user leaves the item name blank, call `onEmptyNameLostFocus`
+        // 3) Blank-name detection
         .onChange(of: item.name) { newValue in
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
@@ -73,8 +113,10 @@ struct ItemRowView: View {
             }
         }
     }
-    
-    // MARK: - Helpers
+}
+
+// MARK: - Private Helpers
+extension ItemRowView {
     private func toggleCompleted() {
         var updated = item
         updated.completed.toggle()
@@ -100,20 +142,39 @@ struct ItemRowView_Previews: PreviewProvider {
             completed: true,
             imageUrls: [
                 "https://via.placeholder.com/400",
-                "https://via.placeholder.com/600"
+                "https://via.placeholder.com/600",
+                "https://via.placeholder.com/800"
             ]
         )
         
-        return ItemRowView(
-            item: .constant(sampleItem),
-            // Removed `showDetailed` parameter
-            onNavigateToDetail: { print("Navigate detail!") },
-            onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
-        )
-        .environmentObject(ListViewModel())
-        .environmentObject(OnboardingViewModel())
-        .previewLayout(.sizeThatFits)
-        .padding()
+        return Group {
+            // Example Light Mode
+            ItemRowView(
+                item: .constant(sampleItem),
+                rowWidth: 375, // Provide a fixed row width for preview
+                onNavigateToDetail: { print("Navigate detail!") },
+                onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
+            )
+            .environmentObject(ListViewModel())
+            .environmentObject(OnboardingViewModel())
+            .previewLayout(.sizeThatFits)
+            .padding()
+            .previewDisplayName("Light Mode")
+            
+            // Example Dark Mode
+            ItemRowView(
+                item: .constant(sampleItem),
+                rowWidth: 375, // Same row width
+                onNavigateToDetail: { print("Navigate detail!") },
+                onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
+            )
+            .environmentObject(ListViewModel())
+            .environmentObject(OnboardingViewModel())
+            .previewLayout(.sizeThatFits)
+            .padding()
+            .preferredColorScheme(.dark)
+            .previewDisplayName("Dark Mode")
+        }
     }
 }
 

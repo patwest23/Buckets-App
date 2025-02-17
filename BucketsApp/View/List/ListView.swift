@@ -12,63 +12,78 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
 
+    // Loading, profile, detail
     @State private var isLoading = true
     @State private var showProfileView = false
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
-    // FocusState to focus newly added items
+    // Focus logic
     @FocusState private var focusedItemId: UUID?
     
-    // Full-screen carousel presentation states
-    @State private var showFullScreenGallery = false
-    @State private var galleryUrls: [String] = []
+    // iOS 17: track item for scroll-to
+    @State private var scrollToId: UUID?
     
+    // NEW: track the row width that we'll pass down
+    @State private var rowWidth: CGFloat = 0
+
     private enum ViewStyle: String {
         case list, detailed, completed, incomplete
     }
     @State private var selectedViewStyle: ViewStyle = .list
-    
+
     var body: some View {
-        NavigationStack {
-            if #available(iOS 17.0, *) {
-                ZStack {
-                    contentView
-                        // Extra bottom padding if user is editing => more space above keyboard
-                        .padding(.bottom, focusedItemId != nil ? 80 : 0)
-                        .animation(.default, value: focusedItemId)
-                    
-                    addButton
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        GeometryReader { geo in
+            // 1) Measure once
+            let measuredWidth = geo.size.width
+            
+            // 2) Write to State if changed
+            // Using DispatchQueue.main.async to avoid layout churn
+            DispatchQueue.main.async {
+                if abs(measuredWidth - rowWidth) > 1 {
+                    rowWidth = measuredWidth
                 }
-                .navigationTitle("Bucket List")
-                .navigationBarTitleDisplayMode(.inline)
-                .background(Color(uiColor: .systemBackground))
-                
-                .toolbar {
-                    // MARK: - Leading: user name
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        if let user = onboardingViewModel.user {
-                            Text(user.username ?? "Unknown")
-                                .font(.headline)
-                        } else {
-                            Text("No Name")
-                                .font(.headline)
+            }
+            
+            NavigationStack {
+                if #available(iOS 17.0, *) {
+                    ZStack {
+                        contentView
+                        
+                        // Show add button only if no item is being edited
+                        if focusedItemId == nil {
+                            addButton
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                         }
                     }
+                    .background(Color(UIColor.systemGroupedBackground))
                     
-                    // MARK: - Trailing: "Done" or Profile
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        if focusedItemId != nil {
-                            Button("Done") {
-                                focusedItemId = nil
-                                removeBlankItems()
+                    .navigationTitle("Bucket List")
+                    .navigationBarTitleDisplayMode(.inline)
+                    
+                    // Explicitly call toolbar(content:)
+                    .toolbar {
+                        // MARK: - Leading: user name
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            if let user = onboardingViewModel.user {
+                                Text(user.username ?? "Unknown")
+                                    .font(.headline)
+                            } else {
+                                Text("No Name")
+                                    .font(.headline)
                             }
-                            .font(.headline)
-                            .foregroundColor(.accentColor)
-                        } else {
-                            HStack {
-                                // Profile button
+                        }
+                        
+                        // MARK: - Trailing: Done or Profile
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            if focusedItemId != nil {
+                                Button("Done") {
+                                    focusedItemId = nil
+                                    removeBlankItems()
+                                }
+                                .font(.headline)
+                                .foregroundColor(.accentColor)
+                            } else {
                                 Button {
                                     showProfileView = true
                                 } label: {
@@ -77,41 +92,38 @@ struct ListView: View {
                             }
                         }
                     }
-                }
-                .onAppear { loadItems() }
-                .navigationDestination(isPresented: $showProfileView) {
-                    ProfileView()
-                        .environmentObject(onboardingViewModel)
-                        .environmentObject(userViewModel)
-                        .environmentObject(bucketListViewModel)
-                }
-                .navigationDestination(item: $selectedItem) { item in
-                    DetailItemView(item: bindingForItem(item))
-                        .environmentObject(bucketListViewModel)
-                        .environmentObject(onboardingViewModel)
-                }
-                // Use .alert instead of .confirmationDialog
-                .alert("Are you sure you want to delete this item?",
-                       isPresented: $bucketListViewModel.showDeleteAlert,
-                       actions: {
-                    Button("Delete", role: .destructive) {
+                    .onAppear { loadItems() }
+                    // Navigation to Profile
+                    .navigationDestination(isPresented: $showProfileView) {
+                        ProfileView()
+                            .environmentObject(onboardingViewModel)
+                            .environmentObject(userViewModel)
+                            .environmentObject(bucketListViewModel)
+                    }
+                    // Navigation to Detail
+                    .navigationDestination(item: $selectedItem) { item in
+                        DetailItemView(item: bindingForItem(item))
+                            .environmentObject(bucketListViewModel)
+                            .environmentObject(onboardingViewModel)
+                    }
+                    // Delete confirmation
+                    .alert("Are you sure you want to delete this item?",
+                           isPresented: $bucketListViewModel.showDeleteAlert) {
+                        Button("Delete", role: .destructive) {
+                            if let toDelete = itemToDelete {
+                                deleteItem(toDelete)
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
                         if let toDelete = itemToDelete {
-                            deleteItem(toDelete)
+                            Text("Delete “\(toDelete.name)” from your list?")
                         }
                     }
-                    Button("Cancel", role: .cancel) {}
-                }, message: {
-                    // Optionally show the item name
-                    if let toDelete = itemToDelete {
-                        Text("Delete “\(toDelete.name)” from your list?")
-                    }
-                })
-                // Full-screen cover for tapped carousel images
-                .fullScreenCover(isPresented: $showFullScreenGallery) {
-                    FullScreenCarouselView(imageUrls: galleryUrls)
+                    
+                } else {
+                    Text("Please use iOS 17 or later.")
                 }
-            } else {
-                Text("Please use iOS 17 or later.")
             }
         }
     }
@@ -140,105 +152,106 @@ struct ListView: View {
         }
     }
     
-    // MARK: - List of Items
+    // MARK: - The List
+    @ViewBuilder
     private var itemListView: some View {
-        List(displayedItems, id: \.id) { aItem in
-            let itemBinding = bindingForItem(aItem)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                // 1) Normal row
-                ItemRowView(
-                    item: itemBinding,
-                    onNavigateToDetail: {
-                        selectedItem = aItem
-                    },
-                    onEmptyNameLostFocus: {
-                        deleteItemIfEmpty(aItem)
-                    }
-                )
-                .focused($focusedItemId, equals: aItem.id)
+        if #available(iOS 17.0, *) {
+            List(displayedItems, id: \.id) { aItem in
+                let itemBinding = bindingForItem(aItem)
                 
-                // 2) Completed + has images => show carousel
-                if aItem.completed, !aItem.imageUrls.isEmpty {
-                    carouselView(for: aItem.imageUrls)
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(uiColor: .systemBackground))
-                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-            )
-            .padding(.vertical, 1)
-            .padding(.horizontal, 1)
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            
-            // MARK: - Swipe Actions => calls showDeleteConfirmation
-            .swipeActions(edge: .trailing) {
-                Button(role: .destructive) {
-                    showDeleteConfirmation(for: aItem)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
-            .swipeActions(edge: .leading) {
-                Button(role: .destructive) {
-                    showDeleteConfirmation(for: aItem)
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
-        }
-        .listStyle(.plain)
-        .listRowSeparator(.hidden)
-    }
-    
-    // MARK: - Carousel
-    private func carouselView(for urls: [String]) -> some View {
-        HStack {
-            Spacer()
-            GeometryReader { geo in
-                let sideLength = min(geo.size.width * 0.9, 500)
-                TabView {
-                    ForEach(urls, id: \.self) { urlStr in
-                        if let url = URL(string: urlStr) {
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .empty:
-                                    ProgressView()
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: sideLength, height: sideLength)
-                                        .clipped()
-                                        .cornerRadius(10)
-                                case .failure:
-                                    Color.gray
-                                        .frame(width: sideLength, height: sideLength)
-                                        .cornerRadius(10)
-                                @unknown default:
-                                    EmptyView()
-                                }
-                            }
-                        } else {
-                            Color.gray
-                                .frame(width: sideLength, height: sideLength)
-                                .cornerRadius(10)
+                VStack(alignment: .leading, spacing: 8) {
+                    // Pass rowWidth
+                    ItemRowView(
+                        item: itemBinding,
+                        rowWidth: rowWidth,              // <-----
+                        onNavigateToDetail: {
+                            selectedItem = aItem
+                        },
+                        onEmptyNameLostFocus: {
+                            deleteItemIfEmpty(aItem)
                         }
+                    )
+                    .focused($focusedItemId, equals: aItem.id)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.secondarySystemGroupedBackground))
+                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                )
+                .padding(.vertical, 1)
+                .padding(.horizontal, 1)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                
+                // Swipe to delete
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation(for: aItem)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
                     }
                 }
-                .tabViewStyle(.page)
-                .frame(width: geo.size.width, height: sideLength)
-                .onTapGesture {
-                    galleryUrls = urls
-                    showFullScreenGallery = true
+                .swipeActions(edge: .leading) {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation(for: aItem)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
                 }
             }
-            .frame(height: 300)
+            .scrollTargetLayout()
+            .scrollPosition(id: $scrollToId)
+            .listStyle(.plain)
+            .listRowSeparator(.hidden)
+            .background(Color(UIColor.systemGroupedBackground))
+        } else {
+            // iOS < 17 fallback
+            List(displayedItems, id: \.id) { aItem in
+                let itemBinding = bindingForItem(aItem)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    ItemRowView(
+                        item: itemBinding,
+                        rowWidth: rowWidth,              // <-----
+                        onNavigateToDetail: {
+                            selectedItem = aItem
+                        },
+                        onEmptyNameLostFocus: {
+                            deleteItemIfEmpty(aItem)
+                        }
+                    )
+                    .focused($focusedItemId, equals: aItem.id)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.secondarySystemGroupedBackground))
+                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                )
+                .padding(.vertical, 1)
+                .padding(.horizontal, 1)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation(for: aItem)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading) {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation(for: aItem)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .listRowSeparator(.hidden)
+            .background(Color(UIColor.systemGroupedBackground))
         }
-        .padding(.vertical, 1)
     }
     
     // MARK: - Loading / Empty
@@ -258,7 +271,7 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Simulated Load
+    // MARK: - Load Items
     private func loadItems() {
         Task {
             isLoading = true
@@ -282,7 +295,10 @@ struct ListView: View {
                 userId: onboardingViewModel.user?.id ?? ""
             )
             bucketListViewModel.addOrUpdateItem(newItem)
+            
+            // Focus + scroll
             focusedItemId = newItem.id
+            scrollToId = newItem.id
             
         } label: {
             ZStack {
@@ -330,7 +346,7 @@ struct ListView: View {
         return $bucketListViewModel.items[index]
     }
     
-    // MARK: - Deletion Logic
+    // MARK: - Deletion
     private func showDeleteConfirmation(for item: ItemModel) {
         itemToDelete = item
         bucketListViewModel.showDeleteAlert = true
