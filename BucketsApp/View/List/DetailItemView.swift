@@ -28,31 +28,51 @@ struct DetailItemView: View {
     // Spinner for uploads
     @State private var isUploading = false
     
+    // MARK: - **New** local state for delete alert
+    @State private var showDeleteAlert = false
+    
     // MARK: - Focus States for text editing
     @FocusState private var isNameFocused: Bool
     @FocusState private var isNotesFocused: Bool
     
     var body: some View {
         VStack {
+            // Content ScrollView
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     
-                    basicInfoRow         // 1) Name toggle & textfield
-                    photoPickerRow       // 2) Photos row => disabled if not completed
-                    dateCreatedLine      // 3) Always shown
-                    dateCompletedLine    // 4) Only interactive if item.completed
+                    basicInfoRow
+                    photoPickerRow
+                    dateCreatedLine
+                    dateCompletedLine
                     locationRow
-                    descriptionRow       // 5) Notes text editor
+                    descriptionRow
                     
                 }
                 .padding()
                 .background(Color(uiColor: .systemBackground))
             }
             .background(Color(uiColor: .systemBackground))
+            
+            // MARK: - DELETE BUTTON
+            Button(role: .destructive) {
+                showDeleteAlert = true
+            } label: {
+                Text("Delete")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            .background(Color.red.opacity(0.1))
+            .cornerRadius(8)
+            .padding()
+            
         }
+        // Empty navigation title, but inline
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        // MARK: - Conditionally show "Done" button if name or notes are focused
+        
+        // MARK: - Toolbar (Done button for textfields)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isNameFocused || isNotesFocused {
@@ -65,6 +85,24 @@ struct DetailItemView: View {
                 }
             }
         }
+        
+        // MARK: - Delete Confirmation Alert
+        .alert(
+            "Are you sure you want to delete this item?",
+            isPresented: $showDeleteAlert
+        ) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    await bucketListViewModel.deleteItem(item)
+                }
+                // After deleting, dismiss this detail view
+                presentationMode.wrappedValue.dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone. You will lose “\(item.name)” permanently.")
+        }
+        
         // Whenever `imagePickerVM.uiImages` changes, upload them
         .onChange(of: imagePickerVM.uiImages) { newImages in
             Task {
@@ -74,14 +112,12 @@ struct DetailItemView: View {
     }
 }
 
-// MARK: - Subviews
+// MARK: - Subviews (unchanged except for the addition of the Delete Button above)
 extension DetailItemView {
-    
-    /// (1) Basic info row: toggle + multi-line name
+    // (1) Basic info row
     fileprivate var basicInfoRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                // Completion toggle
                 Button {
                     Task { await toggleCompleted() }
                 } label: {
@@ -91,7 +127,6 @@ extension DetailItemView {
                 }
                 .buttonStyle(.borderless)
                 
-                // Multi-line TextField for item.name
                 if #available(iOS 16.0, *) {
                     TextField(
                         "",
@@ -106,7 +141,7 @@ extension DetailItemView {
                     )
                     .lineLimit(1...10)
                     .foregroundColor(item.completed ? .gray : .primary)
-                    .focused($isNameFocused) // Focus binding
+                    .focused($isNameFocused)
                 } else {
                     TextField(
                         "",
@@ -126,11 +161,10 @@ extension DetailItemView {
         .padding(.vertical, 8)
     }
     
-    /// (2) Photos Picker + grid, DISABLED or HIDDEN if item is not completed
+    // (2) Photos Picker
     fileprivate var photoPickerRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             if item.completed {
-                // Normal state: user can pick photos
                 HStack {
                     PhotosPicker(
                         selection: $imagePickerVM.imageSelections,
@@ -150,15 +184,13 @@ extension DetailItemView {
                 }
                 .padding(.vertical, 8)
                 
-                // Show either newly picked images or existing item.imageUrls
                 if !imagePickerVM.uiImages.isEmpty {
                     photoGrid(uiImages: imagePickerVM.uiImages)
                 } else if !item.imageUrls.isEmpty {
                     photoGrid(urlStrings: item.imageUrls)
                 }
-                
             } else {
-                // If not completed => disable photo picker
+                // If not completed => show disabled UI
                 HStack {
                     Text("📸   Select Photos")
                         .font(.headline)
@@ -166,13 +198,10 @@ extension DetailItemView {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 8)
-                // And do NOT show any images if user unchecks the item
-                // (They're still stored in Firestore but hidden)
             }
         }
     }
     
-    /// Helper for a grid of local UIImages
     private func photoGrid(uiImages: [UIImage]) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
             ForEach(uiImages, id: \.self) { uiImage in
@@ -181,13 +210,12 @@ extension DetailItemView {
                     .scaledToFill()
                     .frame(width: 100, height: 100)
                     .clipped()
-                    .cornerRadius(8)  // add rounded corners
+                    .cornerRadius(8)
             }
         }
         .padding(.vertical, 10)
     }
-
-    /// Helper for a grid of existing URL strings
+    
     private func photoGrid(urlStrings: [String]) -> some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
             ForEach(urlStrings, id: \.self) { urlStr in
@@ -217,7 +245,7 @@ extension DetailItemView {
         .padding(.vertical, 10)
     }
     
-    /// (3) Date Created Row (ALWAYS accessible)
+    // (3) Date Created
     fileprivate var dateCreatedLine: some View {
         HStack {
             Text("📅   Created")
@@ -238,7 +266,7 @@ extension DetailItemView {
         }
     }
     
-    /// (4) Date Completed Row - ONLY interactive if item.completed
+    // (4) Date Completed
     fileprivate var dateCompletedLine: some View {
         HStack {
             Text("📅   Completed")
@@ -249,7 +277,6 @@ extension DetailItemView {
                 .foregroundColor(item.completed ? .accentColor : .gray)
         }
         .padding(.vertical, 8)
-        // Only respond to tap if item is completed
         .onTapGesture {
             if item.completed {
                 showDateCompletedSheet = true
@@ -269,14 +296,12 @@ extension DetailItemView {
                     onDismiss: { showDateCompletedSheet = false }
                 )
             } else {
-                // If item suddenly becomes uncompleted while sheet is up,
-                // we can just dismiss or show a placeholder
                 EmptyView()
             }
         }
     }
     
-    /// (5) Location Row
+    // (5) Location Row
     fileprivate var locationRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -301,7 +326,7 @@ extension DetailItemView {
         }
     }
     
-    /// Notes (Description)
+    // (6) Notes (Description)
     fileprivate var descriptionRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("📝   Caption")
@@ -331,38 +356,30 @@ extension DetailItemView {
     /// Upload newly picked images => Firebase => update item.imageUrls
     private func uploadPickedImages(_ images: [UIImage]) async {
         guard let userId = onboardingViewModel.user?.id else { return }
-        // If item is no longer completed, do nothing
         guard item.completed else { return }
         
         isUploading = true
 
-        // 1) Construct a reference to the folder: "users/<userId>/item-<itemUUID>"
         let storageRef = Storage.storage().reference()
                          .child("users/\(userId)/item-\(item.id.uuidString)")
 
         var newUrls: [String] = []
-
+        
         for (index, uiImage) in images.enumerated() {
             guard let imageData = uiImage.jpegData(compressionQuality: 0.8) else { continue }
-
-            // 2) For each image, build a reference: "photo\(index+1).jpg"
             let imageRef = storageRef.child("photo\(index + 1).jpg")
-
+            
             do {
-                // 3) Upload the data
                 try await imageRef.putDataAsync(imageData)
-
-                // 4) Retrieve its download URL
                 let downloadUrl = try await imageRef.downloadURL()
                 newUrls.append(downloadUrl.absoluteString)
             } catch {
                 print("Error uploading image \(index): \(error.localizedDescription)")
             }
         }
-
+        
         isUploading = false
 
-        // 5) If item is STILL completed, append these new URLs
         if item.completed && !newUrls.isEmpty {
             item.imageUrls.append(contentsOf: newUrls)
             updateItem()

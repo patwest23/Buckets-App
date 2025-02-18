@@ -10,9 +10,6 @@ import SwiftUI
 struct ItemRowView: View {
     @Binding var item: ItemModel
     
-    /// The stable width measured by the parent (ListView).
-    let rowWidth: CGFloat
-    
     let onNavigateToDetail: (() -> Void)?
     let onEmptyNameLostFocus: (() -> Void)?
     
@@ -21,9 +18,8 @@ struct ItemRowView: View {
     
     @State private var showFullScreenGallery = false
     
-    // Grid constants
-    private let columnsCount = 3
-    private let spacing: CGFloat = 8
+    // A fixed size for each image cell
+    private let imageCellSize: CGFloat = 100
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -67,43 +63,40 @@ struct ItemRowView: View {
             }
             .padding(.vertical, 4)
             
-            // 2) If completed + has images => show grid
+            // 2) If item is completed and has images => show them centered in a horizontal row
             if item.completed, !item.imageUrls.isEmpty {
-                let totalSpacing = spacing * CGFloat(columnsCount - 1)
-                let cellSize = (rowWidth - totalSpacing) / CGFloat(columnsCount)
-                
-                // Build a 3-col LazyVGrid
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.fixed(cellSize), spacing: spacing), count: columnsCount),
-                    spacing: spacing
-                ) {
+                HStack(spacing: 8) {
+                    Spacer()
+                    
                     ForEach(item.imageUrls, id: \.self) { urlStr in
                         if let uiImage = bucketListViewModel.imageCache[urlStr] {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: cellSize, height: cellSize)
+                                .frame(width: imageCellSize, height: imageCellSize)
                                 .cornerRadius(8)
                                 .clipped()
                                 .onTapGesture {
                                     showFullScreenGallery = true
                                 }
                         } else {
-                            // Placeholder
                             ProgressView()
-                                .frame(width: cellSize, height: cellSize)
+                                .frame(width: imageCellSize, height: imageCellSize)
                                 .background(Color.gray.opacity(0.3))
                                 .cornerRadius(8)
                         }
                     }
+                    
+                    Spacer()
                 }
+                .padding(.vertical, 4)
                 .fullScreenCover(isPresented: $showFullScreenGallery) {
                     FullScreenCarouselView(imageUrls: item.imageUrls)
                         .environmentObject(bucketListViewModel)
                 }
             }
         }
-        // 3) Blank-name detection
+        // 3) If user clears the item name => handle blank
         .onChange(of: item.name) { newValue in
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
@@ -151,7 +144,6 @@ struct ItemRowView_Previews: PreviewProvider {
             // Example Light Mode
             ItemRowView(
                 item: .constant(sampleItem),
-                rowWidth: 375, // Provide a fixed row width for preview
                 onNavigateToDetail: { print("Navigate detail!") },
                 onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
             )
@@ -164,7 +156,6 @@ struct ItemRowView_Previews: PreviewProvider {
             // Example Dark Mode
             ItemRowView(
                 item: .constant(sampleItem),
-                rowWidth: 375, // Same row width
                 onNavigateToDetail: { print("Navigate detail!") },
                 onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
             )

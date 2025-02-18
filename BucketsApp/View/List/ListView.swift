@@ -24,112 +24,89 @@ struct ListView: View {
     // iOS 17: track item for scroll-to
     @State private var scrollToId: UUID?
     
-    // NEW: track the row width that we'll pass down
-    @State private var rowWidth: CGFloat = 0
-
     private enum ViewStyle: String {
         case list, detailed, completed, incomplete
     }
     @State private var selectedViewStyle: ViewStyle = .list
 
     var body: some View {
-        GeometryReader { geo in
-            
-            // NavigationStack is the actual returned View
-            NavigationStack {
-                if #available(iOS 17.0, *) {
-                    ZStack {
-                        contentView
-                        
-                        // Show add button only if no item is being edited
-                        if focusedItemId == nil {
-                            addButton
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        }
+        NavigationStack {
+            if #available(iOS 17.0, *) {
+                ZStack {
+                    contentView
+                    
+                    // Show add button only if no item is being edited
+                    if focusedItemId == nil {
+                        addButton
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     }
-                    .background(Color(UIColor.systemGroupedBackground))
-                    
-                    .navigationTitle("Bucket List")
-                    .navigationBarTitleDisplayMode(.inline)
-                    
-                    // Explicitly call toolbar(content:)
-                    .toolbar {
-                        // MARK: - Leading: user name
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            if let user = onboardingViewModel.user {
-                                Text(user.username ?? "Unknown")
-                                    .font(.headline)
-                            } else {
-                                Text("No Name")
-                                    .font(.headline)
-                            }
-                        }
-
-                        // MARK: - Trailing: Done or Profile
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            if focusedItemId != nil {
-                                Button("Done") {
-                                    focusedItemId = nil
-                                    removeBlankItems()
-                                }
+                }
+                .background(Color(UIColor.systemGroupedBackground))
+                
+                .navigationTitle("Bucket List")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    // MARK: - Leading: user name
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        if let user = onboardingViewModel.user {
+                            Text(user.username ?? "Unknown")
                                 .font(.headline)
-                                .foregroundColor(.accentColor)
-                            } else {
-                                Button {
-                                    showProfileView = true
-                                } label: {
-                                    profileImageView
-                                }
+                        } else {
+                            Text("No Name")
+                                .font(.headline)
+                        }
+                    }
+                    // MARK: - Trailing: Done or Profile
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        if focusedItemId != nil {
+                            Button("Done") {
+                                focusedItemId = nil
+                                removeBlankItems()
+                            }
+                            .font(.headline)
+                            .foregroundColor(.accentColor)
+                        } else {
+                            Button {
+                                showProfileView = true
+                            } label: {
+                                profileImageView
                             }
                         }
                     }
-
-                    .onAppear {
-                        loadItems()
-                    }
-                    
-                    // Navigation to Profile
-                    .navigationDestination(isPresented: $showProfileView) {
-                        ProfileView()
-                            .environmentObject(onboardingViewModel)
-                            .environmentObject(userViewModel)
-                            .environmentObject(bucketListViewModel)
-                    }
-                    
-                    // Navigation to Detail
-                    .navigationDestination(item: $selectedItem) { item in
-                        DetailItemView(item: bindingForItem(item))
-                            .environmentObject(bucketListViewModel)
-                            .environmentObject(onboardingViewModel)
-                    }
-                    
-                    // Delete confirmation
-                    .alert("Are you sure you want to delete this item?",
-                           isPresented: $bucketListViewModel.showDeleteAlert) {
-                        Button("Delete", role: .destructive) {
-                            if let toDelete = itemToDelete {
-                                deleteItem(toDelete)
-                            }
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
+                }
+                .onAppear {
+                    loadItems()
+                }
+                // Navigation to Profile
+                .navigationDestination(isPresented: $showProfileView) {
+                    ProfileView()
+                        .environmentObject(onboardingViewModel)
+                        .environmentObject(userViewModel)
+                        .environmentObject(bucketListViewModel)
+                }
+                // Navigation to Detail
+                .navigationDestination(item: $selectedItem) { item in
+                    DetailItemView(item: bindingForItem(item))
+                        .environmentObject(bucketListViewModel)
+                        .environmentObject(onboardingViewModel)
+                }
+                // Delete confirmation
+                .alert("Are you sure you want to delete this item?",
+                       isPresented: $bucketListViewModel.showDeleteAlert) {
+                    Button("Delete", role: .destructive) {
                         if let toDelete = itemToDelete {
-                            Text("Delete “\(toDelete.name)” from your list?")
+                            deleteItem(toDelete)
                         }
                     }
-                    
-                } else {
-                    Text("Please use iOS 17 or later.")
-                }
-            }
-            // Move the row-width measurement into onAppear
-            .onAppear {
-                let measuredWidth = geo.size.width
-                DispatchQueue.main.async {
-                    if abs(measuredWidth - rowWidth) > 1 {
-                        rowWidth = measuredWidth
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    if let toDelete = itemToDelete {
+                        Text("Delete “\(toDelete.name)” from your list?")
                     }
                 }
+                
+            } else {
+                Text("Please use iOS 17 or later.")
             }
         }
     }
@@ -168,7 +145,6 @@ struct ListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ItemRowView(
                         item: itemBinding,
-                        rowWidth: rowWidth, // pass rowWidth
                         onNavigateToDetail: {
                             selectedItem = aItem
                         },
@@ -188,22 +164,6 @@ struct ListView: View {
                 .padding(.horizontal, 1)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                
-                // Swipe to delete
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation(for: aItem)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
-                .swipeActions(edge: .leading) {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation(for: aItem)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
             }
             .scrollTargetLayout()
             .scrollPosition(id: $scrollToId)
@@ -218,7 +178,6 @@ struct ListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ItemRowView(
                         item: itemBinding,
-                        rowWidth: rowWidth,
                         onNavigateToDetail: {
                             selectedItem = aItem
                         },
@@ -238,6 +197,7 @@ struct ListView: View {
                 .padding(.horizontal, 1)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+                // If you still want swipe-to-delete for older OS:
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         showDeleteConfirmation(for: aItem)
@@ -437,39 +397,4 @@ struct ListView_Previews: PreviewProvider {
         }
     }
 }
-
-
-
-// Explicitly call toolbar(content:)
-//                    .toolbar {
-//                        // MARK: - Leading: user name
-//                        ToolbarItem(placement: .navigationBarLeading) {
-//                            if let user = onboardingViewModel.user {
-//                                Text(user.username ?? "Unknown")
-//                                    .font(.headline)
-//                            } else {
-//                                Text("No Name")
-//                                    .font(.headline)
-//                            }
-//                        }
-//
-//                        // MARK: - Trailing: Done or Profile
-//                        ToolbarItem(placement: .navigationBarTrailing) {
-//                            if focusedItemId != nil {
-//                                Button("Done") {
-//                                    focusedItemId = nil
-//                                    removeBlankItems()
-//                                }
-//                                .font(.headline)
-//                                .foregroundColor(.accentColor)
-//                            } else {
-//                                Button {
-//                                    showProfileView = true
-//                                } label: {
-//                                    profileImageView
-//                                }
-//                            }
-//                        }
-//                    }
-
 
