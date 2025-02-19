@@ -103,10 +103,17 @@ struct DetailItemView: View {
             Text("This cannot be undone. You will lose “\(item.name)” permanently.")
         }
         
-        // Whenever `imagePickerVM.uiImages` changes, upload them
-        .onChange(of: imagePickerVM.uiImages) {
+        .onChange(of: imagePickerVM.uiImages) { oldImages, newImages in
+            // 1) Clear out old images from your item (if needed):
+            //    This ensures the new selection replaces the old.
+            if !newImages.isEmpty {
+                // e.g. if your item has an array of image URLs:
+                item.imageUrls.removeAll()
+            }
+            
+            // 2) Now upload the new images
             Task {
-                await uploadPickedImages(imagePickerVM.uiImages)
+                await uploadPickedImages(newImages)
             }
         }
     }

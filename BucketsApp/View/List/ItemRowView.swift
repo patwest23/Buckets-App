@@ -18,13 +18,15 @@ struct ItemRowView: View {
     
     @State private var showFullScreenGallery = false
     
-    // A fixed size for each image cell
+    // Grid layout constants
+    private let columnsCount = 3
+    private let spacing: CGFloat = 8
     private let imageCellSize: CGFloat = 100
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             
-            // 1) Top row: completion toggle + multiline name + detail nav
+            // MARK: - Top Row (toggle + multiline text + chevron)
             HStack(spacing: 12) {
                 Button(action: toggleCompleted) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
@@ -45,10 +47,13 @@ struct ItemRowView: View {
                     )
                     .lineLimit(1...5)
                 } else {
-                    TextField("", text: Binding(
-                        get: { item.name },
-                        set: { updateItemName($0) }
-                    ))
+                    TextField(
+                        "",
+                        text: Binding(
+                            get: { item.name },
+                            set: { updateItemName($0) }
+                        )
+                    )
                 }
                 
                 Spacer()
@@ -63,11 +68,15 @@ struct ItemRowView: View {
             }
             .padding(.vertical, 4)
             
-            // 2) If item is completed and has images => show them centered in a horizontal row
+            // MARK: - Images Grid
             if item.completed, !item.imageUrls.isEmpty {
-                HStack(spacing: 8) {
-                    Spacer()
-                    
+                // 3 columns, each fixed to 100 points wide
+                let columns = Array(
+                    repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
+                    count: columnsCount
+                )
+                
+                LazyVGrid(columns: columns, spacing: spacing) {
                     ForEach(item.imageUrls, id: \.self) { urlStr in
                         if let uiImage = bucketListViewModel.imageCache[urlStr] {
                             Image(uiImage: uiImage)
@@ -86,17 +95,15 @@ struct ItemRowView: View {
                                 .cornerRadius(8)
                         }
                     }
-                    
-                    Spacer()
                 }
-                .padding(.vertical, 4)
                 .fullScreenCover(isPresented: $showFullScreenGallery) {
                     FullScreenCarouselView(imageUrls: item.imageUrls)
                         .environmentObject(bucketListViewModel)
                 }
             }
         }
-        // 3) If user clears the item name => handle blank
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: item.name) {
             let trimmed = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
