@@ -9,8 +9,9 @@ import Foundation
 import FirebaseAuth
 import FirebaseStorage
 import FirebaseFirestore
-import GoogleSignIn  // <-- Import Google Sign-In
+import GoogleSignIn
 import FirebaseCore
+import LocalAuthentication  // <-- NEW: For Face ID / Touch ID
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
@@ -25,7 +26,6 @@ final class OnboardingViewModel: ObservableObject {
     /// Automatically ensures an "@" prefix.
     @Published var username: String = "" {
         didSet {
-            // If the user typed something, ensure the string starts with "@"
             if !username.isEmpty && !username.hasPrefix("@") {
                 username = "@" + username
             }
@@ -48,7 +48,6 @@ final class OnboardingViewModel: ObservableObject {
     // MARK: - Firebase
     private let storage = Storage.storage()
     private let firestore = Firestore.firestore()
-    private let profileImagePath = "profile_images"
     
     private var userDocListener: ListenerRegistration?
     
@@ -97,7 +96,6 @@ final class OnboardingViewModel: ObservableObject {
     // MARK: - Google Sign-In
         
     func signInWithGoogle() {
-        // 1) Get the Firebase clientID
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             handleError(NSError(
                 domain: "MissingGoogleClientID",
@@ -107,10 +105,8 @@ final class OnboardingViewModel: ObservableObject {
             return
         }
         
-        // 2) Create Google Sign-In configuration
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         
-        // 3) Determine where to present the sign-in UI
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController
         else {
@@ -122,43 +118,35 @@ final class OnboardingViewModel: ObservableObject {
             return
         }
         
-        // 4) Begin sign-in flow
         GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [weak self] result, error in
             guard let self = self else { return }
             
-            // a) Check for an immediate error
             if let error = error {
                 self.handleError(error)
                 return
             }
             
-            // b) Validate user
             guard let user = result?.user else {
                 // handle error
                 return
             }
 
-            // c) If user.idToken is non-optional:
-            let idToken = user.idToken              // GIDToken
-            let accessToken = user.accessToken      // GIDAccessToken
+            let idToken = user.idToken
+            let accessToken = user.accessToken
 
-            // d) Extract the strings
-            let idTokenString = idToken!.tokenString
+            let idTokenString = idToken?.tokenString ?? ""
             let accessTokenString = accessToken.tokenString
 
-            // e) Check if empty
             if idTokenString.isEmpty || accessTokenString.isEmpty {
                 // handle error
                 return
             }
 
-            // f) Build credential
             let credential = GoogleAuthProvider.credential(
                 withIDToken: idTokenString,
                 accessToken: accessTokenString
             )
             
-            // f) Sign in to Firebase
             Auth.auth().signIn(with: credential) { authResult, error in
                 if let error = error {
                     self.handleError(error)
@@ -177,17 +165,12 @@ final class OnboardingViewModel: ObservableObject {
                 self.isAuthenticated = true
                 self.clearErrorState()
                 
-                // g) Update Firestore user doc + load profile
                 Task {
                     if let userEmail = authUser.email {
                         let userDocRef = self.firestore.collection("users").document(authUser.uid)
                         do {
-                            // If you want to store Google’s displayName:
-                            // let googleName = user.profile?.name ?? "GoogleUser"
-                            
                             try await userDocRef.setData([
                                 "email": userEmail
-                                // "name": googleName
                             ], merge: true)
                         } catch {
                             self.handleError(error)
@@ -205,13 +188,11 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Username Availability
     
-    /// Checks if a particular username is already used by querying Firestore.
     func isUsernameUsed(_ username: String) async -> Bool {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return true }
         
         do {
-            // Query for "username" rather than "name"
             let snapshot = try await firestore
                 .collection("users")
                 .whereField("username", isEqualTo: trimmed)
@@ -234,16 +215,15 @@ final class OnboardingViewModel: ObservableObject {
             
             print("[OnboardingViewModel] signIn success. Auth UID:", authResult.user.uid)
             
-            // 1) Ensure Firestore doc has up-to-date "email"
+            // Store credentials in Keychain for Face ID / Touch ID (optional)
+            storeCredentialsInKeychain()
+            
             if let actualEmail = authResult.user.email {
                 let userDocRef = firestore.collection("users").document(authResult.user.uid)
                 try await userDocRef.setData(["email": actualEmail], merge: true)
             }
             
-            // 2) Load user doc
             await fetchUserDocument(userId: authResult.user.uid)
-            
-            // 3) Load profile image
             await loadProfileImage()
             
         } catch {
@@ -257,6 +237,11 @@ final class OnboardingViewModel: ObservableObject {
             isAuthenticated = false
             userDocListener?.remove()
             clearState()
+            
+            // Optionally remove from Keychain if you want:
+            KeychainHelper.shared.deleteValue(for: "email")
+            KeychainHelper.shared.deleteValue(for: "password")
+            
         } catch {
             handleError(error)
         }
@@ -264,8 +249,6 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Create User
     
-    /// Creates a new user in Firebase Auth, then calls `createUserDocument(...)`
-    /// to store the doc in Firestore. Finally, fetches the doc into `self.user`.
     func createUser() async {
         do {
             let authResult = try await Auth.auth().createUser(withEmail: email, password: password)
@@ -274,10 +257,10 @@ final class OnboardingViewModel: ObservableObject {
             
             print("[OnboardingViewModel] createUser success. UID:", authResult.user.uid)
             
-            // 1) Create doc in /users/<AuthUID>
-            await createUserDocument(userId: authResult.user.uid)
+            // Also store credentials in Keychain if you want Face ID next time
+            storeCredentialsInKeychain()
             
-            // 2) Fetch doc to populate `user`
+            await createUserDocument(userId: authResult.user.uid)
             await fetchUserDocument(userId: authResult.user.uid)
             
         } catch {
@@ -427,7 +410,6 @@ final class OnboardingViewModel: ObservableObject {
             let docData: [String: Any] = [
                 "email": email,
                 "createdAt": Date(),
-                // store the “@” handle as “username” in Firestore
                 "username": username
             ]
             
@@ -487,5 +469,108 @@ final class OnboardingViewModel: ObservableObject {
         errorMessage = nil
         showErrorAlert = false
         isAuthenticated = false
+    }
+}
+
+// MARK: - Biometric Login & Keychain
+extension OnboardingViewModel {
+    
+    /// Call this after a successful manual login if you want
+    /// to store credentials for future Face ID / Touch ID.
+    func storeCredentialsInKeychain() {
+        KeychainHelper.shared.setValue(email, for: "email")
+        KeychainHelper.shared.setValue(password, for: "password")
+    }
+    
+    /// Attempt to log in using Face ID / Touch ID:
+    ///  1) Retrieve saved email/password from Keychain.
+    ///  2) Prompt user for Face ID.
+    ///  3) If successful => sign in with stored credentials.
+    func loginWithBiometrics() async {
+        // 1) Retrieve saved credentials
+        guard let storedEmail = KeychainHelper.shared.getValue(for: "email"),
+              let storedPassword = KeychainHelper.shared.getValue(for: "password") else {
+            print("[OnboardingViewModel] No stored credentials in Keychain. Prompt normal login.")
+            return
+        }
+        
+        // 2) LocalAuthentication for Face/Touch ID
+        let context = LAContext()
+        var error: NSError?
+        
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            print("[OnboardingViewModel] Device does not support biometrics or not enrolled.")
+            return
+        }
+        
+        let reason = "Use Face ID / Touch ID to log in."
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, evaluateError in
+            Task { @MainActor in
+                if success {
+                    // 3) Face ID success => sign in with stored credentials
+                    self.email = storedEmail
+                    self.password = storedPassword
+                    await self.signIn()
+                } else {
+                    if let error = evaluateError {
+                        self.handleError(error)
+                    } else {
+                        print("[OnboardingViewModel] Biometric auth canceled by user.")
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Simple Keychain Helper
+import Security
+
+final class KeychainHelper {
+    static let shared = KeychainHelper()
+    private init() {}
+    
+    func setValue(_ value: String, for key: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        
+        // Remove old entry if any
+        let queryDelete: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(queryDelete as CFDictionary)
+        
+        // Add new entry
+        let queryAdd: [String: Any] = [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrAccount as String:      key,
+            kSecValueData as String:        data,
+            kSecAttrAccessible as String:   kSecAttrAccessibleWhenUnlocked
+        ]
+        SecItemAdd(queryAdd as CFDictionary, nil)
+    }
+    
+    func getValue(for key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:          kSecClassGenericPassword,
+            kSecAttrAccount as String:    key,
+            kSecReturnData as String:     true,
+            kSecMatchLimit as String:     kSecMatchLimitOne
+        ]
+        
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    func deleteValue(for key: String) {
+        let query: [String: Any] = [
+            kSecClass as String:     kSecClassGenericPassword,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
     }
 }

@@ -97,8 +97,8 @@ struct ItemRowView: View {
             }
         }
         // 3) If user clears the item name => handle blank
-        .onChange(of: item.name) { newValue in
-            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        .onChange(of: item.name) {
+            let trimmed = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
                 onEmptyNameLostFocus?()
             } else {

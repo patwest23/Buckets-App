@@ -49,8 +49,10 @@ struct ProfileView: View {
                     selection: $selectedImageItem,
                     matching: .images
                 )
-                .onChange(of: selectedImageItem) { newItem in
-                    loadProfileImage(newItem)
+                .onChange(of: selectedImageItem) {
+                    // Because this is the zero-parameter version,
+                    // just call your function with the latest value:
+                    loadProfileImage(selectedImageItem)
                 }
                 
                 // Show username if set

@@ -104,9 +104,9 @@ struct DetailItemView: View {
         }
         
         // Whenever `imagePickerVM.uiImages` changes, upload them
-        .onChange(of: imagePickerVM.uiImages) { newImages in
+        .onChange(of: imagePickerVM.uiImages) {
             Task {
-                await uploadPickedImages(newImages)
+                await uploadPickedImages(imagePickerVM.uiImages)
             }
         }
     }
@@ -400,7 +400,7 @@ extension DetailItemView {
             DatePicker("", selection: date, displayedComponents: .date)
                 .datePickerStyle(.wheel)
                 .labelsHidden()
-                .onChange(of: date.wrappedValue) { _ in
+                .onChange(of: date.wrappedValue) {
                     updateItem()
                 }
             
