@@ -24,10 +24,13 @@ struct ListView: View {
     // Tracks the newest item so it auto-focuses its text field
     @State private var newlyCreatedItemID: UUID? = nil
     
+    // **New**: which item is actively editing the name field
+    @State private var editingNameItemID: UUID? = nil
+    
     // iOS 17: track item for scroll-to
     @State private var scrollToId: UUID?
     
-    // For preview purposes
+    // For preview
     init(previewMode: Bool = false) {
         if previewMode {
             _isLoading = State(initialValue: false)
@@ -43,12 +46,13 @@ struct ListView: View {
         NavigationStack {
             if #available(iOS 17.0, *) {
                 ZStack {
-                    // Background to clear focus when tapped
+                    // Background to clear focus on tap outside
                     Color(uiColor: .systemBackground)
                         .ignoresSafeArea()
                         .onTapGesture {
-                            // If user taps outside rows, lose any focus
+                            // Clear selected row & editing
                             selectedItemID = nil
+                            editingNameItemID = nil
                         }
                     
                     contentView
@@ -66,11 +70,12 @@ struct ListView: View {
                                 }
                             }
                             
-                            // MARK: - Trailing: Done or Profile (conditional)
+                            // MARK: - Trailing: Done or Profile
                             ToolbarItem(placement: .navigationBarTrailing) {
-                                if selectedItemID != nil {
-                                    // If a row is focused => show Done
+                                if editingNameItemID != nil {
+                                    // If user is actually typing => show "Done"
                                     Button("Done") {
+                                        editingNameItemID = nil
                                         selectedItemID = nil
                                     }
                                     .font(.headline)
@@ -165,6 +170,9 @@ struct ListView: View {
                 item: itemBinding,
                 selectedItemID: $selectedItemID,
                 newlyCreatedItemID: newlyCreatedItemID,
+                // *** 1) We pass a binding for editingNameItemID down
+                editingNameItemID: $editingNameItemID,
+                
                 onNavigateToDetail: {
                     selectedItem = currentItem
                 },

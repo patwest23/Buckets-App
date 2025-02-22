@@ -9,11 +9,13 @@ import SwiftUI
 
 struct ItemRowView: View {
     @Binding var item: ItemModel
-    
     @Binding var selectedItemID: UUID?
     
-    // NEW: Let the row know if it's the recently created item
+    // The newly created item ID (if any) for auto-focus logic
     let newlyCreatedItemID: UUID?
+    
+    // **New**: which row is currently editing the name field
+    @Binding var editingNameItemID: UUID?
     
     let onNavigateToDetail: (() -> Void)?
     let onEmptyNameLostFocus: (() -> Void)?
@@ -25,7 +27,7 @@ struct ItemRowView: View {
     
     @State private var showFullScreenGallery = false
     
-    // Track if user is actively editing the name
+    // FocusState for text field
     @FocusState private var isEditingName: Bool
     
     private let cardCornerRadius: CGFloat = 12
@@ -35,7 +37,6 @@ struct ItemRowView: View {
     private let imageCellSize: CGFloat = 80
     private let spacing: CGFloat = 6
     
-    // Am I selected?
     private var isSelected: Bool {
         selectedItemID == item.id
     }
@@ -43,7 +44,7 @@ struct ItemRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             
-            // MARK: - Top Row
+            // Top Row
             HStack(spacing: 8) {
                 // Checkmark always visible
                 Button(action: toggleCompleted) {
@@ -69,7 +70,7 @@ struct ItemRowView: View {
                     
                     Spacer()
                     
-                    // Navigate to Detail
+                    // Navigate to detail
                     Button {
                         onNavigateToDetail?()
                     } label: {
@@ -87,7 +88,7 @@ struct ItemRowView: View {
                 }
             }
             
-            // If completed & selected => show images, location, etc.
+            // If completed & selected => show images
             if item.completed, isSelected, !item.imageUrls.isEmpty {
                 let columns = Array(repeating: GridItem(.fixed(imageCellSize), spacing: spacing), count: 3)
                 
@@ -122,6 +123,7 @@ struct ItemRowView: View {
                 }
             }
             
+            // Location & Date
             if item.completed, isSelected, (hasLocation || hasDate) {
                 HStack(spacing: 0) {
                     column1View.frame(maxWidth: .infinity)
@@ -150,36 +152,43 @@ struct ItemRowView: View {
                 selectedItemID = item.id
             }
         }
-        // If the name changes and it's non-empty, update Firestore
-        .onChange(of: item.name) { oldValue, newValue in
+        
+        // Keep partial edits if name is non-empty
+        .onChange(of: item.name) { _, newValue in
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 bucketListViewModel.addOrUpdateItem(item)
             }
         }
-        // If user stops editing and name is empty => delete
-        .onChange(of: isEditingName) { oldValue, newValue in
-            if oldValue == true && newValue == false {
+        
+        // If user stops editing & name is empty => delete
+        .onChange(of: isEditingName) { oldVal, newVal in
+            // Toggle parent's editingNameItemID
+            if newVal {
+                // Just gained focus => let parent know
+                editingNameItemID = item.id
+            } else {
+                // Lost focus => if parent's editingNameItemID was me, set nil
+                if editingNameItemID == item.id {
+                    editingNameItemID = nil
+                }
+                
+                // Check if empty => delete
                 if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     onEmptyNameLostFocus?()
                 }
             }
         }
-        // NEW: If I become selected AND I'm the newly created item => focus text field
+        
+        // If I become selected & I'm newlyCreated => auto-focus
         .onChange(of: isSelected) { _, newVal in
             if newVal, item.id == newlyCreatedItemID {
                 isEditingName = true
-                // optionally, you can clear newlyCreatedItemID so it doesn't refocus
-                // next time this row is tapped:
-                // e.g. bucketListViewModel.newlyCreatedItemID = nil
             }
         }
     }
     
-    // ...
-    // (The rest of your helpers remain the same)
-    
-    // Example helpers:
+    // Column Helpers
     @ViewBuilder
     var column1View: some View {
         if hasLocation {
@@ -214,6 +223,7 @@ struct ItemRowView: View {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
         }
+        
         bucketListViewModel.addOrUpdateItem(updated)
     }
     
@@ -254,12 +264,12 @@ struct ItemRowView_Previews: PreviewProvider {
         )
         
         return Group {
-            
             // 1) Light Mode - Unselected, not newly created
             ItemRowView(
                 item: .constant(sampleItem),
-                selectedItemID: .constant(nil),      // Row is NOT selected
-                newlyCreatedItemID: nil,            // Not newly created
+                selectedItemID: .constant(nil),     // Row is NOT selected
+                newlyCreatedItemID: nil,           // Not newly created
+                editingNameItemID: .constant(nil), // No row is actively editing name
                 onNavigateToDetail: { print("Navigate detail!") },
                 onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
             )
@@ -274,6 +284,7 @@ struct ItemRowView_Previews: PreviewProvider {
                 item: .constant(sampleItem),
                 selectedItemID: .constant(sampleItem.id), // Row is selected
                 newlyCreatedItemID: sampleItem.id,        // Pretend it's newly created
+                editingNameItemID: .constant(nil),        // Not actively editing in this preview
                 onNavigateToDetail: { print("Navigate detail!") },
                 onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
             )
