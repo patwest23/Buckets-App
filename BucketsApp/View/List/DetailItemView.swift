@@ -25,36 +25,60 @@ struct DetailItemView: View {
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
     
-    // Spinner for uploads
     @State private var isUploading = false
-    
-    // MARK: - **New** local state for delete alert
     @State private var showDeleteAlert = false
     
-    // MARK: - Focus States for text editing
+    // Focus States
     @FocusState private var isNameFocused: Bool
     @FocusState private var isNotesFocused: Bool
     
+    // MARK: - Styling Constants
+    private let cardCornerRadius: CGFloat = 12
+    private let cardShadowRadius: CGFloat = 4
+    
     var body: some View {
         VStack {
-            // Content ScrollView
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                
+                // Main Card Container
+                VStack(alignment: .leading, spacing: 16) {
                     
+                    // Basic Info (title + checkmark)
                     basicInfoRow
+                        .padding(.horizontal, 12)
+                        .padding(.top, 12)
+                    
+                    // Photos
                     photoPickerRow
+                        .padding(.horizontal, 12)
+                    
+                    // Dates
                     dateCreatedLine
+                        .padding(.horizontal, 12)
                     dateCompletedLine
+                        .padding(.horizontal, 12)
+                    
+                    // Location
                     locationRow
+                        .padding(.horizontal, 12)
+                    
+                    // Notes
                     descriptionRow
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
                     
                 }
-                .padding()
-                .background(Color(uiColor: .systemBackground))
+                .background(
+                    RoundedRectangle(cornerRadius: cardCornerRadius)
+                        .fill(Color(UIColor.secondarySystemGroupedBackground))
+                        .shadow(color: .black.opacity(0.1),
+                                radius: cardShadowRadius, x: 0, y: 2)
+                )
+                .padding()  // Outer padding from screen edges
+                
             }
-            .background(Color(uiColor: .systemBackground))
             
-            // MARK: - DELETE BUTTON
+            // DELETE BUTTON
             Button(role: .destructive) {
                 showDeleteAlert = true
             } label: {
@@ -62,17 +86,17 @@ struct DetailItemView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(8)
             }
-            .background(Color.red.opacity(0.1))
-            .cornerRadius(8)
-            .padding()
-            
+            .padding(.horizontal)
+            .padding(.bottom, 8)
         }
-        // Empty navigation title, but inline
+        // Navigation Title
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         
-        // MARK: - Toolbar (Done button for textfields)
+        // Toolbar: "Done" button for textfields
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isNameFocused || isNotesFocused {
@@ -86,7 +110,7 @@ struct DetailItemView: View {
             }
         }
         
-        // MARK: - Delete Confirmation Alert
+        // Delete Confirmation Alert
         .alert(
             "Are you sure you want to delete this item?",
             isPresented: $showDeleteAlert
@@ -95,7 +119,6 @@ struct DetailItemView: View {
                 Task {
                     await bucketListViewModel.deleteItem(item)
                 }
-                // After deleting, dismiss this detail view
                 presentationMode.wrappedValue.dismiss()
             }
             Button("Cancel", role: .cancel) {}
@@ -103,15 +126,11 @@ struct DetailItemView: View {
             Text("This cannot be undone. You will lose “\(item.name)” permanently.")
         }
         
-        .onChange(of: imagePickerVM.uiImages) { oldImages, newImages in
-            // 1) Clear out old images from your item (if needed):
-            //    This ensures the new selection replaces the old.
+        // Update images on change
+        .onChange(of: imagePickerVM.uiImages) { _, newImages in
             if !newImages.isEmpty {
-                // e.g. if your item has an array of image URLs:
                 item.imageUrls.removeAll()
             }
-            
-            // 2) Now upload the new images
             Task {
                 await uploadPickedImages(newImages)
             }
@@ -119,58 +138,58 @@ struct DetailItemView: View {
     }
 }
 
-// MARK: - Subviews (unchanged except for the addition of the Delete Button above)
+// MARK: - Subviews
 extension DetailItemView {
+    
     // (1) Basic info row
     fileprivate var basicInfoRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Button {
-                    Task { await toggleCompleted() }
-                } label: {
-                    Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                        .imageScale(.large)
-                        .foregroundColor(item.completed ? .accentColor : .gray)
-                }
-                .buttonStyle(.borderless)
-                
-                if #available(iOS 16.0, *) {
-                    TextField(
-                        "",
-                        text: Binding(
-                            get: { item.name },
-                            set: { newValue in
-                                item.name = newValue
-                                updateItem()
-                            }
-                        ),
-                        axis: .vertical
+        HStack(spacing: 10) {
+            Button {
+                Task { await toggleCompleted() }
+            } label: {
+                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
+                    .imageScale(.large)
+                    .foregroundColor(item.completed ? .accentColor : .gray)
+            }
+            .buttonStyle(.borderless)
+            
+            // Editable Title
+            if #available(iOS 16.0, *) {
+                TextField(
+                    "Untitled",
+                    text: Binding(
+                        get: { item.name },
+                        set: { newValue in
+                            item.name = newValue
+                            updateItem()
+                        }
+                    ),
+                    axis: .vertical
+                )
+                .lineLimit(1...3)
+                .foregroundColor(item.completed ? .gray : .primary)
+                .focused($isNameFocused)
+            } else {
+                TextField(
+                    "Untitled",
+                    text: Binding(
+                        get: { item.name },
+                        set: { newValue in
+                            item.name = newValue
+                            updateItem()
+                        }
                     )
-                    .lineLimit(1...10)
-                    .foregroundColor(item.completed ? .gray : .primary)
-                    .focused($isNameFocused)
-                } else {
-                    TextField(
-                        "",
-                        text: Binding(
-                            get: { item.name },
-                            set: { newValue in
-                                item.name = newValue
-                                updateItem()
-                            }
-                        )
-                    )
-                    .foregroundColor(item.completed ? .gray : .primary)
-                    .focused($isNameFocused)
-                }
+                )
+                .foregroundColor(item.completed ? .gray : .primary)
+                .focused($isNameFocused)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
     
     // (2) Photos Picker
     fileprivate var photoPickerRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             if item.completed {
                 HStack {
                     PhotosPicker(
@@ -181,7 +200,6 @@ extension DetailItemView {
                         Text("📸   Select Photos")
                             .font(.headline)
                             .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     
                     if isUploading {
@@ -189,67 +207,21 @@ extension DetailItemView {
                             .padding(.trailing, 8)
                     }
                 }
-                .padding(.vertical, 8)
                 
+                // Show UI images or downloaded URLs
                 if !imagePickerVM.uiImages.isEmpty {
                     photoGrid(uiImages: imagePickerVM.uiImages)
                 } else if !item.imageUrls.isEmpty {
                     photoGrid(urlStrings: item.imageUrls)
                 }
             } else {
-                // If not completed => show disabled UI
-                HStack {
-                    Text("📸   Select Photos")
-                        .font(.headline)
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding(.vertical, 8)
+                // Disabled state if not completed
+                Text("📸   Select Photos")
+                    .font(.headline)
+                    .foregroundColor(.gray)
             }
         }
-    }
-    
-    private func photoGrid(uiImages: [UIImage]) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-            ForEach(uiImages, id: \.self) { uiImage in
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 100, height: 100)
-                    .clipped()
-                    .cornerRadius(8)
-            }
-        }
-        .padding(.vertical, 10)
-    }
-    
-    private func photoGrid(urlStrings: [String]) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-            ForEach(urlStrings, id: \.self) { urlStr in
-                if let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .clipped()
-                                .cornerRadius(8)
-                        case .failure:
-                            EmptyView()
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                } else {
-                    EmptyView()
-                }
-            }
-        }
-        .padding(.vertical, 10)
+        .padding(.vertical, 4)
     }
     
     // (3) Date Created
@@ -262,8 +234,10 @@ extension DetailItemView {
             Text(formattedDate(item.creationDate))
                 .foregroundColor(.accentColor)
         }
-        .padding(.vertical, 8)
-        .onTapGesture { showDateCreatedSheet = true }
+        .padding(.vertical, 4)
+        .onTapGesture {
+            showDateCreatedSheet = true
+        }
         .sheet(isPresented: $showDateCreatedSheet) {
             datePickerSheet(
                 title: "Select Date Created",
@@ -283,7 +257,7 @@ extension DetailItemView {
             Text(item.completed ? formattedDate(item.dueDate) : "--")
                 .foregroundColor(item.completed ? .accentColor : .gray)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .onTapGesture {
             if item.completed {
                 showDateCompletedSheet = true
@@ -310,10 +284,11 @@ extension DetailItemView {
     
     // (5) Location Row
     fileprivate var locationRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("📍")
                     .foregroundColor(.primary)
+                
                 TextField(
                     "Enter location...",
                     text: Binding(
@@ -329,13 +304,13 @@ extension DetailItemView {
                 .foregroundColor(.primary)
             }
             .font(.headline)
-            .padding(.vertical, 8)
+            .padding(.vertical, 4)
         }
     }
     
     // (6) Notes (Description)
     fileprivate var descriptionRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("📝   Caption")
                 .font(.headline)
                 .foregroundColor(.primary)
@@ -349,27 +324,72 @@ extension DetailItemView {
                     }
                 )
             )
-            .frame(minHeight: 150)
-            .foregroundColor(.primary)
+            .frame(minHeight: 120)
             .focused($isNotesFocused)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Photo Grid Helpers
+extension DetailItemView {
+    
+    private func photoGrid(uiImages: [UIImage]) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+            ForEach(uiImages, id: \.self) { uiImage in
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 100, height: 100)
+                    .cornerRadius(8)
+                    .clipped()
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func photoGrid(urlStrings: [String]) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+            ForEach(urlStrings, id: \.self) { urlStr in
+                if let url = URL(string: urlStr) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .cornerRadius(8)
+                                .clipped()
+                        case .failure:
+                            EmptyView()
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                } else {
+                    EmptyView()
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
 // MARK: - Private Helpers
 extension DetailItemView {
-    
     /// Upload newly picked images => Firebase => update item.imageUrls
     private func uploadPickedImages(_ images: [UIImage]) async {
         guard let userId = onboardingViewModel.user?.id else { return }
         guard item.completed else { return }
         
         isUploading = true
-
+        
         let storageRef = Storage.storage().reference()
-                         .child("users/\(userId)/item-\(item.id.uuidString)")
-
+            .child("users/\(userId)/item-\(item.id.uuidString)")
+        
         var newUrls: [String] = []
         
         for (index, uiImage) in images.enumerated() {
@@ -386,7 +406,7 @@ extension DetailItemView {
         }
         
         isUploading = false
-
+        
         if item.completed && !newUrls.isEmpty {
             item.imageUrls.append(contentsOf: newUrls)
             updateItem()
@@ -427,15 +447,17 @@ extension DetailItemView {
         }
     }
     
-    /// Toggle completed => set or clear dueDate
+    /// Toggle completed => set or clear dueDate + haptic feedback
     private func toggleCompleted() async {
-        if !item.completed {
-            item.completed = true
-            item.dueDate = Date()
-        } else {
-            item.completed = false
-            item.dueDate = nil
+        item.completed.toggle()
+        item.dueDate = item.completed ? Date() : nil
+        
+        // Simple haptic for success
+        if item.completed {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
         }
+        
         bucketListViewModel.addOrUpdateItem(item)
     }
     

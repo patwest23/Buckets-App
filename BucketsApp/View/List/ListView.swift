@@ -18,100 +18,116 @@ struct ListView: View {
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
-    init(previewMode: Bool = false) {
-            if previewMode {
-                _isLoading = State(initialValue: false)
-            }
-        }
+    // Single source of truth for which row is "focused"
+    @State private var selectedItemID: UUID? = nil
     
-    // Focus logic
-    @FocusState private var focusedItemId: UUID?
+    // Tracks the newest item so it auto-focuses its text field
+    @State private var newlyCreatedItemID: UUID? = nil
     
     // iOS 17: track item for scroll-to
     @State private var scrollToId: UUID?
+    
+    // For preview purposes
+    init(previewMode: Bool = false) {
+        if previewMode {
+            _isLoading = State(initialValue: false)
+        }
+    }
     
     private enum ViewStyle: String {
         case list, detailed, completed, incomplete
     }
     @State private var selectedViewStyle: ViewStyle = .list
-
+    
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
                 ZStack {
-                    contentView
+                    // Background to clear focus when tapped
+                    Color(uiColor: .systemBackground)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            // If user taps outside rows, lose any focus
+                            selectedItemID = nil
+                        }
                     
-                    // Show add button only if no item is being edited
-                    if focusedItemId == nil {
-                        addButton
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    }
-                }
-                .background(Color(UIColor.systemGroupedBackground))
-                .navigationTitle("Bucket List")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    // MARK: - Leading: user name
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        if let user = onboardingViewModel.user {
-                            Text(user.username ?? "Unknown")
-                                .font(.headline)
-                        } else {
-                            Text("No Name")
-                                .font(.headline)
-                        }
-                    }
-                    // MARK: - Trailing: Done or Profile
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        if focusedItemId != nil {
-                            Button("Done") {
-                                focusedItemId = nil
-                                removeBlankItems()
+                    contentView
+                        .navigationTitle("Bucket List")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            // MARK: - Leading: user name
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                if let user = onboardingViewModel.user {
+                                    Text(user.username ?? "Unknown")
+                                        .font(.headline)
+                                } else {
+                                    Text("No Name")
+                                        .font(.headline)
+                                }
                             }
-                            .font(.headline)
-                            .foregroundColor(.accentColor)
-                        } else {
-                            Button {
-                                showProfileView = true
-                            } label: {
-                                profileImageView
+                            
+                            // MARK: - Trailing: Done or Profile (conditional)
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                if selectedItemID != nil {
+                                    // If a row is focused => show Done
+                                    Button("Done") {
+                                        selectedItemID = nil
+                                    }
+                                    .font(.headline)
+                                    .foregroundColor(.accentColor)
+                                } else {
+                                    // Otherwise => show profile button
+                                    Button {
+                                        showProfileView = true
+                                    } label: {
+                                        profileImageView
+                                    }
+                                }
+                            }
+                            
+                            // MARK: - Bottom Bar: Add Button
+                            ToolbarItem(placement: .bottomBar) {
+                                HStack {
+                                    Spacer()
+                                    addButton
+                                    Spacer()
+                                }
+                                .padding(.top, 4)
                             }
                         }
-                    }
-                }
-                .onAppear {
-                    loadItems()
-                }
-                // Navigation to Profile
-                .navigationDestination(isPresented: $showProfileView) {
-                    ProfileView()
-                        .environmentObject(onboardingViewModel)
-                        .environmentObject(userViewModel)
-                        .environmentObject(bucketListViewModel)
-                }
-                // Navigation to Detail
-                .navigationDestination(item: $selectedItem) { item in
-                    DetailItemView(item: bindingForItem(item))
-                        .environmentObject(bucketListViewModel)
-                        .environmentObject(onboardingViewModel)
-                }
-                // Delete confirmation
-                .alert("Are you sure you want to delete this item?",
-                       isPresented: $bucketListViewModel.showDeleteAlert) {
-                    Button("Delete", role: .destructive) {
-                        if let toDelete = itemToDelete {
-                            deleteItem(toDelete)
+                        .onAppear { loadItems() }
+                        // Navigate to Profile
+                        .navigationDestination(isPresented: $showProfileView) {
+                            ProfileView()
+                                .environmentObject(onboardingViewModel)
+                                .environmentObject(userViewModel)
+                                .environmentObject(bucketListViewModel)
                         }
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    if let toDelete = itemToDelete {
-                        Text("Delete “\(toDelete.name)” from your list?")
-                    }
+                        // Navigate to Detail
+                        .navigationDestination(item: $selectedItem) { item in
+                            DetailItemView(item: bindingForItem(item))
+                                .environmentObject(bucketListViewModel)
+                                .environmentObject(onboardingViewModel)
+                        }
+                        // Delete confirmation
+                        .alert("Are you sure you want to delete this item?",
+                               isPresented: $bucketListViewModel.showDeleteAlert) {
+                            Button("Delete", role: .destructive) {
+                                if let toDelete = itemToDelete {
+                                    deleteItem(toDelete)
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            if let toDelete = itemToDelete {
+                                Text("Delete “\(toDelete.name)” from your list?")
+                            }
+                        }
                 }
-                
             } else {
                 Text("Please use iOS 17 or later.")
+                    .font(.headline)
+                    .padding()
             }
         }
     }
@@ -128,7 +144,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Derived Items
+    // MARK: - Displayed Items
     private var displayedItems: [ItemModel] {
         switch selectedViewStyle {
         case .list, .detailed:
@@ -141,69 +157,29 @@ struct ListView: View {
     }
     
     // MARK: - The List
-    @ViewBuilder
     private var itemListView: some View {
-        if #available(iOS 17.0, *) {
-            List(displayedItems, id: \.id) { aItem in
-                let itemBinding = bindingForItem(aItem)
-                
-                VStack(alignment: .leading, spacing: 0) {
-                    ItemRowView(
-                        item: itemBinding,
-                        onNavigateToDetail: { selectedItem = aItem },
-                        onEmptyNameLostFocus: { deleteItemIfEmpty(aItem) }
-                    )
-                    .focused($focusedItemId, equals: aItem.id)
+        List(displayedItems, id: \.id) { currentItem in
+            let itemBinding = bindingForItem(currentItem)
+            
+            ItemRowView(
+                item: itemBinding,
+                selectedItemID: $selectedItemID,
+                newlyCreatedItemID: newlyCreatedItemID,
+                onNavigateToDetail: {
+                    selectedItem = currentItem
+                },
+                onEmptyNameLostFocus: {
+                    deleteItemIfEmpty(currentItem)
                 }
-//                .padding(4) // smaller padding
-                .background(
-                    RoundedRectangle(cornerRadius: 8) // smaller corner radius
-                        .fill(Color(UIColor.secondarySystemGroupedBackground))
-                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-                )
-                // You can remove these if you want even less spacing
-//                .padding(.vertical, 2)
-                .padding(.horizontal, 2)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-            .scrollTargetLayout()
-            .scrollPosition(id: $scrollToId)
-            .listStyle(.plain)
+            )
             .listRowSeparator(.hidden)
-            .background(Color(UIColor.systemGroupedBackground))
-        } else {
-            // iOS < 17 fallback
-            List(displayedItems, id: \.id) { aItem in
-                let itemBinding = bindingForItem(aItem)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    ItemRowView(
-                        item: itemBinding,
-                        onNavigateToDetail: {
-                            selectedItem = aItem
-                        },
-                        onEmptyNameLostFocus: {
-                            deleteItemIfEmpty(aItem)
-                        }
-                    )
-                    .focused($focusedItemId, equals: aItem.id)
-                }
-//                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(UIColor.secondarySystemGroupedBackground))
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                )
-//                .padding(.vertical, 1)
-                .padding(.horizontal, 1)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-            .listStyle(.plain)
-            .listRowSeparator(.hidden)
-            .background(Color(UIColor.systemGroupedBackground))
+            .listRowBackground(Color.clear)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color(uiColor: .systemBackground))
+        .scrollTargetLayout()
+        .scrollPosition(id: $scrollToId)
     }
     
     // MARK: - Loading / Empty
@@ -227,6 +203,7 @@ struct ListView: View {
     private func loadItems() {
         Task {
             isLoading = true
+            // Simulate a short delay
             try? await Task.sleep(nanoseconds: 500_000_000)
             isLoading = false
         }
@@ -243,50 +220,63 @@ struct ListView: View {
                 return
             }
             
-            let newItem = ItemModel(
-                userId: onboardingViewModel.user?.id ?? ""
-            )
+            let newItem = ItemModel(userId: onboardingViewModel.user?.id ?? "")
             bucketListViewModel.addOrUpdateItem(newItem)
             
-            // Focus + scroll
-            focusedItemId = newItem.id
             scrollToId = newItem.id
+            selectedItemID = newItem.id
+            newlyCreatedItemID = newItem.id
             
         } label: {
             ZStack {
                 Circle()
                     .frame(width: 60, height: 60)
                     .foregroundColor(.accentColor)
-                    .shadow(color: .gray, radius: 10, x: 0, y: 5)
+                    .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
+                
                 Image(systemName: "plus")
                     .foregroundColor(.white)
                     .font(.system(size: 30, weight: .bold))
             }
         }
-        .padding()
     }
     
     // MARK: - Profile Image
     private var profileImageView: some View {
+        let (image, hasCustomImage) = loadProfileImage()
+        
+        return image
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 35, height: 35)
+            .clipShape(Circle())
+            .modifier(overlayOrColor(hasCustomImage: hasCustomImage))
+    }
+    
+    private func loadProfileImage() -> (Image, Bool) {
         if let data = onboardingViewModel.profileImageData,
            let uiImage = UIImage(data: data) {
-            AnyView(
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 35, height: 35)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.accentColor, lineWidth: 1))
-            )
+            return (Image(uiImage: uiImage), true)
         } else {
-            AnyView(
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 35, height: 35)
-                    .clipShape(Circle())
-                    .foregroundColor(.accentColor)
-            )
+            return (Image(systemName: "person.crop.circle.fill"), false)
+        }
+    }
+    
+    private struct overlayOrColor: ViewModifier {
+        let hasCustomImage: Bool
+        
+        func body(content: Content) -> some View {
+            if hasCustomImage {
+                return AnyView(
+                    content
+                        .overlay(Circle().stroke(Color.accentColor, lineWidth: 1))
+                )
+            } else {
+                return AnyView(
+                    content
+                        .foregroundColor(.accentColor)
+                )
+            }
         }
     }
     
@@ -299,11 +289,6 @@ struct ListView: View {
     }
     
     // MARK: - Deletion
-    private func showDeleteConfirmation(for item: ItemModel) {
-        itemToDelete = item
-        bucketListViewModel.showDeleteAlert = true
-    }
-    
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Task {
@@ -316,17 +301,6 @@ struct ListView: View {
         print("Deleting item: \(item.name)")
         Task {
             await bucketListViewModel.deleteItem(item)
-        }
-    }
-    
-    private func removeBlankItems() {
-        let blankItems = bucketListViewModel.items.filter {
-            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-        for item in blankItems {
-            Task {
-                await bucketListViewModel.deleteItem(item)
-            }
         }
     }
 }
