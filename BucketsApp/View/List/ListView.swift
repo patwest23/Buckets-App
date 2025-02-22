@@ -18,6 +18,12 @@ struct ListView: View {
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
+    init(previewMode: Bool = false) {
+            if previewMode {
+                _isLoading = State(initialValue: false)
+            }
+        }
+    
     // Focus logic
     @FocusState private var focusedItemId: UUID?
     
@@ -42,7 +48,6 @@ struct ListView: View {
                     }
                 }
                 .background(Color(UIColor.systemGroupedBackground))
-                
                 .navigationTitle("Bucket List")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -142,26 +147,23 @@ struct ListView: View {
             List(displayedItems, id: \.id) { aItem in
                 let itemBinding = bindingForItem(aItem)
                 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 0) {
                     ItemRowView(
                         item: itemBinding,
-                        onNavigateToDetail: {
-                            selectedItem = aItem
-                        },
-                        onEmptyNameLostFocus: {
-                            deleteItemIfEmpty(aItem)
-                        }
+                        onNavigateToDetail: { selectedItem = aItem },
+                        onEmptyNameLostFocus: { deleteItemIfEmpty(aItem) }
                     )
                     .focused($focusedItemId, equals: aItem.id)
                 }
-                .padding()
+//                .padding(4) // smaller padding
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: 8) // smaller corner radius
                         .fill(Color(UIColor.secondarySystemGroupedBackground))
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
                 )
-                .padding(.vertical, 1)
-                .padding(.horizontal, 1)
+                // You can remove these if you want even less spacing
+//                .padding(.vertical, 2)
+                .padding(.horizontal, 2)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
@@ -187,31 +189,16 @@ struct ListView: View {
                     )
                     .focused($focusedItemId, equals: aItem.id)
                 }
-                .padding()
+//                .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color(UIColor.secondarySystemGroupedBackground))
                         .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 )
-                .padding(.vertical, 1)
+//                .padding(.vertical, 1)
                 .padding(.horizontal, 1)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                // If you still want swipe-to-delete for older OS:
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation(for: aItem)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
-                .swipeActions(edge: .leading) {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation(for: aItem)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
             }
             .listStyle(.plain)
             .listRowSeparator(.hidden)
@@ -353,23 +340,24 @@ struct ListView_Previews: PreviewProvider {
         mockListVMWithItems.items = [
             ItemModel(
                 userId: "mockUID",
-                name: "Skydive Over the Grand Canyon",
-                completed: false,
-                orderIndex: 0, imageUrls: []
+                name: "Skydive",
+                completed: false
             ),
             ItemModel(
                 userId: "mockUID",
                 name: "Visit Tokyo",
                 completed: true,
-                orderIndex: 1, imageUrls: [
-                    "https://picsum.photos/400/400?random=1"
+                // 3 random image URLs
+                imageUrls: [
+                    "https://picsum.photos/400/400?random=1",
+                    "https://picsum.photos/400/400?random=2",
+                    "https://picsum.photos/400/400?random=3"
                 ]
             ),
             ItemModel(
                 userId: "mockUID",
-                name: "Learn to Play the Guitar",
-                completed: false,
-                orderIndex: 2, imageUrls: []
+                name: "Learn Guitar",
+                completed: false
             )
         ]
         
@@ -377,7 +365,7 @@ struct ListView_Previews: PreviewProvider {
         let mockUserVM = UserViewModel()
         
         return Group {
-            // 1) Empty List scenario
+            // 1) Empty scenario
             NavigationStack {
                 ListView()
                     .environmentObject(mockListVMEmpty)
@@ -388,12 +376,13 @@ struct ListView_Previews: PreviewProvider {
             
             // 2) Populated scenario
             NavigationStack {
-                ListView()
+                // Pass previewMode: true => isLoading = false
+                ListView(previewMode: true)
                     .environmentObject(mockListVMWithItems)
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
             }
-            .previewDisplayName("ListView - With Items")
+            .previewDisplayName("ListView - With Items (3 real images)")
         }
     }
 }

@@ -9,18 +9,19 @@ import SwiftUI
 
 struct FullScreenCarouselView: View {
     let imageUrls: [String]
+    let itemName: String
+    
     @Environment(\.dismiss) var dismiss
     
-    // We read from the view model’s `imageCache`.
     @EnvironmentObject var listViewModel: ListViewModel
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
+            
+            // 1) Main TabView of images
             TabView {
                 ForEach(imageUrls, id: \.self) { urlStr in
-                    // 1) Check if this URL is in the cache
                     if let uiImage = listViewModel.imageCache[urlStr] {
-                        // 2) Display the pinch-zoom image from the cached UIImage
                         VStack {
                             PinchZoomImage(
                                 image: Image(uiImage: uiImage)
@@ -30,9 +31,8 @@ struct FullScreenCarouselView: View {
                         }
                         .background(Color.black)
                         .ignoresSafeArea()
-                        
                     } else {
-                        // 3) Fallback if not in cache => show a placeholder or color
+                        // Placeholder
                         VStack {
                             ProgressView("Loading image...")
                                 .foregroundColor(.white)
@@ -48,7 +48,7 @@ struct FullScreenCarouselView: View {
             .background(Color.black)
             .ignoresSafeArea()
             
-            // Dismiss button (X) in the top-right corner
+            // 2) Dismiss button (X) in the top-right corner
             Button {
                 dismiss()
             } label: {
@@ -57,6 +57,64 @@ struct FullScreenCarouselView: View {
                     .foregroundColor(.white)
                     .padding()
             }
+        }
+        // 3) Overlay the item name + checkmark at the bottom in white
+        .overlay(
+            VStack {
+                Spacer()
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.white)
+                    
+                    Text(itemName)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
+                .padding(.bottom, 30)  // extra spacing from the bottom edge
+            }
+        )
+    }
+}
+
+// MARK: - Preview
+struct FullScreenCarouselView_Previews: PreviewProvider {
+    static var previews: some View {
+        // 1) Create a mock ListViewModel and populate imageCache
+        let mockListVM = ListViewModel()
+        
+        // Here we’re using SF Symbols as placeholders, but you can load actual UIImage data if you prefer
+        if let sfSymbol = UIImage(systemName: "photo") {
+            mockListVM.imageCache["https://example.com/image1"] = sfSymbol
+            mockListVM.imageCache["https://example.com/image2"] = sfSymbol
+            mockListVM.imageCache["https://example.com/image3"] = sfSymbol
+        }
+        
+        // 2) Provide an array of 3 URLs that match the keys in imageCache
+        let sampleUrls = [
+            "https://example.com/image1",
+            "https://example.com/image2",
+            "https://example.com/image3"
+        ]
+        
+        // 3) Preview in both Light & Dark mode (though the text is always white now)
+        return Group {
+            // Light mode
+            FullScreenCarouselView(
+                imageUrls: sampleUrls,
+                itemName: "Visit Tokyo"
+            )
+            .environmentObject(mockListVM)
+            .preferredColorScheme(.light)
+            .previewDisplayName("Light Mode")
+            
+            // Dark mode
+            FullScreenCarouselView(
+                imageUrls: sampleUrls,
+                itemName: "Visit Tokyo"
+            )
+            .environmentObject(mockListVM)
+            .preferredColorScheme(.dark)
+            .previewDisplayName("Dark Mode")
         }
     }
 }

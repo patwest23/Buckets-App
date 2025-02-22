@@ -20,14 +20,14 @@ struct ItemRowView: View {
     
     // Grid layout constants
     private let columnsCount = 3
-    private let spacing: CGFloat = 8
-    private let imageCellSize: CGFloat = 100
+    private let spacing: CGFloat = 6  // less horizontal spacing
+    private let imageCellSize: CGFloat = 90 // slightly smaller images => shorter row
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {  // minimal vertical spacing
             
-            // MARK: - Top Row (toggle + multiline text + chevron)
-            HStack(spacing: 12) {
+            // MARK: - Top Row
+            HStack(spacing: 8) { // smaller horizontal spacing
                 Button(action: toggleCompleted) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
@@ -45,7 +45,7 @@ struct ItemRowView: View {
                         ),
                         axis: .vertical
                     )
-                    .lineLimit(1...5)
+                    .lineLimit(1...3) // reduce max lines to shrink height
                 } else {
                     TextField(
                         "",
@@ -66,11 +66,10 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 4) // slight vertical padding for button / text alignment
             
             // MARK: - Images Grid
             if item.completed, !item.imageUrls.isEmpty {
-                // 3 columns, each fixed to 100 points wide
                 let columns = Array(
                     repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
                     count: columnsCount
@@ -97,12 +96,15 @@ struct ItemRowView: View {
                     }
                 }
                 .fullScreenCover(isPresented: $showFullScreenGallery) {
-                    FullScreenCarouselView(imageUrls: item.imageUrls)
-                        .environmentObject(bucketListViewModel)
-                }
-            }
+                    FullScreenCarouselView(
+                        imageUrls: item.imageUrls,
+                        itemName: item.name
+                    )
+                    .environmentObject(bucketListViewModel)
+                }            }
         }
-        .padding()
+        .padding(.horizontal, 6) // small horizontal inset
+        .padding(.vertical, 10)   // small vertical inset
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: item.name) {
             let trimmed = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
