@@ -24,7 +24,7 @@ struct ListView: View {
     // Tracks the newest item so it auto-focuses its text field
     @State private var newlyCreatedItemID: UUID? = nil
     
-    // **New**: which item is actively editing the name field
+    // Which item is actively editing the name field
     @State private var editingNameItemID: UUID? = nil
     
     // iOS 17: track item for scroll-to
@@ -46,47 +46,59 @@ struct ListView: View {
         NavigationStack {
             if #available(iOS 17.0, *) {
                 ZStack {
-                    // Background to clear focus on tap outside
+                    // Background to clear focus when tapped
                     Color(uiColor: .systemBackground)
                         .ignoresSafeArea()
                         .onTapGesture {
-                            // Clear selected row & editing
+                            // Clear any focused row or editing
                             selectedItemID = nil
                             editingNameItemID = nil
                         }
                     
                     contentView
-                        .navigationTitle("Bucket List")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            // MARK: - Leading: user name
-                            ToolbarItem(placement: .navigationBarLeading) {
-                                if let user = onboardingViewModel.user {
-                                    Text(user.username ?? "Unknown")
+                            // MARK: - Principal: Left = "Bucket List", Right = Button(@username + profile)
+                            ToolbarItem(placement: .principal) {
+                                HStack {
+                                    Text("Bucket List")
                                         .font(.headline)
-                                } else {
-                                    Text("No Name")
-                                        .font(.headline)
+                                    
+                                    Spacer()
+                                    
+                                    // Button that triggers ProfileView
+                                    Button {
+                                        showProfileView = true
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            // Show username
+                                            if let user = onboardingViewModel.user {
+                                                Text(user.username ?? "Unknown")
+                                                    .font(.headline)
+                                            } else {
+                                                Text("@NoName")
+                                                    .font(.headline)
+                                            }
+                                            
+                                            // Profile image
+                                            profileImageView
+                                                .frame(width: 35, height: 35)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                             
-                            // MARK: - Trailing: Done or Profile
+                            // MARK: - Trailing: Done button if editing
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 if editingNameItemID != nil {
-                                    // If user is actually typing => show "Done"
                                     Button("Done") {
+                                        // End editing
                                         editingNameItemID = nil
                                         selectedItemID = nil
                                     }
                                     .font(.headline)
                                     .foregroundColor(.accentColor)
-                                } else {
-                                    // Otherwise => show profile button
-                                    Button {
-                                        showProfileView = true
-                                    } label: {
-                                        profileImageView
-                                    }
                                 }
                             }
                             
@@ -101,7 +113,7 @@ struct ListView: View {
                             }
                         }
                         .onAppear { loadItems() }
-                        // Navigate to Profile
+                        // Profile navigation
                         .navigationDestination(isPresented: $showProfileView) {
                             ProfileView()
                                 .environmentObject(onboardingViewModel)
@@ -170,9 +182,7 @@ struct ListView: View {
                 item: itemBinding,
                 selectedItemID: $selectedItemID,
                 newlyCreatedItemID: newlyCreatedItemID,
-                // *** 1) We pass a binding for editingNameItemID down
                 editingNameItemID: $editingNameItemID,
-                
                 onNavigateToDetail: {
                     selectedItem = currentItem
                 },
@@ -255,8 +265,7 @@ struct ListView: View {
         
         return image
             .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 35, height: 35)
+            .scaledToFill()
             .clipShape(Circle())
             .modifier(overlayOrColor(hasCustomImage: hasCustomImage))
     }

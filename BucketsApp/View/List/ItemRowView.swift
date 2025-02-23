@@ -11,10 +11,7 @@ struct ItemRowView: View {
     @Binding var item: ItemModel
     @Binding var selectedItemID: UUID?
     
-    // The newly created item ID (if any) for auto-focus logic
     let newlyCreatedItemID: UUID?
-    
-    // **New**: which row is currently editing the name field
     @Binding var editingNameItemID: UUID?
     
     let onNavigateToDetail: (() -> Void)?
@@ -27,16 +24,17 @@ struct ItemRowView: View {
     
     @State private var showFullScreenGallery = false
     
-    // FocusState for text field
+    // Focus state for inline editing
     @FocusState private var isEditingName: Bool
     
+    // Styling constants
     private let cardCornerRadius: CGFloat = 12
     private let cardPadding: CGFloat = 8
     private let cardShadowRadius: CGFloat = 4
-    
     private let imageCellSize: CGFloat = 80
     private let spacing: CGFloat = 6
     
+    // Is the row selected?
     private var isSelected: Bool {
         selectedItemID == item.id
     }
@@ -44,9 +42,9 @@ struct ItemRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             
-            // Top Row
+            // MARK: - Top Row (Checkmark + Title or TextField)
             HStack(spacing: 8) {
-                // Checkmark always visible
+                // Checkmark
                 Button(action: toggleCompleted) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
@@ -54,8 +52,8 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
                 
+                // If row is selected => show TextField, else read-only
                 if isSelected {
-                    // Show text field
                     if #available(iOS 16.0, *) {
                         TextField("", text: $item.name, axis: .vertical)
                             .font(.subheadline)
@@ -70,7 +68,7 @@ struct ItemRowView: View {
                     
                     Spacer()
                     
-                    // Navigate to detail
+                    // Chevron only if selected
                     Button {
                         onNavigateToDetail?()
                     } label: {
@@ -80,58 +78,87 @@ struct ItemRowView: View {
                     }
                     .buttonStyle(.borderless)
                 } else {
-                    // Read-only
+                    // Not selected => read-only title
                     Text(item.name.isEmpty ? "Untitled Item" : item.name)
                         .font(.subheadline)
                         .foregroundColor(.primary)
+                    
                     Spacer()
                 }
             }
             
-            // If completed & selected => show images
-            if item.completed, isSelected, !item.imageUrls.isEmpty {
-                let columns = Array(repeating: GridItem(.fixed(imageCellSize), spacing: spacing), count: 3)
+            // MARK: - Completed-Only Details
+            if item.completed {
                 
-                LazyVGrid(columns: columns, spacing: spacing) {
-                    ForEach(item.imageUrls, id: \.self) { urlStr in
-                        if let uiImage = bucketListViewModel.imageCache[urlStr] {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: imageCellSize, height: imageCellSize)
-                                .cornerRadius(8)
-                                .clipped()
-                                .onTapGesture {
-                                    showFullScreenGallery = true
-                                }
-                        } else {
-                            ProgressView()
-                                .frame(width: imageCellSize, height: imageCellSize)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(8)
+                // Images (if any)
+                if !item.imageUrls.isEmpty {
+                    let columns = Array(
+                        repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
+                        count: 3
+                    )
+                    
+                    LazyVGrid(columns: columns, spacing: spacing) {
+                        ForEach(item.imageUrls, id: \.self) { urlStr in
+                            if let uiImage = bucketListViewModel.imageCache[urlStr] {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: imageCellSize, height: imageCellSize)
+                                    .cornerRadius(8)
+                                    .clipped()
+                                    // Only allow tapping if row is selected
+                                    .onTapGesture {
+                                        if isSelected {
+                                            showFullScreenGallery = true
+                                        }
+                                    }
+                            } else {
+                                ProgressView()
+                                    .frame(width: imageCellSize, height: imageCellSize)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(8)
+                            }
                         }
                     }
+                    .fullScreenCover(isPresented: $showFullScreenGallery) {
+                        FullScreenCarouselView(
+                            imageUrls: item.imageUrls,
+                            itemName: item.name,
+                            location: item.location?.address,
+                            dateCompleted: item.dueDate
+                        )
+                        .environmentObject(bucketListViewModel)
+                    }
                 }
-                .fullScreenCover(isPresented: $showFullScreenGallery) {
-                    FullScreenCarouselView(
-                        imageUrls: item.imageUrls,
-                        itemName: item.name,
-                        location: item.location?.address,
-                        dateCompleted: item.dueDate
-                    )
-                    .environmentObject(bucketListViewModel)
+                
+                // Date & Location Row
+                if hasDate || hasLocation {
+                    HStack(spacing: 0) {
+                        // Left alignment for date
+                        if hasDate {
+                            HStack(spacing: 4) {
+                                Image(systemName: "calendar")
+                                Text(shortDateString(from: item.dueDate!))
+                            }
+                            // Enough left padding to align with checkmark
+                            .padding(.leading, 36)
+                        }
+                        
+                        Spacer()
+                        
+                        // Center alignment for location
+                        if hasLocation {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin.and.ellipse")
+                                Text(item.location?.address ?? "")
+                            }
+                        }
+                        
+                        Spacer()
+                    }
+                    .font(.footnote)
+                    .foregroundColor(locationDateColor)
                 }
-            }
-            
-            // Location & Date
-            if item.completed, isSelected, (hasLocation || hasDate) {
-                HStack(spacing: 0) {
-                    column1View.frame(maxWidth: .infinity)
-                    column2View.frame(maxWidth: .infinity)
-                    EmptyView().frame(maxWidth: .infinity)
-                }
-                .font(.footnote)
-                .foregroundColor(locationDateColor)
             }
         }
         .padding(cardPadding)
@@ -145,42 +172,35 @@ struct ItemRowView: View {
                 .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
         )
         .contentShape(Rectangle())
+        
+        // Tapping toggles selection
         .onTapGesture {
-            if isSelected {
-                selectedItemID = nil
-            } else {
-                selectedItemID = item.id
-            }
+            selectedItemID = (isSelected ? nil : item.id)
         }
         
-        // Keep partial edits if name is non-empty
-        .onChange(of: item.name) { _, newValue in
-            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        // If the name changes & is non-empty => update
+        .onChange(of: item.name) { _, newVal in
+            let trimmed = newVal.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 bucketListViewModel.addOrUpdateItem(item)
             }
         }
         
-        // If user stops editing & name is empty => delete
+        // If text field loses focus & name empty => delete
         .onChange(of: isEditingName) { oldVal, newVal in
-            // Toggle parent's editingNameItemID
             if newVal {
-                // Just gained focus => let parent know
                 editingNameItemID = item.id
             } else {
-                // Lost focus => if parent's editingNameItemID was me, set nil
                 if editingNameItemID == item.id {
                     editingNameItemID = nil
                 }
-                
-                // Check if empty => delete
                 if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     onEmptyNameLostFocus?()
                 }
             }
         }
         
-        // If I become selected & I'm newlyCreated => auto-focus
+        // Newly created => auto-focus
         .onChange(of: isSelected) { _, newVal in
             if newVal, item.id == newlyCreatedItemID {
                 isEditingName = true
@@ -188,62 +208,42 @@ struct ItemRowView: View {
         }
     }
     
-    // Column Helpers
-    @ViewBuilder
-    var column1View: some View {
-        if hasLocation {
-            HStack(spacing: 4) {
-                Image(systemName: "mappin.and.ellipse")
-                Text(item.location?.address ?? "")
-            }
-        } else if hasDate {
-            HStack(spacing: 4) {
-                Image(systemName: "calendar")
-                Text(shortDateString(from: item.dueDate!))
-            }
-        }
+    // MARK: - Computed Props
+    private var hasDate: Bool {
+        item.dueDate != nil
+    }
+    private var hasLocation: Bool {
+        guard let address = item.location?.address else { return false }
+        return !address.isEmpty
+    }
+    private var locationDateColor: Color {
+        colorScheme == .dark ? .white : .gray
     }
     
-    @ViewBuilder
-    var column2View: some View {
-        if hasLocationAndDate {
-            HStack(spacing: 4) {
-                Image(systemName: "calendar")
-                Text(shortDateString(from: item.dueDate!))
-            }
-        }
+    // MARK: - Helpers
+    private func shortDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        return formatter.string(from: date)
     }
     
     private func toggleCompleted() {
         var updated = item
         updated.completed.toggle()
-        updated.dueDate = updated.completed ? Date() : nil
         
         if updated.completed {
+            updated.dueDate = Date()  // set date if newly completed
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
+        } else {
+            // item is now incomplete => clear date & hide images
+            updated.dueDate = nil
+            // If you want to remove images or keep them but hide visually,
+            // you can remove them entirely or just keep them.
+            // Let's keep them but not show them if incomplete.
         }
         
         bucketListViewModel.addOrUpdateItem(updated)
-    }
-    
-    private var hasLocation: Bool {
-        guard let address = item.location?.address else { return false }
-        return !address.isEmpty
-    }
-    private var hasDate: Bool {
-        item.completed && item.dueDate != nil
-    }
-    private var hasLocationAndDate: Bool {
-        hasLocation && hasDate
-    }
-    private var locationDateColor: Color {
-        colorScheme == .dark ? .white : .gray
-    }
-    private func shortDateString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        return formatter.string(from: date)
     }
 }
 

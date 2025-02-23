@@ -20,6 +20,24 @@ struct FullScreenCarouselView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var listViewModel: ListViewModel
     
+    // Detect light/dark mode
+    @Environment(\.colorScheme) private var colorScheme
+    
+    // Dynamic background: white if light mode, black if dark
+    private var dynamicBackground: Color {
+        colorScheme == .dark ? .black : .white
+    }
+    
+    // Dynamic foreground for most text/icons
+    private var dynamicForeground: Color {
+        colorScheme == .dark ? .white : .black
+    }
+    
+    // Checkmark color specifically
+    private var checkmarkColor: Color {
+        colorScheme == .dark ? .white : .accentColor
+    }
+    
     // Helper for date formatting
     private var formattedDate: String? {
         guard let dateCompleted = dateCompleted else { return nil }
@@ -39,28 +57,29 @@ struct FullScreenCarouselView: View {
                             image: Image(uiImage: uiImage)
                                 .resizable()
                         )
-//                        .padding(.horizontal, 20)
-                        .background(Color.black)
+                        .background(dynamicBackground)   // adapt to light/dark
                         .ignoresSafeArea()
                     } else {
                         // Placeholder
                         VStack {
                             ProgressView("Loading image...")
-                                .foregroundColor(.white)
+                                .foregroundColor(dynamicForeground)
                                 .padding()
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.black)
+                        .background(dynamicBackground)
                         .ignoresSafeArea()
                     }
                 }
             }
             .tabViewStyle(.page)
-            .background(Color.black)
+            .background(dynamicBackground)
             .ignoresSafeArea()
             
-            // 2) Top-Right: Dismiss (X) button
+            // 2) Dismiss (X) button, pinned top-right but lowered
             VStack {
+                Spacer()
+                    .frame(height: 20) // push it down from top somewhat
                 HStack {
                     Spacer()
                     Button {
@@ -68,72 +87,56 @@ struct FullScreenCarouselView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 32))
-                            .foregroundColor(.white)
-                            .padding()
+                            .foregroundColor(dynamicForeground)
+                            .padding(.trailing, 16)
                     }
                 }
                 Spacer()
             }
-            .ignoresSafeArea(edges: .top)
             
-            // 3) Top-Left: Checkmark + item name
+            // 3) Top-Left: Checkmark + item name, lowered slightly
             VStack {
+                Spacer().frame(height: 50) // offset from the top
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
+                        .font(.headline)
+                        .foregroundColor(checkmarkColor)  // <-- use accent for light, white for dark
                     Text(itemName)
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(dynamicForeground)
+                    Spacer()
                 }
-                // <-- Add a top padding to bring it down
-                .padding(.top, 50)
-                .padding(.horizontal)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 20)
                 
                 Spacer()
             }
-            .ignoresSafeArea(edges: .top)
             
-            // 4) Bottom: Location + Date
+            // 4) Bottom: Date on left, Location on right
+            // (both optional, appear only if present)
             VStack {
                 Spacer()
-                // Show only if location or date exist
-                if let location = location, !location.isEmpty, let dateStr = formattedDate {
-                    HStack(spacing: 20) {
-                        // Location
-                        HStack {
-                            Image(systemName: "mappin.and.ellipse")
-                            Text(location)
-                        }
-                        // Date Completed
+                HStack {
+                    // Date on the left (if present)
+                    if let dateStr = formattedDate {
                         HStack {
                             Image(systemName: "calendar")
                             Text(dateStr)
                         }
+                        .foregroundColor(dynamicForeground)
                     }
-                    .foregroundColor(.white)
-                    .padding(.bottom, 30)
-                }
-                // If you want to handle “location but no date”
-                // or “date but no location,” handle it with if/else logic:
-                else if let location = location, !location.isEmpty {
-                    HStack {
-                        Image(systemName: "mappin.and.ellipse")
-                        Text(location)
+                    Spacer()
+                    // Location on the right (if present)
+                    if let location = location, !location.isEmpty {
+                        HStack {
+                            Image(systemName: "mappin.and.ellipse")
+                            Text(location)
+                        }
+                        .foregroundColor(dynamicForeground)
                     }
-                    .foregroundColor(.white)
-                    .padding(.bottom, 30)
                 }
-                else if let dateStr = formattedDate {
-                    HStack {
-                        Image(systemName: "calendar")
-                        Text(dateStr)
-                    }
-                    .foregroundColor(.white)
-                    .padding(.bottom, 30)
-                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 40) // space above iPhone home indicator
             }
-            .padding(.horizontal, 20)
         }
     }
 }
