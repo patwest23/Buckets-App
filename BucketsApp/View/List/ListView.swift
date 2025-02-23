@@ -12,25 +12,19 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     
-    // Loading, profile, detail
+    // Loading / detail
     @State private var isLoading = true
     @State private var showProfileView = false
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
-    // Single source of truth for which row is "focused"
-    @State private var selectedItemID: UUID? = nil
-    
-    // Tracks the newest item so it auto-focuses its text field
-    @State private var newlyCreatedItemID: UUID? = nil
-    
-    // Which item is actively editing the name field
-    @State private var editingNameItemID: UUID? = nil
-    
     // iOS 17: track item for scroll-to
-    @State private var scrollToId: UUID?
+    @State private var scrollToId: UUID? = nil
     
-    // For preview
+    // Tracks which item is currently editing => used to show/hide Done button
+    @State private var editingItemID: UUID? = nil
+    
+    // For preview mode
     init(previewMode: Bool = false) {
         if previewMode {
             _isLoading = State(initialValue: false)
@@ -46,19 +40,13 @@ struct ListView: View {
         NavigationStack {
             if #available(iOS 17.0, *) {
                 ZStack {
-                    // Background to clear focus when tapped
                     Color(uiColor: .systemBackground)
                         .ignoresSafeArea()
-                        .onTapGesture {
-                            // Clear any focused row or editing
-                            selectedItemID = nil
-                            editingNameItemID = nil
-                        }
                     
                     contentView
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            // MARK: - Principal: Left = "Bucket List", Right = Button(@username + profile)
+                            // MARK: - Principal
                             ToolbarItem(placement: .principal) {
                                 HStack {
                                     Text("Bucket List")
@@ -66,12 +54,11 @@ struct ListView: View {
                                     
                                     Spacer()
                                     
-                                    // Button that triggers ProfileView
+                                    // Profile
                                     Button {
                                         showProfileView = true
                                     } label: {
                                         HStack(spacing: 8) {
-                                            // Show username
                                             if let user = onboardingViewModel.user {
                                                 Text(user.username ?? "Unknown")
                                                     .font(.headline)
@@ -79,8 +66,6 @@ struct ListView: View {
                                                 Text("@NoName")
                                                     .font(.headline)
                                             }
-                                            
-                                            // Profile image
                                             profileImageView
                                                 .frame(width: 35, height: 35)
                                         }
@@ -89,13 +74,12 @@ struct ListView: View {
                                 }
                             }
                             
-                            // MARK: - Trailing: Done button if editing
+                            // MARK: - Trailing: "Done" if editing any row
                             ToolbarItem(placement: .navigationBarTrailing) {
-                                if editingNameItemID != nil {
+                                if editingItemID != nil {
                                     Button("Done") {
-                                        // End editing
-                                        editingNameItemID = nil
-                                        selectedItemID = nil
+                                        // End editing across all rows
+                                        editingItemID = nil
                                     }
                                     .font(.headline)
                                     .foregroundColor(.accentColor)
@@ -113,7 +97,7 @@ struct ListView: View {
                             }
                         }
                         .onAppear { loadItems() }
-                        // Profile navigation
+                        // Navigate to Profile
                         .navigationDestination(isPresented: $showProfileView) {
                             ProfileView()
                                 .environmentObject(onboardingViewModel)
@@ -127,8 +111,10 @@ struct ListView: View {
                                 .environmentObject(onboardingViewModel)
                         }
                         // Delete confirmation
-                        .alert("Are you sure you want to delete this item?",
-                               isPresented: $bucketListViewModel.showDeleteAlert) {
+                        .alert(
+                            "Are you sure you want to delete this item?",
+                            isPresented: $bucketListViewModel.showDeleteAlert
+                        ) {
                             Button("Delete", role: .destructive) {
                                 if let toDelete = itemToDelete {
                                     deleteItem(toDelete)
@@ -149,7 +135,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Main Content
+    // MARK: - Content
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
@@ -161,7 +147,34 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Displayed Items
+    // MARK: - The List
+    private var itemListView: some View {
+        List {
+            // Reverse so new items appear at top
+            ForEach(displayedItems.reversed(), id: \.id) { currentItem in
+                let itemBinding = bindingForItem(currentItem)
+                
+                // Remove the `editingItemID` argument:
+                ItemRowView(
+                    item: itemBinding,
+                    onNavigateToDetail: {
+                        selectedItem = currentItem
+                    },
+                    onEmptyNameLostFocus: {
+                        deleteItemIfEmpty(currentItem)
+                    }
+                )
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollTargetLayout()
+        .scrollPosition(id: $scrollToId, anchor: .top)
+    }
+    
+    // MARK: - Derived Items
     private var displayedItems: [ItemModel] {
         switch selectedViewStyle {
         case .list, .detailed:
@@ -171,33 +184,6 @@ struct ListView: View {
         case .incomplete:
             return bucketListViewModel.items.filter { !$0.completed }
         }
-    }
-    
-    // MARK: - The List
-    private var itemListView: some View {
-        List(displayedItems, id: \.id) { currentItem in
-            let itemBinding = bindingForItem(currentItem)
-            
-            ItemRowView(
-                item: itemBinding,
-                selectedItemID: $selectedItemID,
-                newlyCreatedItemID: newlyCreatedItemID,
-                editingNameItemID: $editingNameItemID,
-                onNavigateToDetail: {
-                    selectedItem = currentItem
-                },
-                onEmptyNameLostFocus: {
-                    deleteItemIfEmpty(currentItem)
-                }
-            )
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color(uiColor: .systemBackground))
-        .scrollTargetLayout()
-        .scrollPosition(id: $scrollToId)
     }
     
     // MARK: - Loading / Empty
@@ -217,16 +203,6 @@ struct ListView: View {
             .padding()
     }
     
-    // MARK: - Load Items
-    private func loadItems() {
-        Task {
-            isLoading = true
-            // Simulate a short delay
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            isLoading = false
-        }
-    }
-    
     // MARK: - Add Button
     private var addButton: some View {
         Button {
@@ -238,12 +214,22 @@ struct ListView: View {
                 return
             }
             
+            // Create new item
             let newItem = ItemModel(userId: onboardingViewModel.user?.id ?? "")
             bucketListViewModel.addOrUpdateItem(newItem)
             
-            scrollToId = newItem.id
-            selectedItemID = newItem.id
-            newlyCreatedItemID = newItem.id
+            // 1) Wait for SwiftUI to register the new row in the List
+            Task {
+                await Task.yield()
+                
+                // 2) Scroll to the new item
+                withAnimation(.easeOut(duration: 0.2)) {
+                    scrollToId = newItem.id
+                }
+                
+                // 3) Set editingItemID => row focuses text field
+                editingItemID = newItem.id
+            }
             
         } label: {
             ZStack {
@@ -320,7 +306,18 @@ struct ListView: View {
             await bucketListViewModel.deleteItem(item)
         }
     }
+    
+    // MARK: - Load Items
+    private func loadItems() {
+        Task {
+            isLoading = true
+            // Simulate a short delay
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            isLoading = false
+        }
+    }
 }
+
 
 // MARK: - Preview
 struct ListView_Previews: PreviewProvider {
