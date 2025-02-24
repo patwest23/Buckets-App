@@ -31,7 +31,6 @@ class ListViewModel: ObservableObject {
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
     
-    /// Stores actual `UIImage`s for each image URL, so we can display them instantly.
     @Published var imageCache: [String : UIImage] = [:]
     
     // MARK: - Firestore
@@ -49,6 +48,9 @@ class ListViewModel: ObservableObject {
     
     deinit {
         print("[ListViewModel] deinit called.")
+        listenerRegistration?.remove()
+        listenerRegistration = nil
+        print("[ListViewModel] Stopped listening to items.")
     }
     
     // MARK: - Stop Real-Time Listening
@@ -80,7 +82,6 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
             sortItems()
             
-            // After items are loaded, pre-fetch their image URLs
             await prefetchItemImages()
             
         } catch {
@@ -119,7 +120,6 @@ class ListViewModel: ObservableObject {
                 print("[ListViewModel] startListeningToItems: Received \(self.items.count) items")
                 self.sortItems()
                 
-                // Pre-fetch images in the background
                 Task {
                     await self.prefetchItemImages()
                 }
@@ -130,52 +130,46 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Add/Update Item
+    
+    // MARK: - Add or Update
     func addOrUpdateItem(_ item: ItemModel) {
         guard let userId = userId else {
             print("[ListViewModel] addOrUpdateItem: userId is nil. Cannot save item.")
             return
         }
         
-        // Determine if new
-        var isNewItem = false
-        if !items.contains(where: { $0.id == item.id }) {
-            isNewItem = true
-        }
+        // Use `let` instead of `var`
+        let isNewItem = !items.contains { $0.id == item.id }
         
-        // If new, set orderIndex to bottom
+        // If new => set next orderIndex
         var newItem = item
         if isNewItem {
             let currentMaxOrder = items.map { $0.orderIndex }.max() ?? -1
             newItem.orderIndex = currentMaxOrder + 1
         }
         
-        // Write to Firestore
         let docRef = db
-            .collection("users")
-            .document(userId)
-            .collection("items")
-            .document(item.id.uuidString)
+            .collection("users").document(userId)
+            .collection("items").document(item.id.uuidString)
         
         do {
             try docRef.setData(from: newItem, merge: true)
-            print("[ListViewModel] addOrUpdateItem: Wrote item \(newItem.id) to Firestore.")
+            print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
             
-            // Update local array
-            if let index = items.firstIndex(where: { $0.id == newItem.id }) {
-                items[index] = newItem
-            } else {
+            // Update local array only if item still in array
+            if let idx = items.firstIndex(where: { $0.id == newItem.id }) {
+                items[idx] = newItem
+            }
+            else if isNewItem {
                 items.append(newItem)
             }
-            sortItems()
+            // else skip if the item was removed in the meantime
             
-            // Also prefetch images for this item if any
-            Task {
-                await prefetchImages(for: newItem)
-            }
+            sortItems()
+            Task { await prefetchImages(for: newItem) }
             
         } catch {
-            print("[ListViewModel] addOrUpdateItem: Error:", error.localizedDescription)
+            print("[ListViewModel] addOrUpdateItem => Error: \(error.localizedDescription)")
         }
     }
     
@@ -187,13 +181,13 @@ class ListViewModel: ObservableObject {
         }
         
         do {
-            try await db
+            let docRef = db
                 .collection("users")
                 .document(userId)
                 .collection("items")
                 .document(item.id.uuidString)
-                .delete()
             
+            try await docRef.delete()
             items.removeAll { $0.id == item.id }
             print("[ListViewModel] deleteItem: Deleted item \(item.id) from /users/\(userId)/items")
         } catch {
@@ -244,18 +238,14 @@ class ListViewModel: ObservableObject {
     }
     
     // MARK: - Pre-Fetch Logic
-    
-    /// Calls `prefetchImages(for:)` for all items.
     func prefetchItemImages() async {
         for item in items {
             await prefetchImages(for: item)
         }
     }
     
-    /// Loads all image URLs for a specific item, storing them in `imageCache`.
     private func prefetchImages(for item: ItemModel) async {
         for urlStr in item.imageUrls {
-            // Already cached? skip
             if imageCache[urlStr] != nil {
                 continue
             }
@@ -263,7 +253,6 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    /// Downloads image data from `urlStr`, sets in `imageCache`.
     private func loadImage(urlStr: String) async {
         guard let url = URL(string: urlStr) else { return }
         do {

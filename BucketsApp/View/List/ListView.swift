@@ -21,8 +21,11 @@ struct ListView: View {
     // iOS 17: track item for scroll-to
     @State private var scrollToId: UUID? = nil
     
-    // Tracks which item is currently editing => used to show/hide Done button
-    @State private var editingItemID: UUID? = nil
+    // (A) Track if ANY text field is active => controls "Done" visibility
+    @State private var isAnyTextFieldActive: Bool = false
+    
+    // (B) Which item was newly created => auto-focus its row
+    @State private var newlyCreatedItemID: UUID? = nil
     
     // For preview mode
     init(previewMode: Bool = false) {
@@ -46,6 +49,7 @@ struct ListView: View {
                     contentView
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
+                            
                             // MARK: - Principal
                             ToolbarItem(placement: .principal) {
                                 HStack {
@@ -74,19 +78,23 @@ struct ListView: View {
                                 }
                             }
                             
-                            // MARK: - Trailing: "Done" if editing any row
+                            // (A) Trailing "Done" => only visible if a text field is active
                             ToolbarItem(placement: .navigationBarTrailing) {
-                                if editingItemID != nil {
+                                if isAnyTextFieldActive {
                                     Button("Done") {
-                                        // End editing across all rows
-                                        editingItemID = nil
+                                        // 1) Dismiss keyboard => no text fields are active
+                                        UIApplication.shared.endEditing()
+                                        isAnyTextFieldActive = false
+                                        
+                                        // 2) Optionally remove blank items
+                                        removeBlankItems()
                                     }
                                     .font(.headline)
                                     .foregroundColor(.accentColor)
                                 }
                             }
                             
-                            // MARK: - Bottom Bar: Add Button
+                            // MARK: - Bottom Bar => Add Button
                             ToolbarItem(placement: .bottomBar) {
                                 HStack {
                                     Spacer()
@@ -96,7 +104,14 @@ struct ListView: View {
                                 .padding(.top, 4)
                             }
                         }
-                        .onAppear { loadItems() }
+                        .onAppear {
+                            loadItems()
+                            // (A) Start listening for text field notifications
+                            startTextFieldListeners()
+                        }
+                        .onDisappear {
+                            stopTextFieldListeners()
+                        }
                         // Navigate to Profile
                         .navigationDestination(isPresented: $showProfileView) {
                             ProfileView()
@@ -135,7 +150,7 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Content
+    // MARK: - Main Content
     @ViewBuilder
     private var contentView: some View {
         if isLoading {
@@ -154,9 +169,9 @@ struct ListView: View {
             ForEach(displayedItems.reversed(), id: \.id) { currentItem in
                 let itemBinding = bindingForItem(currentItem)
                 
-                // Remove the `editingItemID` argument:
                 ItemRowView(
                     item: itemBinding,
+                    newlyCreatedItemID: newlyCreatedItemID,  // (B)
                     onNavigateToDetail: {
                         selectedItem = currentItem
                     },
@@ -164,6 +179,7 @@ struct ListView: View {
                         deleteItemIfEmpty(currentItem)
                     }
                 )
+                .environmentObject(bucketListViewModel)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             }
@@ -177,12 +193,9 @@ struct ListView: View {
     // MARK: - Derived Items
     private var displayedItems: [ItemModel] {
         switch selectedViewStyle {
-        case .list, .detailed:
-            return bucketListViewModel.items
-        case .completed:
-            return bucketListViewModel.items.filter { $0.completed }
-        case .incomplete:
-            return bucketListViewModel.items.filter { !$0.completed }
+        case .list, .detailed: return bucketListViewModel.items
+        case .completed: return bucketListViewModel.items.filter { $0.completed }
+        case .incomplete: return bucketListViewModel.items.filter { !$0.completed }
         }
     }
     
@@ -218,19 +231,18 @@ struct ListView: View {
             let newItem = ItemModel(userId: onboardingViewModel.user?.id ?? "")
             bucketListViewModel.addOrUpdateItem(newItem)
             
-            // 1) Wait for SwiftUI to register the new row in the List
+            // Wait for SwiftUI to register new row in the List
             Task {
                 await Task.yield()
                 
-                // 2) Scroll to the new item
+                // Scroll to the new item => pinned at top
                 withAnimation(.easeOut(duration: 0.2)) {
                     scrollToId = newItem.id
                 }
                 
-                // 3) Set editingItemID => row focuses text field
-                editingItemID = newItem.id
+                // Mark newlyCreatedItemID => that row auto-focuses
+                newlyCreatedItemID = newItem.id
             }
-            
         } label: {
             ZStack {
                 Circle()
@@ -245,50 +257,14 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Profile Image
-    private var profileImageView: some View {
-        let (image, hasCustomImage) = loadProfileImage()
-        
-        return image
-            .resizable()
-            .scaledToFill()
-            .clipShape(Circle())
-            .modifier(overlayOrColor(hasCustomImage: hasCustomImage))
-    }
-    
-    private func loadProfileImage() -> (Image, Bool) {
-        if let data = onboardingViewModel.profileImageData,
-           let uiImage = UIImage(data: data) {
-            return (Image(uiImage: uiImage), true)
-        } else {
-            return (Image(systemName: "person.crop.circle.fill"), false)
+    // MARK: - Remove Blank Items
+    private func removeBlankItems() {
+        let blanks = bucketListViewModel.items.filter {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
-    }
-    
-    private struct overlayOrColor: ViewModifier {
-        let hasCustomImage: Bool
-        
-        func body(content: Content) -> some View {
-            if hasCustomImage {
-                return AnyView(
-                    content
-                        .overlay(Circle().stroke(Color.accentColor, lineWidth: 1))
-                )
-            } else {
-                return AnyView(
-                    content
-                        .foregroundColor(.accentColor)
-                )
-            }
+        for blank in blanks {
+            Task { await bucketListViewModel.deleteItem(blank) }
         }
-    }
-    
-    // MARK: - Binding
-    private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
-        guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
-            return .constant(item)
-        }
-        return $bucketListViewModel.items[index]
     }
     
     // MARK: - Deletion
@@ -301,22 +277,83 @@ struct ListView: View {
     }
     
     private func deleteItem(_ item: ItemModel) {
-        print("Deleting item: \(item.name)")
         Task {
             await bucketListViewModel.deleteItem(item)
         }
+    }
+    
+    // MARK: - Binding
+    private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
+        guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
+            return .constant(item)
+        }
+        return $bucketListViewModel.items[index]
     }
     
     // MARK: - Load Items
     private func loadItems() {
         Task {
             isLoading = true
-            // Simulate a short delay
             try? await Task.sleep(nanoseconds: 500_000_000)
             isLoading = false
         }
     }
+
+    // MARK: - Profile Image Helper
+    @ViewBuilder
+    private var profileImageView: some View {
+        if let data = onboardingViewModel.profileImageData,
+           let uiImage = UIImage(data: data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+        } else {
+            Image(systemName: "person.crop.circle.fill")
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+                .foregroundColor(.accentColor)
+        }
+    }
 }
+
+// MARK: - TextField Notifications => Track if ANY text field is active
+extension ListView {
+    /// Start listening for "didBeginEditing" / "didEndEditing" => toggles isAnyTextFieldActive
+    private func startTextFieldListeners() {
+        NotificationCenter.default.addObserver(
+            forName: UITextField.textDidBeginEditingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            isAnyTextFieldActive = true
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: UITextField.textDidEndEditingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            // We assume only 1 text field is active at a time
+            isAnyTextFieldActive = false
+        }
+    }
+    
+    private func stopTextFieldListeners() {
+        NotificationCenter.default.removeObserver(self, name: UITextField.textDidBeginEditingNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UITextField.textDidEndEditingNotification, object: nil)
+    }
+}
+
+// MARK: - Keyboard Dismiss Helper
+extension UIApplication {
+    func endEditing() {
+        sendAction(#selector(UIResponder.resignFirstResponder),
+                   to: nil, from: nil, for: nil)
+    }
+}
+
 
 
 // MARK: - Preview
