@@ -32,6 +32,7 @@
 		1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE006E72A10541200B0A6D7 /* ProfileView.swift */; };
 		1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
 		1FE6B36B29E65E5200C6B59A /* ItemRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */; };
+		1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */; };
 		1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */; };
 		1FED1A1129E20B3100868BAC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1FED1A1029E20B3100868BAC /* Assets.xcassets */; };
 		1FED1A1429E20B3100868BAC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1FED1A1329E20B3100868BAC /* Preview Assets.xcassets */; };
@@ -64,6 +65,7 @@
 		1FE006E72A10541200B0A6D7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingViewModel.swift; sourceTree = "<group>"; };
 		1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowView.swift; sourceTree = "<group>"; };
+		1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewUserNameView.swift; sourceTree = "<group>"; };
 		1FED1A0929E20B2E00868BAC /* BucketsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BucketsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketsApp.swift; sourceTree = "<group>"; };
 		1FED1A1029E20B3100868BAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 		1F62F07729E27ABA00C107CD /* User */ = {
 			isa = PBXGroup;
 			children = (
+				1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */,
 				1FCD29332D62849E0022E4CB /* SettingsView.swift */,
 				1F815C8D29ECA08B000063D3 /* HomeView.swift */,
 				1FE006E72A10541200B0A6D7 /* ProfileView.swift */,
@@ -289,6 +292,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
 				1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */,

@@ -10,19 +10,24 @@ import SwiftUI
 struct ItemRowView: View {
     @Binding var item: ItemModel
     
-    // Allow auto-focus if row is newly created
+    /// The newly created item, if any, so we know if we should auto-focus this row
     let newlyCreatedItemID: UUID?
-
     
-    /// Called when user taps the chevron => detail navigation
+    /// Called when user taps the chevron (Detail nav)
     let onNavigateToDetail: (() -> Void)?
     
-    /// Called if user eventually finalizes a blank name => parent can delete
+    /// Called if user finalizes editing with blank name => parent can delete
     let onEmptyNameLostFocus: (() -> Void)?
     
     @EnvironmentObject var bucketListViewModel: ListViewModel
     
-    // Layout / styling
+    // Track focus for the TextField
+    @FocusState private var isTextFieldFocused: Bool
+    
+    // **NEW**: ensures we only auto-focus *once*
+    @State private var hasAutoFocused = false
+    
+    // Layout constants
     private let cardCornerRadius: CGFloat = 12
     private let cardPadding: CGFloat = 8
     private let cardShadowRadius: CGFloat = 4
@@ -36,7 +41,7 @@ struct ItemRowView: View {
             
             // MARK: - Top Row
             HStack(spacing: 8) {
-                // 1) Checkmark: toggle completion
+                // 1) Checkmark => toggles completion
                 Button(action: toggleCompleted) {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
@@ -44,10 +49,15 @@ struct ItemRowView: View {
                 }
                 .buttonStyle(.borderless)
                 
-                // 2) Always-editable TextField
-                TextField("", text: bindingForName())
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
+                // 2) Editable text field
+                TextField(
+                    "",
+                    text: bindingForName(),
+                    onCommit: handleOnSubmit
+                )
+                .font(.subheadline)
+                .foregroundColor(.primary)
+                .focused($isTextFieldFocused)
                 
                 Spacer()
                 
@@ -62,10 +72,12 @@ struct ItemRowView: View {
                 .buttonStyle(.borderless)
             }
             
-            // MARK: - Images if completed
+            // MARK: - Images (only if completed + has images)
             if item.completed, !item.imageUrls.isEmpty {
-                let columns = Array(repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
-                                    count: 3)
+                let columns = Array(
+                    repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
+                    count: 3
+                )
                 LazyVGrid(columns: columns, spacing: spacing) {
                     ForEach(item.imageUrls, id: \.self) { urlStr in
                         if let uiImage = bucketListViewModel.imageCache[urlStr] {
@@ -104,13 +116,28 @@ struct ItemRowView: View {
                 .shadow(color: .black.opacity(0.1),
                         radius: cardShadowRadius, x: 0, y: 2)
         )
-        .contentShape(Rectangle()) // Make entire area tappable, if desired
+        .contentShape(Rectangle())
+        
+        // Only auto-focus once, if row is newly created
+        .onAppear {
+            // If we've not already auto-focused, and this is the newly created item => focus
+            guard !hasAutoFocused else { return }
+            
+            if item.id == newlyCreatedItemID {
+                // Defer focus to next runloop
+                DispatchQueue.main.async {
+                    isTextFieldFocused = true
+                }
+                hasAutoFocused = true
+            }
+        }
     }
 }
 
 // MARK: - Private Helpers
 extension ItemRowView {
     
+    /// Toggle completed => updates Firestore
     private func toggleCompleted() {
         var updated = item
         updated.completed.toggle()
@@ -126,25 +153,32 @@ extension ItemRowView {
         bucketListViewModel.addOrUpdateItem(updated)
     }
     
-    /// Binding that updates the item name if non-empty.
-    /// If the user types `""`, we do **not** remove immediately—
-    /// the parent can remove it on “Done” or `.onSubmit`.
+    /// Binding that updates `item.name` if non-empty; if user types "" => not removed
+    /// automatically. The parent can remove it on “Done” or if user hits Return/Submit => blank => calls `onEmptyNameLostFocus()`.
     private func bindingForName() -> Binding<String> {
         Binding<String>(
             get: { item.name },
             set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 var edited = item
                 edited.name = newValue
                 
                 // If user typed something => update Firestore
-                if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !trimmed.isEmpty {
                     bucketListViewModel.addOrUpdateItem(edited)
                 }
-                
-                // Keep local item updated so UI reflects typed text
+                // Always keep local item so UI matches typed text
                 item = edited
             }
         )
+    }
+    
+    /// Called when user presses Return => if name is blank, parent can handle deletion
+    private func handleOnSubmit() {
+        let trimmed = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            onEmptyNameLostFocus?()
+        }
     }
 }
 

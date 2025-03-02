@@ -11,7 +11,8 @@ import FirebaseStorage
 import FirebaseFirestore
 import GoogleSignIn
 import FirebaseCore
-import LocalAuthentication  // <-- NEW: For Face ID / Touch ID
+import LocalAuthentication  // For Face ID / Touch ID
+import Security
 
 @MainActor
 final class OnboardingViewModel: ObservableObject {
@@ -45,10 +46,12 @@ final class OnboardingViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
     
+    /// Whether we should show the full-screen NewUserNameView.
+    @Published var shouldShowNewUserNameView: Bool = false
+    
     // MARK: - Firebase
     private let storage = Storage.storage()
     private let firestore = Firestore.firestore()
-    
     private var userDocListener: ListenerRegistration?
     
     /// Convenience property for the user doc ID (matching Auth UID).
@@ -94,7 +97,7 @@ final class OnboardingViewModel: ObservableObject {
     }
     
     // MARK: - Google Sign-In
-        
+    
     func signInWithGoogle() {
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             handleError(NSError(
@@ -131,12 +134,9 @@ final class OnboardingViewModel: ObservableObject {
                 return
             }
 
-            let idToken = user.idToken
-            let accessToken = user.accessToken
-
-            let idTokenString = idToken?.tokenString ?? ""
-            let accessTokenString = accessToken.tokenString
-
+            let idTokenString = user.idToken?.tokenString ?? ""
+            let accessTokenString = user.accessToken.tokenString
+            
             if idTokenString.isEmpty || accessTokenString.isEmpty {
                 // handle error
                 return
@@ -169,16 +169,21 @@ final class OnboardingViewModel: ObservableObject {
                     if let userEmail = authUser.email {
                         let userDocRef = self.firestore.collection("users").document(authUser.uid)
                         do {
-                            try await userDocRef.setData([
-                                "email": userEmail
-                            ], merge: true)
+                            // Merge the user's email if doc doesn't exist
+                            try await userDocRef.setData(["email": userEmail], merge: true)
                         } catch {
                             self.handleError(error)
                         }
                     }
                     
+                    // Fetch user doc to see if a username already exists
                     await self.fetchUserDocument(userId: authUser.uid)
                     await self.loadProfileImage()
+                    
+                    // If username is missing or empty => show NewUserNameView
+                    if self.user?.username == nil || (self.user?.username?.isEmpty ?? true) {
+                        self.shouldShowNewUserNameView = true
+                    }
                     
                     print("[OnboardingViewModel] Google sign-in success. UID:", authUser.uid)
                 }
@@ -205,6 +210,51 @@ final class OnboardingViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Save New Username (For brand-new Google signups)
+    
+    @MainActor
+    func saveNewUsername(_ rawUsername: String) {
+        var finalUsername = rawUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !finalUsername.isEmpty && !finalUsername.hasPrefix("@") {
+            finalUsername = "@" + finalUsername
+        }
+        
+        Task {
+            do {
+                // 1) Check if username is already taken (still on main actor)
+                let used = await isUsernameUsed(finalUsername)
+                if used {
+                    let error = NSError(
+                        domain: "UsernameInUse",
+                        code: 0,
+                        userInfo: [NSLocalizedDescriptionKey: "Username is already taken."]
+                    )
+                    handleError(error)
+                    return
+                }
+                
+                // 2) Update Firestore with the new username
+                guard let userId = Auth.auth().currentUser?.uid else { return }
+                
+                let dataToUpdate: [String: String] = ["username": finalUsername]
+                try await firestore.collection("users")
+                                   .document(userId)
+                                   .updateData(dataToUpdate)
+                
+                // 3) Update local user model
+                user?.username = finalUsername
+                
+                // 4) Hide the full-screen NewUserNameView
+                shouldShowNewUserNameView = false
+                
+                print("[OnboardingViewModel] Username updated to \(finalUsername)")
+                
+            } catch {
+                handleError(error)
+            }
+        }
+    }
+    
     // MARK: - Sign In / Out
     
     func signIn() async {
@@ -215,7 +265,7 @@ final class OnboardingViewModel: ObservableObject {
             
             print("[OnboardingViewModel] signIn success. Auth UID:", authResult.user.uid)
             
-            // Store credentials in Keychain for Face ID / Touch ID (optional)
+            // Store credentials in Keychain for Face/Touch ID
             storeCredentialsInKeychain()
             
             if let actualEmail = authResult.user.email {
@@ -238,7 +288,7 @@ final class OnboardingViewModel: ObservableObject {
             userDocListener?.remove()
             clearState()
             
-            // Optionally remove from Keychain if you want:
+            // Optionally remove from Keychain
             KeychainHelper.shared.deleteValue(for: "email")
             KeychainHelper.shared.deleteValue(for: "password")
             
@@ -257,7 +307,7 @@ final class OnboardingViewModel: ObservableObject {
             
             print("[OnboardingViewModel] createUser success. UID:", authResult.user.uid)
             
-            // Also store credentials in Keychain if you want Face ID next time
+            // Store credentials in Keychain if you want Face ID next time
             storeCredentialsInKeychain()
             
             await createUserDocument(userId: authResult.user.uid)
@@ -321,6 +371,7 @@ final class OnboardingViewModel: ObservableObject {
         }
         
         do {
+            // Send a verification before updating
             try await currentUser.sendEmailVerification(beforeUpdatingEmail: newEmail)
             
             let userDoc = firestore.collection("users").document(currentUser.uid)
@@ -404,15 +455,14 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Firestore Integration
     
-    private func createUserDocument(userId: String) async {
+    func createUserDocument(userId: String) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
             let docData: [String: Any] = [
                 "email": email,
-                "createdAt": Date(),
+                "createdAt": Date(),   // or FieldValue.serverTimestamp()
                 "username": username
             ]
-            
             try await userDoc.setData(docData)
             print("[OnboardingViewModel] User document created at /users/\(userId).")
         } catch {
@@ -484,7 +534,7 @@ extension OnboardingViewModel {
     
     /// Attempt to log in using Face ID / Touch ID:
     ///  1) Retrieve saved email/password from Keychain.
-    ///  2) Prompt user for Face ID.
+    ///  2) Prompt user for Face ID / Touch ID.
     ///  3) If successful => sign in with stored credentials.
     func loginWithBiometrics() async {
         // 1) Retrieve saved credentials
@@ -499,7 +549,7 @@ extension OnboardingViewModel {
         var error: NSError?
         
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-            print("[OnboardingViewModel] Device does not support biometrics or not enrolled.")
+            print("[OnboardingViewModel] Device does not support biometrics or is not enrolled.")
             return
         }
         
@@ -524,8 +574,6 @@ extension OnboardingViewModel {
 }
 
 // MARK: - Simple Keychain Helper
-import Security
-
 final class KeychainHelper {
     static let shared = KeychainHelper()
     private init() {}
@@ -552,10 +600,10 @@ final class KeychainHelper {
     
     func getValue(for key: String) -> String? {
         let query: [String: Any] = [
-            kSecClass as String:          kSecClassGenericPassword,
-            kSecAttrAccount as String:    key,
-            kSecReturnData as String:     true,
-            kSecMatchLimit as String:     kSecMatchLimitOne
+            kSecClass as String:        kSecClassGenericPassword,
+            kSecAttrAccount as String:  key,
+            kSecReturnData as String:   true,
+            kSecMatchLimit as String:   kSecMatchLimitOne
         ]
         
         var item: CFTypeRef?
@@ -568,7 +616,7 @@ final class KeychainHelper {
     
     func deleteValue(for key: String) {
         let query: [String: Any] = [
-            kSecClass as String:     kSecClassGenericPassword,
+            kSecClass as String:       kSecClassGenericPassword,
             kSecAttrAccount as String: key
         ]
         SecItemDelete(query as CFDictionary)

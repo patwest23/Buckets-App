@@ -78,7 +78,6 @@ struct OnboardingView: View {
 
                         // MARK: - Google Sign-In Button
                         Button(action: {
-                            // You'll implement the signInWithGoogle() method in your ViewModel
                             onboardingViewModel.signInWithGoogle()
                         }) {
                             HStack {
@@ -108,8 +107,13 @@ struct OnboardingView: View {
             }
             // Overall background color adapts to Light/Dark
             .background(Color(uiColor: .systemBackground))
+            .navigationBarHidden(true)
         }
-        .navigationBarHidden(true) // Hide navigation bar
+        // IMPORTANT: Present NewUserNameView if user has no username after Google sign-in
+        .fullScreenCover(isPresented: $onboardingViewModel.shouldShowNewUserNameView) {
+            NewUserNameView()
+                .environmentObject(onboardingViewModel)
+        }
     }
 }
 

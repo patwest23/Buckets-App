@@ -18,13 +18,13 @@ struct ListView: View {
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
-    // iOS 17: track item for scroll-to
+    // The ID of the item we want to scroll to in ScrollViewReader
     @State private var scrollToId: UUID? = nil
     
-    // (A) Track if ANY text field is active => controls "Done" visibility
+    // Whether any text field is active => shows/hides "Done" button
     @State private var isAnyTextFieldActive: Bool = false
     
-    // (B) Which item was newly created => auto-focus its row
+    // Which newly created item => row can auto-focus
     @State private var newlyCreatedItemID: UUID? = nil
     
     // For preview mode
@@ -46,102 +46,116 @@ struct ListView: View {
                     Color(uiColor: .systemBackground)
                         .ignoresSafeArea()
                     
-                    contentView
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            
-                            // MARK: - Principal
-                            ToolbarItem(placement: .principal) {
-                                HStack {
+                    ScrollViewReader { proxy in
+                        contentView
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar {
+                                // MARK: - Leading: "Bucket List"
+                                ToolbarItem(placement: .navigationBarLeading) {
                                     Text("Bucket List")
                                         .font(.headline)
-                                    
-                                    Spacer()
-                                    
-                                    // Profile
-                                    Button {
-                                        showProfileView = true
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            if let user = onboardingViewModel.user {
-                                                Text(user.username ?? "Unknown")
-                                                    .font(.headline)
-                                            } else {
-                                                Text("@NoName")
-                                                    .font(.headline)
-                                            }
-                                            profileImageView
-                                                .frame(width: 35, height: 35)
+                                }
+                                
+                                // MARK: - Trailing: "Done" (if editing) or Profile
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    if isAnyTextFieldActive {
+                                        Button("Done") {
+                                            UIApplication.shared.endEditing()
+                                            isAnyTextFieldActive = false
+                                            removeBlankItems()
                                         }
+                                        .font(.headline)
+                                        .foregroundColor(.accentColor)
+                                    } else {
+                                        // Profile
+                                        Button {
+                                            showProfileView = true
+                                        } label: {
+                                            HStack(spacing: 8) {
+                                                if let user = onboardingViewModel.user {
+                                                    Text(user.username ?? "Unknown")
+                                                        .font(.headline)
+                                                } else {
+                                                    Text("@NoName")
+                                                        .font(.headline)
+                                                }
+                                                profileImageView
+                                                    .frame(width: 35, height: 35)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
-                            }
-                            
-                            // (A) Trailing "Done" => only visible if a text field is active
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                if isAnyTextFieldActive {
-                                    Button("Done") {
-                                        // 1) Dismiss keyboard => no text fields are active
-                                        UIApplication.shared.endEditing()
-                                        isAnyTextFieldActive = false
-                                        
-                                        // 2) Optionally remove blank items
-                                        removeBlankItems()
+                                
+                                // MARK: - Bottom Bar => Add Button
+                                ToolbarItem(placement: .bottomBar) {
+                                    HStack {
+                                        Spacer()
+                                        addButton
+                                        Spacer()
                                     }
-                                    .font(.headline)
-                                    .foregroundColor(.accentColor)
+                                    .padding(.top, 4)
                                 }
                             }
-                            
-                            // MARK: - Bottom Bar => Add Button
-                            ToolbarItem(placement: .bottomBar) {
-                                HStack {
-                                    Spacer()
-                                    addButton
-                                    Spacer()
-                                }
-                                .padding(.top, 4)
+                            .onAppear {
+                                loadItems()
+                                startTextFieldListeners()
                             }
-                        }
-                        .onAppear {
-                            loadItems()
-                            // (A) Start listening for text field notifications
-                            startTextFieldListeners()
-                        }
-                        .onDisappear {
-                            stopTextFieldListeners()
-                        }
-                        // Navigate to Profile
-                        .navigationDestination(isPresented: $showProfileView) {
-                            ProfileView()
-                                .environmentObject(onboardingViewModel)
-                                .environmentObject(userViewModel)
-                                .environmentObject(bucketListViewModel)
-                        }
-                        // Navigate to Detail
-                        .navigationDestination(item: $selectedItem) { item in
-                            DetailItemView(item: bindingForItem(item))
-                                .environmentObject(bucketListViewModel)
-                                .environmentObject(onboardingViewModel)
-                        }
-                        // Delete confirmation
-                        .alert(
-                            "Are you sure you want to delete this item?",
-                            isPresented: $bucketListViewModel.showDeleteAlert
-                        ) {
-                            Button("Delete", role: .destructive) {
+                            .onDisappear {
+                                // ——— Fix #1: reset newlyCreatedItemID, so no auto-focus after coming back
+                                newlyCreatedItemID = nil
+                                
+                                // ——— Fix #2: end any active editing => no keyboard
+                                UIApplication.shared.endEditing()
+                                isAnyTextFieldActive = false
+                                
+                                stopTextFieldListeners()
+                            }
+                            // Navigate to Profile
+                            .navigationDestination(isPresented: $showProfileView) {
+                                ProfileView()
+                                    .environmentObject(onboardingViewModel)
+                                    .environmentObject(userViewModel)
+                                    .environmentObject(bucketListViewModel)
+                            }
+                            // Navigate to Detail
+                            .navigationDestination(item: $selectedItem) { item in
+                                DetailItemView(item: bindingForItem(item))
+                                    .environmentObject(bucketListViewModel)
+                                    .environmentObject(onboardingViewModel)
+                            }
+                            // Delete confirmation
+                            .alert(
+                                "Are you sure you want to delete this item?",
+                                isPresented: $bucketListViewModel.showDeleteAlert
+                            ) {
+                                Button("Delete", role: .destructive) {
+                                    if let toDelete = itemToDelete {
+                                        deleteItem(toDelete)
+                                    }
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
                                 if let toDelete = itemToDelete {
-                                    deleteItem(toDelete)
+                                    Text("Delete “\(toDelete.name)” from your list?")
                                 }
                             }
-                            Button("Cancel", role: .cancel) {}
-                        } message: {
-                            if let toDelete = itemToDelete {
-                                Text("Delete “\(toDelete.name)” from your list?")
+                            // Scroll to changed ID
+                            .onChange(of: scrollToId) { oldVal, newVal in
+                                guard let newVal = newVal else { return }
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    proxy.scrollTo(newVal, anchor: .bottom)
+                                }
                             }
-                        }
+                    }
                 }
+                // Extra space above keyboard
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear
+                        .frame(height: 70)
+                        .allowsHitTesting(false)
+                }
+                
             } else {
                 Text("Please use iOS 17 or later.")
                     .font(.headline)
@@ -162,16 +176,15 @@ struct ListView: View {
         }
     }
     
-    // MARK: - The List
+    // MARK: - List of Items
     private var itemListView: some View {
         List {
-            // Reverse so new items appear at top
-            ForEach(displayedItems.reversed(), id: \.id) { currentItem in
+            ForEach(displayedItems, id: \.id) { currentItem in
                 let itemBinding = bindingForItem(currentItem)
                 
                 ItemRowView(
                     item: itemBinding,
-                    newlyCreatedItemID: newlyCreatedItemID,  // (B)
+                    newlyCreatedItemID: newlyCreatedItemID,
                     onNavigateToDetail: {
                         selectedItem = currentItem
                     },
@@ -182,24 +195,26 @@ struct ListView: View {
                 .environmentObject(bucketListViewModel)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
+                .id(currentItem.id)
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .scrollTargetLayout()
-        .scrollPosition(id: $scrollToId, anchor: .top)
     }
     
     // MARK: - Derived Items
     private var displayedItems: [ItemModel] {
         switch selectedViewStyle {
-        case .list, .detailed: return bucketListViewModel.items
-        case .completed: return bucketListViewModel.items.filter { $0.completed }
-        case .incomplete: return bucketListViewModel.items.filter { !$0.completed }
+        case .list, .detailed:
+            return bucketListViewModel.items
+        case .completed:
+            return bucketListViewModel.items.filter { $0.completed }
+        case .incomplete:
+            return bucketListViewModel.items.filter { !$0.completed }
         }
     }
     
-    // MARK: - Loading / Empty
+    // MARK: - UI States
     private var loadingView: some View {
         ProgressView("Loading...")
             .progressViewStyle(CircularProgressViewStyle())
@@ -223,7 +238,7 @@ struct ListView: View {
                 $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
             guard !alreadyHasEmptyItem else {
-                print("There's already an empty item. Not adding another.")
+                print("Already has empty item => not adding another.")
                 return
             }
             
@@ -231,17 +246,15 @@ struct ListView: View {
             let newItem = ItemModel(userId: onboardingViewModel.user?.id ?? "")
             bucketListViewModel.addOrUpdateItem(newItem)
             
-            // Wait for SwiftUI to register new row in the List
+            // Mark newlyCreatedItemID => row auto-focus once in .onAppear
+            newlyCreatedItemID = newItem.id
+            
             Task {
+                // Wait for SwiftUI to insert row
                 await Task.yield()
                 
-                // Scroll to the new item => pinned at top
-                withAnimation(.easeOut(duration: 0.2)) {
-                    scrollToId = newItem.id
-                }
-                
-                // Mark newlyCreatedItemID => that row auto-focuses
-                newlyCreatedItemID = newItem.id
+                // Then scroll to it
+                scrollToId = newItem.id
             }
         } label: {
             ZStack {
@@ -257,13 +270,15 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Remove Blank Items
+    // MARK: - Removing blank items
     private func removeBlankItems() {
         let blanks = bucketListViewModel.items.filter {
             $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         for blank in blanks {
-            Task { await bucketListViewModel.deleteItem(blank) }
+            Task {
+                await bucketListViewModel.deleteItem(blank)
+            }
         }
     }
     
@@ -290,7 +305,7 @@ struct ListView: View {
         return $bucketListViewModel.items[index]
     }
     
-    // MARK: - Load Items
+    // MARK: - Load
     private func loadItems() {
         Task {
             isLoading = true
@@ -298,7 +313,7 @@ struct ListView: View {
             isLoading = false
         }
     }
-
+    
     // MARK: - Profile Image Helper
     @ViewBuilder
     private var profileImageView: some View {
@@ -308,6 +323,10 @@ struct ListView: View {
                 .resizable()
                 .scaledToFill()
                 .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.accentColor, lineWidth: 4)
+                )
         } else {
             Image(systemName: "person.crop.circle.fill")
                 .resizable()
@@ -318,15 +337,15 @@ struct ListView: View {
     }
 }
 
-// MARK: - TextField Notifications => Track if ANY text field is active
 extension ListView {
-    /// Start listening for "didBeginEditing" / "didEndEditing" => toggles isAnyTextFieldActive
+    /// Start listening for iOS text-field notifications
     private func startTextFieldListeners() {
         NotificationCenter.default.addObserver(
             forName: UITextField.textDidBeginEditingNotification,
             object: nil,
             queue: .main
         ) { _ in
+            // Whenever a text field begins editing, set your flag
             isAnyTextFieldActive = true
         }
         
@@ -335,26 +354,35 @@ extension ListView {
             object: nil,
             queue: .main
         ) { _ in
-            // We assume only 1 text field is active at a time
+            // When a text field finishes editing, remove the flag
             isAnyTextFieldActive = false
         }
     }
     
+    /// Stop listening for iOS text-field notifications
     private func stopTextFieldListeners() {
-        NotificationCenter.default.removeObserver(self, name: UITextField.textDidBeginEditingNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UITextField.textDidEndEditingNotification, object: nil)
+        NotificationCenter.default.removeObserver(
+            self,
+            name: UITextField.textDidBeginEditingNotification,
+            object: nil
+        )
+        NotificationCenter.default.removeObserver(
+            self,
+            name: UITextField.textDidEndEditingNotification,
+            object: nil
+        )
     }
 }
 
-// MARK: - Keyboard Dismiss Helper
 extension UIApplication {
+    /// A helper function to dismiss the keyboard from any active text field.
     func endEditing() {
         sendAction(#selector(UIResponder.resignFirstResponder),
-                   to: nil, from: nil, for: nil)
+                   to: nil,
+                   from: nil,
+                   for: nil)
     }
 }
-
-
 
 // MARK: - Preview
 struct ListView_Previews: PreviewProvider {

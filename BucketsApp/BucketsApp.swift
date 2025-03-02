@@ -20,9 +20,17 @@ struct BucketsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // 1) Check if user is authenticated
-            if onboardingViewModel.isAuthenticated {
-                // 2) Main content
+            // Decide which screen to show based on authentication + username
+            if !onboardingViewModel.isAuthenticated {
+                // 1) Not signed in => show onboarding
+                OnboardingView()
+                    .environmentObject(onboardingViewModel)
+                    .environmentObject(bucketListViewModel)
+                    .environmentObject(userViewModel)
+
+            } else if let username = onboardingViewModel.user?.username,
+                      !username.isEmpty {
+                // 2) Authenticated user with a known username => Main content
                 NavigationStack {
                     ListView()
                         .environmentObject(bucketListViewModel)
@@ -30,7 +38,7 @@ struct BucketsApp: App {
                         .environmentObject(userViewModel)
                         .onAppear {
                             Task {
-                                // If we have a current Firebase user, load items (or start listening)
+                                // If we have a current Firebase user, start loading
                                 if Auth.auth().currentUser != nil {
                                     bucketListViewModel.startListeningToItems()
                                     await onboardingViewModel.loadProfileImage()
@@ -38,15 +46,13 @@ struct BucketsApp: App {
                             }
                         }
                 }
+
             } else {
-                // 3) Onboarding / Authentication screen
-                OnboardingView()
+                // 3) Authenticated but missing username => new user flow
+                NewUserNameView()
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
-                    .onAppear {
-                        // Could do minimal logic for unauth state here
-                    }
             }
         }
     }
