@@ -11,7 +11,7 @@ import FirebaseStorage
 import FirebaseFirestore
 import GoogleSignIn
 import FirebaseCore
-import LocalAuthentication  // For Face ID / Touch ID
+import LocalAuthentication
 import Security
 
 @MainActor
@@ -23,8 +23,8 @@ final class OnboardingViewModel: ObservableObject {
     @Published var email: String = ""
     @Published var password: String = ""
     
-    /// The user’s chosen handle (e.g., "john123" or "@john123").
-    /// Automatically ensures an "@" prefix.
+    /// A username property (optional usage).
+    /// If you no longer need any username in your app, you can remove this, too.
     @Published var username: String = "" {
         didSet {
             if !username.isEmpty && !username.hasPrefix("@") {
@@ -45,9 +45,6 @@ final class OnboardingViewModel: ObservableObject {
     /// Error messaging for UI alerts.
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
-    
-    /// Whether we should show the full-screen NewUserNameView.
-    @Published var shouldShowNewUserNameView: Bool = false
     
     // MARK: - Firebase
     private let storage = Storage.storage()
@@ -176,81 +173,12 @@ final class OnboardingViewModel: ObservableObject {
                         }
                     }
                     
-                    // Fetch user doc to see if a username already exists
+                    // Fetch user doc (then optionally load more data)
                     await self.fetchUserDocument(userId: authUser.uid)
                     await self.loadProfileImage()
                     
-                    // If username is missing or empty => show NewUserNameView
-                    if self.user?.username == nil || (self.user?.username?.isEmpty ?? true) {
-                        self.shouldShowNewUserNameView = true
-                    }
-                    
                     print("[OnboardingViewModel] Google sign-in success. UID:", authUser.uid)
                 }
-            }
-        }
-    }
-    
-    // MARK: - Username Availability
-    
-    func isUsernameUsed(_ username: String) async -> Bool {
-        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return true }
-        
-        do {
-            let snapshot = try await firestore
-                .collection("users")
-                .whereField("username", isEqualTo: trimmed)
-                .getDocuments()
-            
-            return !snapshot.documents.isEmpty
-        } catch {
-            print("[OnboardingViewModel] Error checking username:", error.localizedDescription)
-            return false
-        }
-    }
-    
-    // MARK: - Save New Username (For brand-new Google signups)
-    
-    @MainActor
-    func saveNewUsername(_ rawUsername: String) {
-        var finalUsername = rawUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !finalUsername.isEmpty && !finalUsername.hasPrefix("@") {
-            finalUsername = "@" + finalUsername
-        }
-        
-        Task {
-            do {
-                // 1) Check if username is already taken (still on main actor)
-                let used = await isUsernameUsed(finalUsername)
-                if used {
-                    let error = NSError(
-                        domain: "UsernameInUse",
-                        code: 0,
-                        userInfo: [NSLocalizedDescriptionKey: "Username is already taken."]
-                    )
-                    handleError(error)
-                    return
-                }
-                
-                // 2) Update Firestore with the new username
-                guard let userId = Auth.auth().currentUser?.uid else { return }
-                
-                let dataToUpdate: [String: String] = ["username": finalUsername]
-                try await firestore.collection("users")
-                                   .document(userId)
-                                   .updateData(dataToUpdate)
-                
-                // 3) Update local user model
-                user?.username = finalUsername
-                
-                // 4) Hide the full-screen NewUserNameView
-                shouldShowNewUserNameView = false
-                
-                print("[OnboardingViewModel] Username updated to \(finalUsername)")
-                
-            } catch {
-                handleError(error)
             }
         }
     }
@@ -460,7 +388,7 @@ final class OnboardingViewModel: ObservableObject {
         do {
             let docData: [String: Any] = [
                 "email": email,
-                "createdAt": Date(),   // or FieldValue.serverTimestamp()
+                "createdAt": Date(), // or FieldValue.serverTimestamp()
                 "username": username
             ]
             try await userDoc.setData(docData)

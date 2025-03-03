@@ -16,7 +16,7 @@ struct OnboardingView: View {
         NavigationStack {
             ZStack {
                 VStack(spacing: 40) {
-
+                    
                     // MARK: - App Icon or Logo
                     Image(systemName: "checkmark.circle.fill")
                         .resizable()
@@ -26,7 +26,7 @@ struct OnboardingView: View {
                         .padding()
 
                     Spacer()
-                    
+
                     // MARK: - Main Title
                     Text("What do you want to do before you die?")
                         .font(.largeTitle)
@@ -39,7 +39,7 @@ struct OnboardingView: View {
 
                     // MARK: - Buttons (Sign Up & Log In)
                     VStack(spacing: 20) {
-                        
+
                         // Sign Up Button
                         Button(action: {
                             showSignUp.toggle()
@@ -48,7 +48,7 @@ struct OnboardingView: View {
                                 .fontWeight(.bold)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(uiColor: .secondarySystemBackground))
+                                .background(Color(uiColor: .systemBackground))
                                 .foregroundColor(.primary)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
@@ -66,7 +66,7 @@ struct OnboardingView: View {
                                 .fontWeight(.bold)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(uiColor: .secondarySystemBackground))
+                                .background(Color(uiColor: .systemBackground))
                                 .foregroundColor(.primary)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
@@ -76,13 +76,12 @@ struct OnboardingView: View {
                                 .environmentObject(onboardingViewModel)
                         }
 
-                        // MARK: - Google Sign-In Button
+                        /*
+                        // MARK: - Google Sign-In Button (Commented Out)
                         Button(action: {
                             onboardingViewModel.signInWithGoogle()
                         }) {
                             HStack {
-                                // If you have a Google logo in your Assets,
-                                // replace "google_logo" with that image name
                                 Image("google_logo")
                                     .resizable()
                                     .scaledToFit()
@@ -98,6 +97,7 @@ struct OnboardingView: View {
                             .cornerRadius(10)
                             .shadow(radius: 5)
                         }
+                        */
                     }
                     .padding(.horizontal)
 
@@ -109,11 +109,13 @@ struct OnboardingView: View {
             .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
         }
-        // IMPORTANT: Present NewUserNameView if user has no username after Google sign-in
+        // Remove or comment out this fullScreenCover entirely:
+        /*
         .fullScreenCover(isPresented: $onboardingViewModel.shouldShowNewUserNameView) {
             NewUserNameView()
                 .environmentObject(onboardingViewModel)
         }
+        */
     }
 }
 

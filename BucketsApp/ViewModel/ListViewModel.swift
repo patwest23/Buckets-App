@@ -138,7 +138,6 @@ class ListViewModel: ObservableObject {
             return
         }
         
-        // Use `let` instead of `var`
         let isNewItem = !items.contains { $0.id == item.id }
         
         // If new => set next orderIndex
@@ -156,12 +155,14 @@ class ListViewModel: ObservableObject {
             try docRef.setData(from: newItem, merge: true)
             print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
             
-            // Update local array only if item still in array
+            // Update local array with debug prints
             if let idx = items.firstIndex(where: { $0.id == newItem.id }) {
+                print("[ListViewModel] addOrUpdateItem => found index \(idx), items.count=\(items.count)")
                 items[idx] = newItem
-            }
-            else if isNewItem {
+            } else if isNewItem {
+                print("[ListViewModel] addOrUpdateItem => appended new item. items.count was", items.count)
                 items.append(newItem)
+                print("[ListViewModel] Now items.count =", items.count)
             }
             // else skip if the item was removed in the meantime
             
@@ -196,8 +197,17 @@ class ListViewModel: ObservableObject {
     }
     
     func deleteItems(at indexSet: IndexSet) async {
-        let itemsToDelete = indexSet.map { items[$0] }
-        for item in itemsToDelete {
+        // Print info to catch any unexpected index
+        print("[ListViewModel] deleteItems(at:). items.count =", items.count, "indexSet =", indexSet)
+        
+        // If you want extra safety:
+        for index in indexSet {
+            guard index < items.count else {
+                print("[ListViewModel] WARNING: out-of-range index:", index,
+                      "for items.count =", items.count)
+                continue // skip or break
+            }
+            let item = items[index]
             await deleteItem(item)
         }
     }

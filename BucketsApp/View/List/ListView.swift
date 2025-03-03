@@ -118,9 +118,10 @@ struct ListView: View {
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
                             }
-                            // Navigate to Detail
+                            // Navigate to Detail => PASS A COPY of the item
                             .navigationDestination(item: $selectedItem) { item in
-                                DetailItemView(item: bindingForItem(item))
+                                // The detail view will do local copy handling
+                                DetailItemView(item: item)
                                     .environmentObject(bucketListViewModel)
                                     .environmentObject(onboardingViewModel)
                             }
@@ -141,7 +142,7 @@ struct ListView: View {
                                 }
                             }
                             // Scroll to changed ID
-                            .onChange(of: scrollToId) { oldVal, newVal in
+                            .onChange(of: scrollToId) { _, newVal in
                                 guard let newVal = newVal else { return }
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     proxy.scrollTo(newVal, anchor: .bottom)
@@ -180,12 +181,14 @@ struct ListView: View {
     private var itemListView: some View {
         List {
             ForEach(displayedItems, id: \.id) { currentItem in
+                // We still bind to the row for inline editing
                 let itemBinding = bindingForItem(currentItem)
                 
                 ItemRowView(
                     item: itemBinding,
                     newlyCreatedItemID: newlyCreatedItemID,
                     onNavigateToDetail: {
+                        // For detail: pass a *copy* via selectedItem
                         selectedItem = currentItem
                     },
                     onEmptyNameLostFocus: {
@@ -297,9 +300,10 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Binding
+    // MARK: - Binding for Row
     private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
         guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
+            // If not found, return a constant to avoid out-of-range errors
             return .constant(item)
         }
         return $bucketListViewModel.items[index]
@@ -325,7 +329,7 @@ struct ListView: View {
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(Color.accentColor, lineWidth: 4)
+                        .stroke(Color.accentColor, lineWidth: 2)
                 )
         } else {
             Image(systemName: "person.crop.circle.fill")
@@ -337,15 +341,15 @@ struct ListView: View {
     }
 }
 
+// MARK: - Keyboard / Text Field Observers
 extension ListView {
-    /// Start listening for iOS text-field notifications
     private func startTextFieldListeners() {
         NotificationCenter.default.addObserver(
             forName: UITextField.textDidBeginEditingNotification,
             object: nil,
             queue: .main
         ) { _ in
-            // Whenever a text field begins editing, set your flag
+            // A text field begins editing
             isAnyTextFieldActive = true
         }
         
@@ -354,12 +358,11 @@ extension ListView {
             object: nil,
             queue: .main
         ) { _ in
-            // When a text field finishes editing, remove the flag
+            // A text field ends editing
             isAnyTextFieldActive = false
         }
     }
     
-    /// Stop listening for iOS text-field notifications
     private func stopTextFieldListeners() {
         NotificationCenter.default.removeObserver(
             self,
@@ -374,8 +377,8 @@ extension ListView {
     }
 }
 
+// MARK: - Keyboard Dismissal Helper
 extension UIApplication {
-    /// A helper function to dismiss the keyboard from any active text field.
     func endEditing() {
         sendAction(#selector(UIResponder.resignFirstResponder),
                    to: nil,

@@ -20,17 +20,14 @@ struct BucketsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Decide which screen to show based on authentication + username
             if !onboardingViewModel.isAuthenticated {
                 // 1) Not signed in => show onboarding
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
-
-            } else if let username = onboardingViewModel.user?.username,
-                      !username.isEmpty {
-                // 2) Authenticated user with a known username => Main content
+            } else {
+                // 2) Authenticated => Main content
                 NavigationStack {
                     ListView()
                         .environmentObject(bucketListViewModel)
@@ -38,7 +35,7 @@ struct BucketsApp: App {
                         .environmentObject(userViewModel)
                         .onAppear {
                             Task {
-                                // If we have a current Firebase user, start loading
+                                // If we have a current Firebase user, start loading items, etc.
                                 if Auth.auth().currentUser != nil {
                                     bucketListViewModel.startListeningToItems()
                                     await onboardingViewModel.loadProfileImage()
@@ -46,13 +43,6 @@ struct BucketsApp: App {
                             }
                         }
                 }
-
-            } else {
-                // 3) Authenticated but missing username => new user flow
-                NewUserNameView()
-                    .environmentObject(onboardingViewModel)
-                    .environmentObject(bucketListViewModel)
-                    .environmentObject(userViewModel)
             }
         }
     }
@@ -75,7 +65,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Optional Firestore configuration
         let db = Firestore.firestore()
         let settings = db.settings
-        
+
         // Example: customizing cache size
         let persistentCache = PersistentCacheSettings()
         // persistentCache.sizeBytes = 10_485_760 // e.g., 10MB

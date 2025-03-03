@@ -132,18 +132,11 @@ struct SignUpView: View {
     }
 
     // MARK: - Sign Up Button
-    
-    /// The "Sign Up" button checks input validity, username, then calls signUpUser
     var signUpButton: some View {
         Button {
             Task {
                 if validateInput() {
-                    // 1) Check if username is used
-                    if await viewModel.isUsernameUsed(username) {
-                        showError("Username is already taken. Please pick another.")
-                        return
-                    }
-                    // 2) If not taken, do normal sign-up
+                    // Just do normal sign-up (no username check)
                     await signUpUser()
                 } else {
                     showErrorAlert = true
@@ -154,9 +147,7 @@ struct SignUpView: View {
                 .fontWeight(.bold)
                 .frame(maxWidth: .infinity)
                 .padding()
-                // Use secondarySystemBackground for button background
                 .background(Color(uiColor: .secondarySystemBackground))
-                // If not agreed => text is red, else .primary
                 .foregroundColor(agreedToTerms ? .primary : .red)
                 .cornerRadius(10)
                 .shadow(radius: 5)
