@@ -9,58 +9,63 @@ import SwiftUI
 import PhotosUI
 import FirebaseStorage
 
-/// Marking the entire struct as @MainActor ensures
-/// we can access main-actor properties like uiImages/localItem
-/// without Swift 6 concurrency warnings.
 @MainActor
 struct DetailItemView: View {
-    // MARK: - Local Copy
-    @State private var localItem: ItemModel
-
-    // MARK: - Environment
+    // MARK: - We store just the item ID
+    let itemID: UUID
+    
+    // MARK: - Environment & Observed
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @Environment(\.presentationMode) private var presentationMode
-
-    // MARK: - Photos
+    
+    // The current item pulled from listViewModel, or a fallback if not found
+    @State private var currentItem: ItemModel
+    
+    // Photos
     @StateObject private var imagePickerVM = ImagePickerViewModel()
-
-    // MARK: - Date Picker Sheets
+    
+    // Sheets & Alerts
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
-
-    // MARK: - Delete
     @State private var showDeleteAlert = false
-
-    // MARK: - Focus states (for the title and notes only)
+    
+    // Focus
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNotesFocused: Bool
-
+    
     // MARK: - Init
     init(item: ItemModel) {
-        _localItem = State(initialValue: item)
+        // We'll store itemID for re-fetching, start with 'currentItem' = item
+        self.itemID = item.id
+        _currentItem = State(initialValue: item)
     }
-
+    
     var body: some View {
         Form {
-            // MARK: - SECTION 1: Title & Completion
+            // ===== SECTION 1: Title & Completed
             Section {
-                // 1) Title row
+                // Title
                 TextField("Title...", text: Binding(
-                    get: { localItem.name },
-                    set: { localItem.name = $0 }
+                    get: { currentItem.name },
+                    set: { newValue in
+                        // Update local & Firestore
+                        currentItem.name = newValue
+                        bucketListViewModel.addOrUpdateItem(currentItem)
+                    }
                 ))
                 .focused($isTitleFocused)
-                .foregroundColor(localItem.completed ? .gray : .primary)
-
-                // 2) Completed Toggle
+                .foregroundColor(currentItem.completed ? .gray : .primary)
+                
+                // Completed Toggle
                 Toggle(isOn: bindingForCompletion) {
-                    Label("Completed", systemImage: localItem.completed ? "checkmark.circle.fill" : "circle")
+                    Label("Completed",
+                          systemImage: currentItem.completed ? "checkmark.circle.fill" : "circle")
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .accentColor))
             }
-
-            // MARK: - SECTION 2: Photos
+            
+            // ===== SECTION 2: Photos
             Section {
                 // "Select Photos" row
                 PhotosPicker(
@@ -70,71 +75,72 @@ struct DetailItemView: View {
                 ) {
                     HStack {
                         Text("📸  Select Photos")
-                            .font(.headline)
                         Spacer()
-                        if !imagePickerVM.uiImages.isEmpty || !localItem.imageUrls.isEmpty {
+                        
+                        // 1) Evaluate references in a local let
+                        let hasImages = !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
+                        if hasImages {
                             Image(systemName: "chevron.right")
                                 .foregroundColor(.gray)
                         }
                     }
                 }
-                .disabled(!localItem.completed)
-
-                // If we have images => show them below
-                if !imagePickerVM.uiImages.isEmpty || !localItem.imageUrls.isEmpty {
+                .disabled(!currentItem.completed)
+                
+                // 2) Another local let for the grid if needed
+                let showGrid = !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
+                if showGrid {
                     photoGridRow
                 }
             }
-
-            // MARK: - SECTION 3: Dates
+            
+            // ===== SECTION 3: Dates
             Section {
-                // Created row => tap date
+                // Created row => tap => date sheet
                 Button {
                     showDateCreatedSheet = true
                 } label: {
                     HStack {
-                        Text("📅 Created")
-                            .font(.headline)
+                        Text("📅 Created").font(.headline)
                         Spacer()
-                        Text(formatDate(localItem.creationDate))
+                        Text(formatDate(currentItem.creationDate))
                             .foregroundColor(.accentColor)
                     }
                 }
-                .buttonStyle(PlainButtonStyle())
-
-                // Completed row => tap date if completed
+                .buttonStyle(.plain)
+                
+                // Completed row => only if completed
                 Button {
-                    if localItem.completed {
+                    if currentItem.completed {
                         showDateCompletedSheet = true
                     }
                 } label: {
                     HStack {
-                        Text("📅 Completed")
-                            .font(.headline)
+                        Text("📅 Completed").font(.headline)
                         Spacer()
-                        let dateStr = localItem.completed ? formatDate(localItem.dueDate) : "--"
+                        let dateStr = currentItem.completed
+                            ? formatDate(currentItem.dueDate)
+                            : "--"
                         Text(dateStr)
-                            .foregroundColor(localItem.completed ? .accentColor : .gray)
+                            .foregroundColor(currentItem.completed ? .accentColor : .gray)
                     }
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(!localItem.completed)
+                .buttonStyle(.plain)
+                .disabled(!currentItem.completed)
             }
-
-            // MARK: - SECTION 4: Location
+            
+            // ===== SECTION 4: Location
             Section {
                 HStack {
-                    Text("📍 Location")
-                        .font(.headline)
-
+                    Text("📍 Location").font(.headline)
                     Spacer()
-
                     TextField("Enter location...", text: Binding(
-                        get: { localItem.location?.address ?? "" },
-                        set: {
-                            var loc = localItem.location ?? Location(latitude: 0, longitude: 0, address: "")
-                            loc.address = $0
-                            localItem.location = loc
+                        get: { currentItem.location?.address ?? "" },
+                        set: { newValue in
+                            var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: "")
+                            loc.address = newValue
+                            currentItem.location = loc
+                            bucketListViewModel.addOrUpdateItem(currentItem)
                         }
                     ))
                     .disableAutocorrection(false)
@@ -142,24 +148,27 @@ struct DetailItemView: View {
                     .multilineTextAlignment(.trailing)
                 }
             }
-
-            // MARK: - SECTION 5: Notes
+            
+            // ===== SECTION 5: Notes
             Section {
                 TextEditor(
                     text: Binding(
-                        get: { localItem.description ?? "" },
-                        set: { localItem.description = $0 }
+                        get: { currentItem.description ?? "" },
+                        set: { newValue in
+                            currentItem.description = newValue
+                            bucketListViewModel.addOrUpdateItem(currentItem)
+                        }
                     )
                 )
                 .frame(minHeight: 100)
                 .focused($isNotesFocused)
             }
-
-            // MARK: - SECTION 6: Delete
+            
+            // ===== SECTION 6: Delete
             Section {
-                Button(action: {
+                Button {
                     showDeleteAlert = true
-                }) {
+                } label: {
                     Text("Delete")
                         .foregroundColor(.red)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -171,8 +180,8 @@ struct DetailItemView: View {
         }
         .navigationTitle("Detail")
         .navigationBarTitleDisplayMode(.inline)
-
-        // "Done" button in toolbar if any text field is focused
+        
+        // "Done" if title or notes are focused
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if isTitleFocused || isNotesFocused {
@@ -182,110 +191,138 @@ struct DetailItemView: View {
                 }
             }
         }
-
-        // Sheets for date pickers
+        
+        // Created date sheet
         .sheet(isPresented: $showDateCreatedSheet) {
             datePickerSheet(
                 title: "Set Created Date",
                 date: Binding(
-                    get: { localItem.creationDate },
-                    set: { localItem.creationDate = $0 }
+                    get: { currentItem.creationDate },
+                    set: { newValue in
+                        currentItem.creationDate = newValue
+                        bucketListViewModel.addOrUpdateItem(currentItem)
+                    }
                 )
             ) {
                 showDateCreatedSheet = false
             }
         }
+        // Completed date sheet
         .sheet(isPresented: $showDateCompletedSheet) {
-            if localItem.completed {
+            if currentItem.completed {
                 datePickerSheet(
                     title: "Set Completion Date",
                     date: Binding(
-                        get: { localItem.dueDate ?? Date() },
-                        set: { localItem.dueDate = $0 }
+                        get: { currentItem.dueDate ?? Date() },
+                        set: { newValue in
+                            currentItem.dueDate = newValue
+                            bucketListViewModel.addOrUpdateItem(currentItem)
+                        }
                     )
                 ) {
                     showDateCompletedSheet = false
                 }
             }
         }
-
-        // Delete alert
+        
+        // Delete confirmation
         .alert("Delete Item?",
                isPresented: $showDeleteAlert,
                actions: {
                    Button("Delete", role: .destructive) {
                        Task {
-                           await bucketListViewModel.deleteItem(localItem)
-                           bucketListViewModel.items.removeAll { $0.id == localItem.id }
+                           await bucketListViewModel.deleteItem(currentItem)
                        }
                        presentationMode.wrappedValue.dismiss()
                    }
                    Button("Cancel", role: .cancel) {}
                },
                message: {
-                   Text("This cannot be undone. You will lose “\(localItem.name)” permanently.")
+                   Text("This cannot be undone. You will lose “\(currentItem.name)” permanently.")
                })
-
-        // If user picks images => store them locally (no immediate Firestore)
-        .onChange(of: imagePickerVM.uiImages) { _, newImages in
-            if !newImages.isEmpty {
-                localItem.imageUrls.removeAll()
+        
+        // Upload images if user picks them
+        .onChange(of: imagePickerVM.imageSelections) { oldValue, newValue in
+            Task {
+                await uploadPickedImages(newValue)
             }
         }
-
-        // Final commit on disappear
-        .onDisappear {
-            commitChanges()
-        }
-    }
-
-    // MARK: - Photo Grid Row
-    private var photoGridRow: some View {
-        // Show a single row containing the grid
-        VStack(alignment: .leading, spacing: 8) {
-            if !imagePickerVM.uiImages.isEmpty {
-                photoGrid(uiImages: imagePickerVM.uiImages)
-            } else if !localItem.imageUrls.isEmpty {
-                photoGrid(urlStrings: localItem.imageUrls)
-            }
+        
+        // Refresh the item from ListView whenever we appear
+        .onAppear {
+            refreshCurrentItemFromList()
         }
     }
 }
 
-// MARK: - Helpers
+// MARK: - Private Helpers
 extension DetailItemView {
-    /// Toggle binding for the item’s completed state
+    
+    /// Refresh currentItem from the listViewModel, if present
+    private func refreshCurrentItemFromList() {
+        if let updatedItem = bucketListViewModel.items.first(where: { $0.id == itemID }) {
+            self.currentItem = updatedItem
+        }
+    }
+    
+    /// Upload newly picked images => Firebase => update item’s imageUrls => update Firestore
+    private func uploadPickedImages(_ selections: [PhotosPickerItem]) async {
+        guard currentItem.completed else { return }
+        guard let user = onboardingViewModel.user else { return }
+        guard let userId = user.id else {
+            print("[DetailItemView] No valid user.id!")
+            return
+        }
+        
+        var newUrls: [String] = []
+        let storageRef = Storage.storage().reference()
+            .child("users/\(userId)/item-\(currentItem.id.uuidString)")
+        
+        for (index, pickerItem) in selections.enumerated() {
+            do {
+                if let data = try await pickerItem.loadTransferable(type: Data.self),
+                   let uiImage = UIImage(data: data),
+                   let imageData = uiImage.jpegData(compressionQuality: 0.8) {
+                    
+                    let imageRef = storageRef.child("photo\(index + 1).jpg")
+                    try await imageRef.putDataAsync(imageData)
+                    let downloadURL = try await imageRef.downloadURL()
+                    newUrls.append(downloadURL.absoluteString)
+                }
+            } catch {
+                print("[DetailItemView] uploadPickedImages error:", error.localizedDescription)
+            }
+        }
+        
+        currentItem.imageUrls = newUrls
+        bucketListViewModel.addOrUpdateItem(currentItem)
+    }
+    
+    /// Binding for the completion toggle
     private var bindingForCompletion: Binding<Bool> {
         Binding(get: {
-            localItem.completed
+            currentItem.completed
         }, set: { newValue in
-            localItem.completed = newValue
-            localItem.dueDate = newValue ? Date() : nil
+            currentItem.completed = newValue
+            currentItem.dueDate = newValue ? Date() : nil
+            bucketListViewModel.addOrUpdateItem(currentItem)
         })
     }
-
-    /// Hide the keyboard, no partial commit
+    
+    /// Hide keyboard
     private func hideKeyboard() {
         isTitleFocused = false
         isNotesFocused = false
     }
-
-    /// Commit local changes to Firestore
-    private func commitChanges() {
-        Task {
-            bucketListViewModel.addOrUpdateItem(localItem)
-        }
-    }
-
+    
     /// Format date or “--”
     private func formatDate(_ date: Date?) -> String {
-        guard let date = date else { return "--" }
+        guard let date else { return "--" }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
-
-    /// A date picker for Created / Completed
+    
     private func datePickerSheet(
         title: String,
         date: Binding<Date>,
@@ -296,11 +333,11 @@ extension DetailItemView {
                 Text(title)
                     .font(.title3)
                     .padding(.top)
-
+                
                 DatePicker("", selection: date, displayedComponents: .date)
                     .datePickerStyle(.wheel)
                     .labelsHidden()
-
+                
                 Button("Done") {
                     onDismiss()
                 }
@@ -311,12 +348,22 @@ extension DetailItemView {
         }
         .presentationDetents([.height(350)])
     }
-
-    // Photo grids
+    
+    /// Photo grid row
+    @ViewBuilder
+    private var photoGridRow: some View {
+        // Show local picks first if we want
+        if !imagePickerVM.uiImages.isEmpty {
+            photoGrid(uiImages: imagePickerVM.uiImages)
+        } else if !currentItem.imageUrls.isEmpty {
+            photoGrid(urlStrings: currentItem.imageUrls)
+        }
+    }
+    
     private func photoGrid(uiImages: [UIImage]) -> some View {
         LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
-            ForEach(uiImages, id: \.self) { img in
-                Image(uiImage: img)
+            ForEach(uiImages, id: \.self) { uiImage in
+                Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 80, height: 80)
@@ -325,7 +372,7 @@ extension DetailItemView {
             }
         }
     }
-
+    
     private func photoGrid(urlStrings: [String]) -> some View {
         LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
             ForEach(urlStrings, id: \.self) { urlStr in

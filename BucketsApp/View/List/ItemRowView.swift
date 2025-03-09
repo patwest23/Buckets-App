@@ -24,7 +24,7 @@ struct ItemRowView: View {
     // Track focus for the TextField
     @FocusState private var isTextFieldFocused: Bool
     
-    // **NEW**: ensures we only auto-focus *once*
+    // Ensures we only auto-focus *once*
     @State private var hasAutoFocused = false
     
     // Layout constants
@@ -61,15 +61,17 @@ struct ItemRowView: View {
                 
                 Spacer()
                 
-                // 3) Chevron => detail
-                Button {
-                    onNavigateToDetail?()
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .imageScale(.medium)
-                        .foregroundColor(.secondary)
+                // 3) Chevron => detail, only if user is focusing the text field
+                if isTextFieldFocused {
+                    Button {
+                        onNavigateToDetail?()
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .imageScale(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
             }
             
             // MARK: - Images (only if completed + has images)
