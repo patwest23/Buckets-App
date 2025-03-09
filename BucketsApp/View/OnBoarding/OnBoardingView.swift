@@ -11,7 +11,10 @@ struct OnboardingView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @State private var showSignUp = false
     @State private var showLogIn = false
-
+    
+    // Detect whether we’re in Light or Dark mode
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -24,9 +27,9 @@ struct OnboardingView: View {
                         .frame(maxWidth: 60, maxHeight: 60)
                         .foregroundColor(.accentColor)
                         .padding()
-
+                    
                     Spacer()
-
+                    
                     // MARK: - Main Title
                     Text("What do you want to do before you die?")
                         .font(.largeTitle)
@@ -34,12 +37,12 @@ struct OnboardingView: View {
                         .multilineTextAlignment(.center)
                         .foregroundColor(.primary) // adapt to Light/Dark
                         .padding(.horizontal, 40.0)
-
+                    
                     Spacer()
-
+                    
                     // MARK: - Buttons (Sign Up & Log In)
                     VStack(spacing: 20) {
-
+                        
                         // Sign Up Button
                         Button(action: {
                             showSignUp.toggle()
@@ -48,7 +51,8 @@ struct OnboardingView: View {
                                 .fontWeight(.bold)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(uiColor: .systemBackground))
+                                // Condition: White in light mode, .secondarySystemBackground in dark mode
+                                .background(buttonBackgroundColor)
                                 .foregroundColor(.primary)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
@@ -57,7 +61,7 @@ struct OnboardingView: View {
                             SignUpView()
                                 .environmentObject(onboardingViewModel)
                         }
-
+                        
                         // Log In Button
                         Button(action: {
                             showLogIn.toggle()
@@ -66,7 +70,8 @@ struct OnboardingView: View {
                                 .fontWeight(.bold)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color(uiColor: .systemBackground))
+                                // Same dynamic background
+                                .background(buttonBackgroundColor)
                                 .foregroundColor(.primary)
                                 .cornerRadius(10)
                                 .shadow(radius: 5)
@@ -75,7 +80,7 @@ struct OnboardingView: View {
                             LogInView()
                                 .environmentObject(onboardingViewModel)
                         }
-
+                        
                         /*
                         // MARK: - Google Sign-In Button (Commented Out)
                         Button(action: {
@@ -92,7 +97,7 @@ struct OnboardingView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color(uiColor: .secondarySystemBackground))
+                            .background(buttonBackgroundColor)
                             .foregroundColor(.primary)
                             .cornerRadius(10)
                             .shadow(radius: 5)
@@ -100,7 +105,7 @@ struct OnboardingView: View {
                         */
                     }
                     .padding(.horizontal)
-
+                    
                     Spacer()
                 }
                 .padding()
@@ -109,13 +114,14 @@ struct OnboardingView: View {
             .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
         }
-        // Remove or comment out this fullScreenCover entirely:
-        /*
-        .fullScreenCover(isPresented: $onboardingViewModel.shouldShowNewUserNameView) {
-            NewUserNameView()
-                .environmentObject(onboardingViewModel)
-        }
-        */
+    }
+    
+    /// Computed property to pick the button background color:
+    /// White in Light Mode, .secondarySystemBackground in Dark Mode
+    private var buttonBackgroundColor: Color {
+        colorScheme == .dark
+        ? Color(uiColor: .secondarySystemBackground)
+        : Color.white
     }
 }
 

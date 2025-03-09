@@ -19,5 +19,7 @@
 	<string></string>
 	<key>GIDCLientID</key>
 	<string></string>
+	<key>CFBundleDisplayName</key>
+	<string>Buckets</string>
 </dict>
 </plist>
