@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -33,6 +33,7 @@
 		1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
 		1FE6B36B29E65E5200C6B59A /* ItemRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */; };
 		1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */; };
+		1FE7B0E42D7E2A8700D7BDC1 /* PostModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */; };
 		1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */; };
 		1FED1A1129E20B3100868BAC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1FED1A1029E20B3100868BAC /* Assets.xcassets */; };
 		1FED1A1429E20B3100868BAC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1FED1A1329E20B3100868BAC /* Preview Assets.xcassets */; };
@@ -66,6 +67,7 @@
 		1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingViewModel.swift; sourceTree = "<group>"; };
 		1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowView.swift; sourceTree = "<group>"; };
 		1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewUserNameView.swift; sourceTree = "<group>"; };
+		1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostModel.swift; sourceTree = "<group>"; };
 		1FED1A0929E20B2E00868BAC /* BucketsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BucketsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketsApp.swift; sourceTree = "<group>"; };
 		1FED1A1029E20B3100868BAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -75,6 +77,11 @@
 		1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateUserNameView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		1FE7B0CA2D7E28DD00D7BDC1 /* Social */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Social; sourceTree = "<group>"; };
+		1FE7B0D72D7E29A900D7BDC1 /* Social */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Social; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1FED1A0629E20B2E00868BAC /* Frameworks */ = {
@@ -158,6 +165,7 @@
 		1FED1A1A29E20B4D00868BAC /* View */ = {
 			isa = PBXGroup;
 			children = (
+				1FE7B0D72D7E29A900D7BDC1 /* Social */,
 				1F62F07729E27ABA00C107CD /* User */,
 				1FED1A2429E210A400868BAC /* List */,
 				1FED1A1D29E20BF800868BAC /* OnBoarding */,
@@ -174,6 +182,7 @@
 				1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */,
 				1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */,
 				1F357F592D0D3F06003F121A /* Extensions.swift */,
+				1FE7B0CA2D7E28DD00D7BDC1 /* Social */,
 			);
 			path = ViewModel;
 			sourceTree = "<group>";
@@ -183,6 +192,7 @@
 			children = (
 				1F64774B29E5023600B66F63 /* ItemModel.swift */,
 				1F234B242D21DC7E000DF507 /* UserModel.swift */,
+				1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -223,6 +233,10 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1FE7B0CA2D7E28DD00D7BDC1 /* Social */,
+				1FE7B0D72D7E29A900D7BDC1 /* Social */,
 			);
 			name = BucketsApp;
 			packageProductDependencies = (
@@ -309,6 +323,7 @@
 				1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
 				1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */,
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
+				1FE7B0E42D7E2A8700D7BDC1 /* PostModel.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,
 				1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */,

@@ -8,11 +8,24 @@
 import SwiftUI
 
 struct FeedView: View {
+    @StateObject private var viewModel = FeedViewModel()
+    
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        NavigationView {
+            List(viewModel.posts) { post in
+                // A simple row for each post
+                VStack(alignment: .leading) {
+                    Text("Item ID: \(post.itemID)")
+                    Text("Posted by: \(post.authorID)")
+                    if let caption = post.caption {
+                        Text(caption)
+                    }
+                }
+            }
+            .navigationTitle("Feed")
+            .onAppear {
+                viewModel.fetchFeedPosts()
+            }
+        }
     }
-}
-
-#Preview {
-    FeedView()
 }
