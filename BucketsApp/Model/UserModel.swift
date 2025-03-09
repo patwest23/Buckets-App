@@ -29,6 +29,9 @@ struct UserModel: Identifiable, Codable {
     
     /// A separate handle (like “@john123”). May be nil if user never set it.
     var username: String?
+    
+    // In UserModel or a separate structure:
+    var following: [String] = []
 
     // MARK: - Custom Initializer
     init(

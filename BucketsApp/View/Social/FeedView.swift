@@ -8,23 +8,27 @@
 import SwiftUI
 
 struct FeedView: View {
-    @StateObject private var viewModel = FeedViewModel()
+    @StateObject var feedVM = FeedViewModel()
     
     var body: some View {
         NavigationView {
-            List(viewModel.posts) { post in
-                // A simple row for each post
+            List(feedVM.posts) { post in
                 VStack(alignment: .leading) {
-                    Text("Item ID: \(post.itemID)")
-                    Text("Posted by: \(post.authorID)")
-                    if let caption = post.caption {
-                        Text(caption)
+                    Text("Caption: \(post.caption ?? "")")
+                    Text("Author: \(post.authorId)")
+                    Text("Liked by: \(post.likedBy?.count ?? 0) users")
+                    Button("Like/Unlike") {
+                        Task {
+                            await feedVM.toggleLike(post: post)
+                        }
                     }
                 }
             }
-            .navigationTitle("Feed")
+            .navigationTitle("Your Feed")
             .onAppear {
-                viewModel.fetchFeedPosts()
+                Task {
+                    await feedVM.fetchFeedPosts()
+                }
             }
         }
     }

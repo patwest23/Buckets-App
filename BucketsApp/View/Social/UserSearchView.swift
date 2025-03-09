@@ -8,27 +8,82 @@
 import SwiftUI
 
 struct UserSearchView: View {
-    @StateObject private var viewModel = UserSearchViewModel()
+    /// We’ll accept a view model as a parameter
+    @ObservedObject var vm: UserSearchViewModel
     
     var body: some View {
-        VStack {
-            TextField("Search for users...", text: $viewModel.searchText, onCommit: {
-                viewModel.searchUsers()
-            })
-            .textFieldStyle(RoundedBorderTextFieldStyle())
-            .padding()
-            
-            List(viewModel.searchResults) { user in
-                HStack {
-                    Text(user.userName)
-                    Spacer()
-                    // Follow/unfollow button
-                    Button("Follow") {
-                        viewModel.followUser(user)
+        NavigationView {
+            VStack {
+                // Search bar
+                TextField("Search by @username or Name", text: $vm.searchText, onCommit: {
+                    Task {
+                        await vm.searchUsers()
+                    }
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding()
+                
+                // Search results + suggested
+                List {
+                    Section(header: Text("Search Results")) {
+                        ForEach(vm.searchResults) { user in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(user.username ?? "No username")
+                                    Text(user.name ?? "No name")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Button("Follow") {
+                                    Task {
+                                        await vm.followUser(user)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Section(header: Text("Suggested")) {
+                        ForEach(vm.suggestedUsers) { user in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(user.username ?? "No username")
+                                    Text(user.name ?? "No name")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Button("Follow") {
+                                    Task {
+                                        await vm.followUser(user)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .onAppear {
+                    Task {
+                        await vm.loadSuggestedUsers()
                     }
                 }
             }
+            .navigationTitle("Find Friends")
+            .alert("Error", isPresented: Binding<Bool>(
+                get: { vm.errorMessage != nil },
+                set: { _ in vm.errorMessage = nil }
+            ), actions: {}) {
+                Text(vm.errorMessage ?? "")
+            }
         }
-        .navigationTitle("Find Friends")
+    }
+}
+
+struct UserSearchView_Previews: PreviewProvider {
+    static var previews: some View {
+        UserSearchView(vm: MockUserSearchViewModel())
+            .previewDisplayName("Mock Search View")
     }
 }
