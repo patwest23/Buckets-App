@@ -18,6 +18,9 @@ struct BucketsApp: App {
     @StateObject var bucketListViewModel = ListViewModel()
     @StateObject var onboardingViewModel = OnboardingViewModel()
     @StateObject var userViewModel = UserViewModel()
+    
+    /// NEW: FeedViewModel created here
+    @StateObject var feedViewModel = FeedViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -34,6 +37,8 @@ struct BucketsApp: App {
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                         .environmentObject(userViewModel)
+                        // Pass FeedViewModel down as well
+                        .environmentObject(feedViewModel)
                         .onAppear {
                             Task {
                                 // If we have a current Firebase user, start loading items, etc.
@@ -47,41 +52,41 @@ struct BucketsApp: App {
             }
         }
     }
-}
+    
+    // MARK: - AppDelegate
+    class AppDelegate: NSObject, UIApplicationDelegate {
+        func application(
+            _ application: UIApplication,
+            didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+        ) -> Bool {
+            FirebaseApp.configure()
+            
+            if let options = FirebaseApp.app()?.options {
+                print("Firebase configured with options: \(options)")
+            } else {
+                print("Failed to configure Firebase.")
+            }
 
-// MARK: - AppDelegate
-class AppDelegate: NSObject, UIApplicationDelegate {
-    func application(
-        _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
-    ) -> Bool {
-        FirebaseApp.configure()
-        
-        if let options = FirebaseApp.app()?.options {
-            print("Firebase configured with options: \(options)")
-        } else {
-            print("Failed to configure Firebase.")
+            // Optional Firestore configuration
+            let db = Firestore.firestore()
+            let settings = db.settings
+
+            // Example: customizing cache size
+            let persistentCache = PersistentCacheSettings()
+            // persistentCache.sizeBytes = 10_485_760 // e.g., 10MB
+            settings.cacheSettings = persistentCache
+            db.settings = settings
+
+            return true
         }
 
-        // Optional Firestore configuration
-        let db = Firestore.firestore()
-        let settings = db.settings
+        func applicationDidEnterBackground(_ application: UIApplication) {
+            print("App entered background.")
+        }
 
-        // Example: customizing cache size
-        let persistentCache = PersistentCacheSettings()
-        // persistentCache.sizeBytes = 10_485_760 // e.g., 10MB
-        settings.cacheSettings = persistentCache
-        db.settings = settings
-
-        return true
-    }
-
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        print("App entered background.")
-    }
-
-    func applicationWillEnterForeground(_ application: UIApplication) {
-        print("App will enter foreground.")
+        func applicationWillEnterForeground(_ application: UIApplication) {
+            print("App will enter foreground.")
+        }
     }
 }
 

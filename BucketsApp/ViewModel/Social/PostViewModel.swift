@@ -15,6 +15,10 @@ class PostViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var posts: [PostModel] = []
     @Published var errorMessage: String?
+    @Published var caption: String = ""
+    @Published var isPosting = false
+    @Published var taggedUserIds: [String] = []
+    @Published var selectedItemID: String?
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -31,8 +35,11 @@ class PostViewModel: ObservableObject {
     }
     
     deinit {
-        stopListeningToPosts()
-        print("[PostViewModel] deinit.")
+        // Hop onto the main actor asynchronously to stop the listener
+        Task { @MainActor [weak self] in
+            self?.stopListeningToPosts()
+            print("[PostViewModel] deinit.")
+        }
     }
     
     // MARK: - One-Time Fetch
@@ -105,6 +112,85 @@ class PostViewModel: ObservableObject {
         print("[PostViewModel] Stopped listening to posts.")
     }
     
+    // MARK: - Post a New Item
+    /// Fetches the `ItemModel` from Firestore and embeds its fields in a new `PostModel`.
+    func postItem() {
+        guard let itemID = selectedItemID else {
+            print("[PostViewModel] postItem => selectedItemID is nil.")
+            return
+        }
+        guard let userId = userId else {
+            print("[PostViewModel] postItem => userId is nil.")
+            return
+        }
+        
+        isPosting = true
+        
+        Task {
+            do {
+                // 1) Fetch the item from Firestore
+                guard let item = try await fetchItemFromFirestore(itemID: itemID) else {
+                    print("[PostViewModel] postItem => No item found with ID: \(itemID)")
+                    isPosting = false
+                    return
+                }
+                
+                // 2) Create a new PostModel, embedding the item fields
+                let newPost = PostModel(
+                    // If you want Firestore to generate an ID, leave this nil
+                    authorId: userId,
+                    itemId: itemID,
+                    timestamp: Date(),
+                    caption: caption,
+                    taggedUserIds: taggedUserIds,
+                    likedBy: [],
+                    
+                    // Embedded item data
+                    itemName: item.name,
+                    itemCompleted: item.completed,
+                    itemLocation: item.location,
+                    itemDueDate: item.dueDate,
+                    itemImageUrls: item.imageUrls
+                )
+                
+                // 3) Save the post
+                await addOrUpdatePost(newPost)
+                
+            } catch {
+                print("[PostViewModel] postItem => Error fetching item: \(error.localizedDescription)")
+                self.errorMessage = error.localizedDescription
+            }
+            
+            // 4) Reset UI
+            isPosting = false
+            caption = ""
+            taggedUserIds = []
+            selectedItemID = nil
+        }
+    }
+    
+    // MARK: - Fetch the Item from Firestore
+    /// Loads an `ItemModel` from `/users/{userId}/items/{itemID}`.
+    /// Returns `nil` if the doc doesn't exist or decoding fails.
+    private func fetchItemFromFirestore(itemID: String) async throws -> ItemModel? {
+        guard let userId = userId else { return nil }
+        
+        let docRef = db
+            .collection("users")
+            .document(userId)
+            .collection("items")
+            .document(itemID)
+        
+        let snapshot = try await docRef.getDocument()
+        guard snapshot.exists else {
+            return nil
+        }
+        
+        // Decode the snapshot into an ItemModel
+        let item = try snapshot.data(as: ItemModel.self)
+        return item
+    }
+    
     // MARK: - Add or Update
     func addOrUpdatePost(_ post: PostModel) async {
         guard let userId = userId else {
@@ -112,8 +198,6 @@ class PostViewModel: ObservableObject {
             return
         }
         
-        // If `post.id` is nil, Firestore will assign a new doc ID automatically.
-        // Or you can generate it if you prefer: `UUID().uuidString`.
         let postDocId = post.id ?? UUID().uuidString
         
         let docRef = db

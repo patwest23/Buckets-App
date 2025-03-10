@@ -12,6 +12,9 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     
+    /// NEW: Consume the existing FeedViewModel from environment
+    @EnvironmentObject var feedViewModel: FeedViewModel
+    
     // Loading / detail
     @State private var isLoading = true
     @State private var showProfileView = false
@@ -26,6 +29,9 @@ struct ListView: View {
     
     // Which newly created item => row can auto-focus
     @State private var newlyCreatedItemID: UUID? = nil
+    
+    // Control for showing the FeedView
+    @State private var showFeed = false
     
     // For preview mode
     init(previewMode: Bool = false) {
@@ -87,9 +93,13 @@ struct ListView: View {
                                     }
                                 }
                                 
-                                // MARK: - Bottom Bar => Add Button
+                                // MARK: - Bottom Bar => "Feed" + Add Button
                                 ToolbarItem(placement: .bottomBar) {
                                     HStack {
+                                        // Feed Button (LEFT)
+                                        Button("Feed") {
+                                            showFeed = true
+                                        }
                                         Spacer()
                                         addButton
                                         Spacer()
@@ -102,13 +112,9 @@ struct ListView: View {
                                 startTextFieldListeners()
                             }
                             .onDisappear {
-                                // ——— Fix #1: reset newlyCreatedItemID, so no auto-focus after coming back
                                 newlyCreatedItemID = nil
-                                
-                                // ——— Fix #2: end any active editing => no keyboard
                                 UIApplication.shared.endEditing()
                                 isAnyTextFieldActive = false
-                                
                                 stopTextFieldListeners()
                             }
                             // Navigate to Profile
@@ -118,9 +124,15 @@ struct ListView: View {
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
                             }
+                            // Navigate to Feed
+                            .navigationDestination(isPresented: $showFeed) {
+                                /// Use the existing environment object `feedViewModel`
+                                FeedView(feedVM: feedViewModel)
+                                    .environmentObject(onboardingViewModel)
+                                    .environmentObject(userViewModel)
+                            }
                             // Navigate to Detail => PASS A COPY of the item
                             .navigationDestination(item: $selectedItem) { item in
-                                // The detail view will do local copy handling
                                 DetailItemView(item: item)
                                     .environmentObject(bucketListViewModel)
                                     .environmentObject(onboardingViewModel)
@@ -181,14 +193,12 @@ struct ListView: View {
     private var itemListView: some View {
         List {
             ForEach(displayedItems, id: \.id) { currentItem in
-                // We still bind to the row for inline editing
                 let itemBinding = bindingForItem(currentItem)
                 
                 ItemRowView(
                     item: itemBinding,
                     newlyCreatedItemID: newlyCreatedItemID,
                     onNavigateToDetail: {
-                        // For detail: pass a *copy* via selectedItem
                         selectedItem = currentItem
                     },
                     onEmptyNameLostFocus: {
@@ -249,14 +259,11 @@ struct ListView: View {
             let newItem = ItemModel(userId: onboardingViewModel.user?.id ?? "")
             bucketListViewModel.addOrUpdateItem(newItem)
             
-            // Mark newlyCreatedItemID => row auto-focus once in .onAppear
             newlyCreatedItemID = newItem.id
             
             Task {
                 // Wait for SwiftUI to insert row
                 await Task.yield()
-                
-                // Then scroll to it
                 scrollToId = newItem.id
             }
         } label: {
@@ -303,7 +310,6 @@ struct ListView: View {
     // MARK: - Binding for Row
     private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
         guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
-            // If not found, return a constant to avoid out-of-range errors
             return .constant(item)
         }
         return $bucketListViewModel.items[index]
@@ -349,7 +355,6 @@ extension ListView {
             object: nil,
             queue: .main
         ) { _ in
-            // A text field begins editing
             isAnyTextFieldActive = true
         }
         
@@ -358,7 +363,6 @@ extension ListView {
             object: nil,
             queue: .main
         ) { _ in
-            // A text field ends editing
             isAnyTextFieldActive = false
         }
     }
@@ -403,7 +407,6 @@ struct ListView_Previews: PreviewProvider {
                 userId: "mockUID",
                 name: "Visit Tokyo",
                 completed: true,
-                // 3 random image URLs
                 imageUrls: [
                     "https://picsum.photos/400/400?random=1",
                     "https://picsum.photos/400/400?random=2",
@@ -420,6 +423,10 @@ struct ListView_Previews: PreviewProvider {
         let mockOnboardingVM = OnboardingViewModel()
         let mockUserVM = UserViewModel()
         
+        // If you want to preview the feed navigation too,
+        // create a mock FeedViewModel & pass it as environment object:
+        let mockFeedVM = FeedViewModel()
+        
         return Group {
             // 1) Empty scenario
             NavigationStack {
@@ -427,16 +434,17 @@ struct ListView_Previews: PreviewProvider {
                     .environmentObject(mockListVMEmpty)
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockFeedVM)
             }
             .previewDisplayName("ListView - Empty")
             
             // 2) Populated scenario
             NavigationStack {
-                // Pass previewMode: true => isLoading = false
                 ListView(previewMode: true)
                     .environmentObject(mockListVMWithItems)
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockFeedVM)
             }
             .previewDisplayName("ListView - With Items (3 real images)")
         }

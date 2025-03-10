@@ -170,3 +170,34 @@ class FeedViewModel: ObservableObject {
         }
     }
 }
+
+class MockFeedViewModel: FeedViewModel {
+    init(posts: [PostModel]) {
+        super.init() // calls the real init
+        self.posts = posts // set the sample data
+    }
+    
+    override func fetchFeedPosts() async {
+        // Normally would load from Firestore
+        // Here, do nothing or maybe update `posts` with a new array
+        print("[MockFeedViewModel] fetchFeedPosts() - in preview, so no network call.")
+    }
+    
+    override func toggleLike(post: PostModel) async {
+        // In a real app, you'd hit Firestore to update `likedBy`.
+        // Here, just do a local toggle for preview:
+        guard let idx = posts.firstIndex(where: { $0.id == post.id }) else { return }
+        var updated = posts[idx]
+        let currentUserId = "mockCurrentUserID"
+        
+        if let likedBy = updated.likedBy, likedBy.contains(currentUserId) {
+            // Unlike
+            updated.likedBy = likedBy.filter { $0 != currentUserId }
+        } else {
+            // Like
+            updated.likedBy = (updated.likedBy ?? []) + [currentUserId]
+        }
+        posts[idx] = updated
+        print("[MockFeedViewModel] toggleLike - updated post \(updated.id ?? "nil") likes to: \(updated.likedBy?.count ?? 0)")
+    }
+}

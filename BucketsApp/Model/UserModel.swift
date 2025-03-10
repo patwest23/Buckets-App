@@ -10,7 +10,7 @@ import FirebaseFirestore
 
 
 /// Represents a user document in Firestore.
-struct UserModel: Identifiable, Codable {
+struct UserModel: Identifiable, Codable, Hashable {
     
     /// The Firestore document ID for this user (managed automatically if using Firestore’s Swift APIs).
     @DocumentID var id: String? = nil
