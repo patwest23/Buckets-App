@@ -18,9 +18,12 @@ struct BucketsApp: App {
     @StateObject var bucketListViewModel = ListViewModel()
     @StateObject var onboardingViewModel = OnboardingViewModel()
     @StateObject var userViewModel = UserViewModel()
-    
-    /// NEW: FeedViewModel created here
+
+    /// Existing: for reading feed posts
     @StateObject var feedViewModel = FeedViewModel()
+
+    /// NEW: for creating / posting new items
+    @StateObject var postViewModel = PostViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -37,8 +40,8 @@ struct BucketsApp: App {
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                         .environmentObject(userViewModel)
-                        // Pass FeedViewModel down as well
                         .environmentObject(feedViewModel)
+                        .environmentObject(postViewModel)    // Pass the PostViewModel
                         .onAppear {
                             Task {
                                 // If we have a current Firebase user, start loading items, etc.
@@ -89,6 +92,5 @@ struct BucketsApp: App {
         }
     }
 }
-
 
 

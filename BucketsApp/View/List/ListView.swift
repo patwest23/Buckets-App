@@ -97,11 +97,16 @@ struct ListView: View {
                                 ToolbarItem(placement: .bottomBar) {
                                     HStack {
                                         // Feed Button (LEFT)
-                                        Button("Feed") {
+                                        Button {
                                             showFeed = true
+                                        } label: {
+                                            Image(systemName: "house.fill") // or "house.fill"
                                         }
+                                        
                                         Spacer()
+                                        
                                         addButton
+                                        
                                         Spacer()
                                     }
                                     .padding(.top, 4)

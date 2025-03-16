@@ -46,7 +46,6 @@ class FeedViewModel: ObservableObject {
             }
             
             // If your UserModel has an array `following: [String]`,
-            // we try to parse it from the doc data:
             guard let followingList = userData["following"] as? [String] else {
                 print("[FeedViewModel] No 'following' array found, or it's not a [String].")
                 return
@@ -66,16 +65,60 @@ class FeedViewModel: ObservableObject {
                     .getDocuments()
                 
                 let userPosts = try snapshot.documents.map { doc -> PostModel in
-                    // Manual decoding or `doc.data(as: PostModel.self)` if using Firestore’s codable
+                    // If you prefer, you can do:
+                    // let post = try doc.data(as: PostModel.self)
+                    // return post
+                    // ...assuming your Firestore doc exactly matches PostModel's fields.
+
+                    // Manual approach:
                     let data = doc.data()
+                    
+                    // Basic fields
+                    let authorId       = data["authorId"]       as? String   ?? ""
+                    let itemId         = data["itemId"]         as? String   ?? ""
+                    let timestampRaw   = data["timestamp"]      as? Timestamp
+                    let timestamp      = timestampRaw?.dateValue() ?? Date()
+                    let caption        = data["caption"]        as? String
+                    let taggedUserIds  = data["taggedUserIds"]  as? [String]
+                    let likedBy        = data["likedBy"]        as? [String]
+                    let visibility     = data["visibility"]     as? String
+                    
+                    // Embedded item fields
+                    let itemName       = data["itemName"]       as? String   ?? "Untitled"
+                    let itemCompleted  = data["itemCompleted"]  as? Bool     ?? false
+                    
+                    // itemLocation (if stored as a dictionary)
+                    var itemLocation: Location? = nil
+                    if let locDict = data["itemLocation"] as? [String: Any] {
+                        let lat = locDict["latitude"] as? Double ?? 0
+                        let lon = locDict["longitude"] as? Double ?? 0
+                        let addr = locDict["address"] as? String
+                        itemLocation = Location(latitude: lat, longitude: lon, address: addr)
+                    }
+                    
+                    // itemDueDate
+                    let dueDateRaw  = data["itemDueDate"] as? Timestamp
+                    let itemDueDate = dueDateRaw?.dateValue()
+                    
+                    let itemImageUrls = data["itemImageUrls"] as? [String] ?? []
+                    
+                    // Create PostModel
                     let post = PostModel(
                         id: doc.documentID,
-                        authorId: data["authorId"] as? String ?? "",
-                        itemId: data["itemId"] as? String ?? "",
-                        timestamp: (data["timestamp"] as? Timestamp)?.dateValue() ?? Date(),
-                        caption: data["caption"] as? String,
-                        taggedUserIds: data["taggedUserIds"] as? [String],
-                        likedBy: data["likedBy"] as? [String]
+                        authorId: authorId,
+                        itemId: itemId,
+                        timestamp: timestamp,
+                        caption: caption,
+                        taggedUserIds: taggedUserIds,
+                        visibility: visibility,
+                        likedBy: likedBy,
+                        
+                        // The embedded item fields
+                        itemName: itemName,
+                        itemCompleted: itemCompleted,
+                        itemLocation: itemLocation,
+                        itemDueDate: itemDueDate,
+                        itemImageUrls: itemImageUrls
                     )
                     return post
                 }
@@ -83,7 +126,7 @@ class FeedViewModel: ObservableObject {
             }
             
             // 3) Sort combined posts by timestamp descending
-            let sortedPosts = allPosts.sorted(by: { $0.timestamp > $1.timestamp })
+            let sortedPosts = allPosts.sorted { $0.timestamp > $1.timestamp }
             
             // 4) Assign to published property
             self.posts = sortedPosts

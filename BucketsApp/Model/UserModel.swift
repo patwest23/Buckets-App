@@ -8,7 +8,6 @@
 import Foundation
 import FirebaseFirestore
 
-
 /// Represents a user document in Firestore.
 struct UserModel: Identifiable, Codable, Hashable {
     
@@ -30,8 +29,11 @@ struct UserModel: Identifiable, Codable, Hashable {
     /// A separate handle (like “@john123”). May be nil if user never set it.
     var username: String?
     
-    // In UserModel or a separate structure:
-    var following: [String] = []
+    /// An array of user IDs that this user is following.
+    var following: [String]
+    
+    /// An optional array of user IDs who follow this user.
+    var followers: [String]?
 
     // MARK: - Custom Initializer
     init(
@@ -40,7 +42,9 @@ struct UserModel: Identifiable, Codable, Hashable {
         createdAt: Date? = nil,
         profileImageUrl: String? = nil,
         name: String? = "Guest",
-        username: String? = nil
+        username: String? = nil,
+        following: [String] = [],
+        followers: [String]? = nil
     ) {
         self.id = id
         self.email = email
@@ -48,5 +52,7 @@ struct UserModel: Identifiable, Codable, Hashable {
         self.profileImageUrl = profileImageUrl
         self.name = name
         self.username = username
+        self.following = following
+        self.followers = followers
     }
 }

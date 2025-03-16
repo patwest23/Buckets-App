@@ -101,7 +101,12 @@ extension PostModel {
                 itemCompleted: true,
                 itemLocation: Location(latitude: 35.6895, longitude: 139.6917, address: "Tokyo, Japan"),
                 itemDueDate: Date().addingTimeInterval(-86400), // Yesterday
-                itemImageUrls: ["https://picsum.photos/400/400?random=1"]
+                // MULTIPLE IMAGE URLS
+                itemImageUrls: [
+                    "https://picsum.photos/400/400?random=1",
+                    "https://picsum.photos/400/400?random=2",
+                    "https://picsum.photos/400/400?random=11"
+                ]
             ),
             PostModel(
                 id: "post_002",
@@ -116,7 +121,9 @@ extension PostModel {
                 itemCompleted: true,
                 itemLocation: nil,
                 itemDueDate: nil,
-                itemImageUrls: ["https://picsum.photos/400/400?random=2"]
+                itemImageUrls: [
+                    "https://picsum.photos/400/400?random=2"
+                ]
             ),
             PostModel(
                 id: "post_003",
@@ -131,7 +138,9 @@ extension PostModel {
                 itemCompleted: false,
                 itemLocation: nil,
                 itemDueDate: Date().addingTimeInterval(86400 * 30), // 30 days from now
-                itemImageUrls: ["https://picsum.photos/400/400?random=3"]
+                itemImageUrls: [
+                    "https://picsum.photos/400/400?random=3"
+                ]
             )
         ]
     }

@@ -114,6 +114,7 @@ extension ProfileView {
     
     // MARK: - Stats Dashboard
     private var statsDashboard: some View {
+        
         let totalCount = listViewModel.items.count
         let completedCount = listViewModel.items.filter { $0.completed }.count
         let incompleteCount = totalCount - completedCount
@@ -131,9 +132,13 @@ extension ProfileView {
             return max(0, components.day ?? 0)
         }()
         
+        // FOLLOWING / FOLLOWERS
+        let followingCount = userViewModel.user?.following.count ?? 0
+        let followersCount = userViewModel.user?.followers?.count ?? 0
+        
         return VStack(spacing: 20) {
             
-            // Row: total, completed, incomplete
+            // 1) First row: total, completed, incomplete
             HStack(spacing: 16) {
                 statCard(emoji: "📦", title: "Total",
                          value: "\(totalCount)", color: .blue)
@@ -143,18 +148,32 @@ extension ProfileView {
                          value: "\(incompleteCount)", color: .orange)
             }
             
-            // If no completions yet, show message. Otherwise show "days since last complete."
+            // 2) Optional message if no completions
             if completedCount == 0 {
                 Text("No items completed yet!")
                     .foregroundColor(.secondary)
                     .italic()
             } else {
+                // Days since last completion
                 HStack(spacing: 16) {
                     statCard(emoji: "⏰",
                              title: "Days Since Last Complete",
                              value: "\(daysSinceLastCompletion)",
                              color: .purple)
                 }
+            }
+            
+            // 3) Second row: Following / Followers
+            HStack(spacing: 16) {
+                statCard(emoji: "👥",
+                         title: "Following",
+                         value: "\(followingCount)",
+                         color: .blue)
+                
+                statCard(emoji: "🙋‍♂️",
+                         title: "Followers",
+                         value: "\(followersCount)",
+                         color: .green)
             }
         }
         .padding()

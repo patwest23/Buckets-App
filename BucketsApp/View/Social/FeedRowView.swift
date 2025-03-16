@@ -8,12 +8,19 @@
 import SwiftUI
 
 struct FeedRowView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    
     let post: PostModel
     
+    /// Callback for "like"
     let onLike: () -> Void
-    let onComment: () -> Void
     
-    // Convert the optional date into a string if `post.itemCompleted == true`
+    /// Dynamically choose text color based on light/dark mode
+    private var dynamicTextColor: Color {
+        colorScheme == .light ? .black : .white
+    }
+    
+    /// If item is completed, format the due date for display
     private var completedDateString: String? {
         guard post.itemCompleted, let date = post.itemDueDate else { return nil }
         let formatter = DateFormatter()
@@ -22,13 +29,30 @@ struct FeedRowView: View {
     }
     
     var body: some View {
-        ZStack {
-            // Carousel-like TabView
+        VStack(alignment: .leading, spacing: 0) {
+            
+            // 1) Top row: optional checkmark + item name
+            HStack(spacing: 4) {
+                if post.itemCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.accentColor)
+                }
+                Text(post.itemName)
+                    .font(.headline)
+                    .foregroundColor(dynamicTextColor)
+                
+                Spacer()
+            }
+            
+            // 2) Image carousel (or fallback)
             if post.itemImageUrls.isEmpty {
                 Rectangle()
                     .fill(Color.secondary.opacity(0.2))
                     .frame(height: 300)
-                    .overlay(Text("No images").foregroundColor(.gray))
+                    .overlay(
+                        Text("No images")
+                            .foregroundColor(.gray)
+                    )
             } else {
                 TabView {
                     ForEach(post.itemImageUrls, id: \.self) { urlStr in
@@ -41,80 +65,51 @@ struct FeedRowView: View {
                 .frame(height: 300)
             }
             
-            // Top-left overlay: checkmark + item name
-            VStack {
-                HStack {
-                    if post.itemCompleted {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                    }
-                    Text(post.itemName)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Spacer()
+            // 3) Info row: date, location
+            HStack(spacing: 4) {
+                if let dateStr = completedDateString {
+                    Image(systemName: "calendar")
+                    Text(dateStr)
                 }
-                .padding()
                 Spacer()
+                if let loc = post.itemLocation, let address = loc.address, !address.isEmpty {
+                    Image(systemName: "mappin.and.ellipse")
+                    Text(address)
+                }
+            }
+            .foregroundColor(dynamicTextColor)
+            
+            // 4) Username + Caption (if any)
+            if let caption = post.caption, !caption.isEmpty {
+                // If you have an actual username in PostModel, use that instead of authorId
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("@\(post.authorId)")  // or post.authorUsername if you have it
+                        .fontWeight(.semibold)
+                    Text(caption)
+                }
+                .foregroundColor(dynamicTextColor)
+                .padding(.vertical, 8) // add vertical padding around username+caption
             }
             
-            // Bottom overlay: date, location, caption, and action buttons
-            VStack {
-                Spacer()
-                VStack(alignment: .leading, spacing: 8) {
-                    
-                    // Date & location row
-                    HStack {
-                        if let dateStr = completedDateString {
-                            HStack {
-                                Image(systemName: "calendar")
-                                Text(dateStr)
-                            }
-                            .foregroundColor(.white)
-                        }
-                        Spacer()
-                        if let loc = post.itemLocation, let address = loc.address, !address.isEmpty {
-                            HStack {
-                                Image(systemName: "mappin.and.ellipse")
-                                Text(address)
-                            }
-                            .foregroundColor(.white)
-                        }
+            // 5) Like row (no comment button)
+            HStack(spacing: 16) {
+                Button(action: onLike) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart")
+                        Text("Like (\(post.likedBy?.count ?? 0))")
                     }
-                    
-                    // caption
-                    if let caption = post.caption, !caption.isEmpty {
-                        Text(caption)
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Like/Comment row
-                    HStack {
-                        Button(action: onLike) {
-                            Image(systemName: "heart")
-                            Text("Like (\(post.likedBy?.count ?? 0))")
-                        }
-                        .foregroundColor(.white)
-                        
-                        Button(action: onComment) {
-                            Image(systemName: "bubble.left")
-                            Text("Comment")
-                        }
-                        .foregroundColor(.white)
-                        
-                        Spacer()
-                    }
-                    .padding(.top, 4)
                 }
-                .padding()
-                .background(Color.black.opacity(0.3))
+                .foregroundColor(dynamicTextColor)
+                
+                Spacer()
             }
+            // If you want no top spacing above the Like row, remove .padding(.top)
+            .padding(.top, 4)
         }
-        .cornerRadius(8)
-        .padding(.horizontal)
-        .padding(.top, 8)
     }
 }
 
+// MARK: - Helper for loading images
 struct FeedRowImageView: View {
     let urlStr: String
     
@@ -139,3 +134,71 @@ struct FeedRowImageView: View {
         .clipped()
     }
 }
+
+#if DEBUG
+struct FeedRowView_Previews: PreviewProvider {
+    static var previews: some View {
+        // Sample mock post
+        let samplePost = PostModel(
+            id: "post_001",
+            authorId: "userABC",
+            itemId: "item_101",
+            timestamp: Date(),
+            caption: "Had an amazing trip to Tokyo!",
+            taggedUserIds: ["userXYZ"],
+            visibility: nil,
+            likedBy: ["user123", "user456"],
+            
+            // Embedded item fields
+            itemName: "Visit Tokyo",
+            itemCompleted: true,
+            itemLocation: Location(latitude: 35.6895, longitude: 139.6917, address: "Tokyo, Japan"),
+            itemDueDate: Date().addingTimeInterval(-86400), // completed 1 day ago
+            itemImageUrls: [
+                "https://picsum.photos/400/400?random=1",
+                "https://picsum.photos/400/400?random=2"
+            ]
+        )
+        
+        return Group {
+            NavigationStack {
+                FeedRowView(
+                    post: samplePost,
+                    onLike: {
+                        print("[Preview] Liked post \(samplePost.id ?? "nil")")
+                    }
+                )
+            }
+            .previewDisplayName("FeedRowView - Completed Item w/ Multiple Images")
+            
+            NavigationStack {
+                // A variant with no images, incomplete item
+                let noImagesPost = PostModel(
+                    id: "post_002",
+                    authorId: "userXYZ",
+                    itemId: "item_202",
+                    timestamp: Date(),
+                    caption: "No photos yet, but can't wait!",
+                    taggedUserIds: [],
+                    visibility: nil,
+                    likedBy: [],
+                    
+                    itemName: "Learn Guitar",
+                    itemCompleted: false,
+                    itemLocation: nil,
+                    itemDueDate: nil,
+                    itemImageUrls: []
+                )
+                
+                FeedRowView(
+                    post: noImagesPost,
+                    onLike: {
+                        print("[Preview] Liked post \(noImagesPost.id ?? "nil")")
+                    }
+                )
+            }
+            .previewDisplayName("FeedRowView - Incomplete Item, No Images")
+        }
+    }
+}
+#endif

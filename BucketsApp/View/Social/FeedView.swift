@@ -27,11 +27,12 @@ struct FeedView: View {
                             Task {
                                 await feedVM.toggleLike(post: post)
                             }
-                        },
-                        onComment: {
-                            // Show comment UI or navigate to a comment screen
                         }
+//                        onComment: {
+//                            // Show comment UI or navigate to a comment screen
+//                        }
                     )
+                    .padding()
                 }
             }
             .navigationTitle("Your Feed")
