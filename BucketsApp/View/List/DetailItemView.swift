@@ -16,7 +16,6 @@ struct DetailItemView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var postViewModel: PostViewModel
-    
     @Environment(\.presentationMode) private var presentationMode
     
     @State private var currentItem: ItemModel

@@ -11,6 +11,7 @@ struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
+    @EnvironmentObject var postViewModel: PostViewModel
     
     /// NEW: Consume the existing FeedViewModel from environment
     @EnvironmentObject var feedViewModel: FeedViewModel
@@ -32,6 +33,7 @@ struct ListView: View {
     
     // Control for showing the FeedView
     @State private var showFeed = false
+    @State private var showUserSearch = false
     
     // For preview mode
     init(previewMode: Bool = false) {
@@ -93,21 +95,29 @@ struct ListView: View {
                                     }
                                 }
                                 
-                                // MARK: - Bottom Bar => "Feed" + Add Button
+                                // MARK: - Bottom Bar => Feed (left), Add (center), UserSearch (right)
                                 ToolbarItem(placement: .bottomBar) {
                                     HStack {
-                                        // Feed Button (LEFT)
+                                        // Left: Feed Button
                                         Button {
                                             showFeed = true
                                         } label: {
-                                            Image(systemName: "house.fill") // or "house.fill"
+                                            Image(systemName: "house.fill")
                                         }
                                         
                                         Spacer()
                                         
+                                        // Center: Add Button (circle)
                                         addButton
                                         
                                         Spacer()
+                                        
+                                        // Right: User Search
+                                        Button {
+                                            showUserSearch = true
+                                        } label: {
+                                            Image(systemName: "magnifyingglass")
+                                        }
                                     }
                                     .padding(.top, 4)
                                 }
@@ -136,11 +146,17 @@ struct ListView: View {
                                     .environmentObject(onboardingViewModel)
                                     .environmentObject(userViewModel)
                             }
+                            // Navigate to the User Search View
+                            .navigationDestination(isPresented: $showUserSearch) {
+                                UserSearchView(vm: UserSearchViewModel())
+                                    .environmentObject(userViewModel)
+                            }
                             // Navigate to Detail => PASS A COPY of the item
                             .navigationDestination(item: $selectedItem) { item in
                                 DetailItemView(item: item)
                                     .environmentObject(bucketListViewModel)
                                     .environmentObject(onboardingViewModel)
+                                    .environmentObject(postViewModel)
                             }
                             // Delete confirmation
                             .alert(
