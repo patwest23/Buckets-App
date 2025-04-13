@@ -8,20 +8,23 @@
 import SwiftUI
 
 struct UserSearchView: View {
-    /// We’ll accept a view model as a parameter
     @ObservedObject var vm: UserSearchViewModel
     
     var body: some View {
         NavigationView {
             VStack {
                 // Search bar
-                TextField("Search by @username or Name", text: $vm.searchText, onCommit: {
-                    Task {
-                        await vm.searchUsers()
+                TextField("Search by username or Name", text: $vm.searchText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding()
+                    // 1) Make Return button say "Search"
+                    .submitLabel(.search)
+                    // 2) Live searching: whenever searchText changes, do an async search
+                    .onChange(of: vm.searchText) { newVal in
+                        Task {
+                            await vm.searchUsers()
+                        }
                     }
-                })
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
                 
                 // Search results + suggested
                 List {
@@ -120,7 +123,6 @@ struct UserSearchView: View {
                 }
             }
         } else {
-            // If profileImageUrl is nil or invalid => default icon
             Image(systemName: "person.crop.circle.fill")
                 .resizable()
                 .scaledToFill()

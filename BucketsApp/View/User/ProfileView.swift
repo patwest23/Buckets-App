@@ -15,6 +15,9 @@ struct ProfileView: View {
     @EnvironmentObject var listViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     
+    // ADD THIS: to show the user's own posts
+    @EnvironmentObject var postViewModel: PostViewModel
+    
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
     
@@ -32,6 +35,9 @@ struct ProfileView: View {
                 
                 // MARK: - Stats Dashboard
                 statsDashboard
+                
+                // MARK: - User’s Posts
+                postsSection
             }
             .padding(.horizontal)
             .padding(.top, 16)
@@ -52,6 +58,13 @@ struct ProfileView: View {
                 } label: {
                     Image(systemName: "gearshape.fill")
                 }
+            }
+        }
+        .onAppear {
+            // LOAD the user's posts from Firestore
+            Task {
+                await postViewModel.loadPosts()
+                // (Assuming postViewModel loads only the current user’s posts)
             }
         }
     }
@@ -114,7 +127,6 @@ extension ProfileView {
     
     // MARK: - Stats Dashboard
     private var statsDashboard: some View {
-        
         let totalCount = listViewModel.items.count
         let completedCount = listViewModel.items.filter { $0.completed }.count
         let incompleteCount = totalCount - completedCount
@@ -185,6 +197,37 @@ extension ProfileView {
         )
     }
     
+    // MARK: - Posts Section
+    private var postsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Your Posts")
+                .font(.headline)
+                .padding(.horizontal)
+            
+            if postViewModel.posts.isEmpty {
+                Text("No posts yet!")
+                    .foregroundColor(.secondary)
+                    .italic()
+                    .padding(.horizontal)
+            } else {
+                // Display each post in a `FeedRowView`
+                ForEach(postViewModel.posts) { post in
+                    FeedRowView(
+                        post: post,
+                        onLike: {
+                            Task {
+                                // If you have a toggleLike method in postViewModel, call it here
+                                // e.g. await postViewModel.toggleLike(post)
+                            }
+                        }
+                    )
+                    .padding(.horizontal)
+                }
+            }
+        }
+        .padding(.top, 8)
+    }
+    
     // MARK: - Single Stat Card
     private func statCard(emoji: String,
                           title: String,
@@ -233,9 +276,63 @@ struct ProfileView_Previews: PreviewProvider {
         let mockListVM = ListViewModel()
         let mockUserVM = UserViewModel()
         
+        // Example bucket items for the stats
         mockListVM.items = [
             ItemModel(userId: "abc", name: "Bucket 1", completed: false),
             ItemModel(userId: "abc", name: "Bucket 2", completed: true)
+        ]
+        
+        // Create a mock PostViewModel with some sample posts
+        let mockPostVM = PostViewModel()
+        
+        // Provide 3 sample posts in chronological order
+        mockPostVM.posts = [
+            PostModel(
+                id: "post_001",
+                authorId: "abc",
+                itemId: "item001",
+                timestamp: Date().addingTimeInterval(-3600), // 1 hour ago
+                caption: "Had an amazing trip to NYC!",
+                taggedUserIds: [],
+                likedBy: ["userXYZ"],
+                
+                // Embedded item data
+                itemName: "Visit NYC",
+                itemCompleted: true,
+                itemLocation: Location(latitude: 40.7128, longitude: -74.0060, address: "New York, NY"),
+                itemDueDate: Date().addingTimeInterval(-86400), // completed 1 day ago
+                itemImageUrls: ["https://picsum.photos/400/400?random=1"]
+            ),
+            PostModel(
+                id: "post_002",
+                authorId: "abc",
+                itemId: "item002",
+                timestamp: Date().addingTimeInterval(-7200), // 2 hours ago
+                caption: "Finally finished my painting class!",
+                taggedUserIds: [],
+                likedBy: [],
+                
+                itemName: "Painting Masterclass",
+                itemCompleted: true,
+                itemLocation: nil,
+                itemDueDate: Date().addingTimeInterval(-172800), // 2 days ago
+                itemImageUrls: ["https://picsum.photos/400/400?random=2", "https://picsum.photos/400/400?random=3"]
+            ),
+            PostModel(
+                id: "post_003",
+                authorId: "abc",
+                itemId: "item003",
+                timestamp: Date().addingTimeInterval(-10800), // 3 hours ago
+                caption: "No images, but so excited about this!",
+                taggedUserIds: [],
+                likedBy: ["userABC", "user123"],
+                
+                itemName: "Future Item",
+                itemCompleted: false,
+                itemLocation: nil,
+                itemDueDate: nil,
+                itemImageUrls: []
+            )
         ]
         
         return Group {
@@ -245,6 +342,7 @@ struct ProfileView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockListVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockPostVM)  // <-- Provide mock posts here
             }
             .previewDisplayName("ProfileView - Light Mode")
             
@@ -254,6 +352,7 @@ struct ProfileView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockListVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockPostVM)
                     .preferredColorScheme(.dark)
             }
             .previewDisplayName("ProfileView - Dark Mode")

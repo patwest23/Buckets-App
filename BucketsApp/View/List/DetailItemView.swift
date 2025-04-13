@@ -12,27 +12,27 @@ import FirebaseStorage
 @MainActor
 struct DetailItemView: View {
     let itemID: UUID
-    
+
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var postViewModel: PostViewModel
     @Environment(\.presentationMode) private var presentationMode
-    
+
     @State private var currentItem: ItemModel
     @StateObject private var imagePickerVM = ImagePickerViewModel()
-    
+
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
     @State private var showDeleteAlert = false
-    
+
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNotesFocused: Bool
-    
+
     init(item: ItemModel) {
         self.itemID = item.id
         _currentItem = State(initialValue: item)
     }
-    
+
     var body: some View {
         Form {
             sectionTitleCompleted
@@ -40,11 +40,11 @@ struct DetailItemView: View {
             sectionDates
             sectionLocation
             sectionNotes
-            
+
             if currentItem.completed {
                 sectionPost
             }
-            
+
             sectionDelete
         }
         .navigationTitle("Detail")
@@ -102,9 +102,9 @@ struct DetailItemView: View {
                message: {
                    Text("This cannot be undone. You will lose “\(currentItem.name)” permanently.")
                })
-        .onChange(of: imagePickerVM.imageSelections) { _, newSelections in
+        .onChange(of: imagePickerVM.uiImages) { _, newImages in
             Task {
-                await uploadPickedImages(newSelections)
+                await uploadImagesToStorage(from: newImages)
             }
         }
         .onAppear {
@@ -113,9 +113,9 @@ struct DetailItemView: View {
     }
 }
 
-// MARK: - Private Extensions
+// MARK: - Sections
 extension DetailItemView {
-    // MARK: Section 1: Title & Completed
+    
     private var sectionTitleCompleted: some View {
         Section {
             TextField("Title...", text: Binding(
@@ -127,7 +127,7 @@ extension DetailItemView {
             ))
             .focused($isTitleFocused)
             .foregroundColor(currentItem.completed ? .gray : .primary)
-            
+
             Toggle(isOn: bindingForCompletion) {
                 Label(
                     "Completed",
@@ -137,8 +137,7 @@ extension DetailItemView {
             .toggleStyle(SwitchToggleStyle(tint: .accentColor))
         }
     }
-    
-    // MARK: Section 2: Photos
+
     private var sectionPhotos: some View {
         Section {
             PhotosPicker(
@@ -157,15 +156,14 @@ extension DetailItemView {
                 }
             }
             .disabled(!currentItem.completed)
-            
+
             let showGrid = !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
             if showGrid {
                 photoGridRow
             }
         }
     }
-    
-    // MARK: Section 3: Dates
+
     private var sectionDates: some View {
         Section {
             Button {
@@ -179,7 +177,7 @@ extension DetailItemView {
                 }
             }
             .buttonStyle(.plain)
-            
+
             Button {
                 if currentItem.completed {
                     showDateCompletedSheet = true
@@ -197,8 +195,7 @@ extension DetailItemView {
             .disabled(!currentItem.completed)
         }
     }
-    
-    // MARK: Section 4: Location
+
     private var sectionLocation: some View {
         Section {
             HStack {
@@ -219,8 +216,7 @@ extension DetailItemView {
             }
         }
     }
-    
-    // MARK: Section 5: Notes
+
     private var sectionNotes: some View {
         Section {
             TextEditor(
@@ -236,15 +232,11 @@ extension DetailItemView {
             .focused($isNotesFocused)
         }
     }
-    
-    // MARK: Section 6: Post
+
     private var sectionPost: some View {
         Section {
             Button("Post") {
-                // 1) Set postViewModel.selectedItemID to the item’s UUID string
                 postViewModel.selectedItemID = currentItem.id.uuidString
-                
-                // 2) Then call postItem()
                 Task {
                     await postViewModel.postItem()
                     presentationMode.wrappedValue.dismiss()
@@ -254,8 +246,7 @@ extension DetailItemView {
             .frame(maxWidth: .infinity, alignment: .center)
         }
     }
-    
-    // MARK: Section 7: Delete
+
     private var sectionDelete: some View {
         Section {
             Button {
@@ -274,41 +265,39 @@ extension DetailItemView {
 
 // MARK: - Helpers
 extension DetailItemView {
+    
     private func refreshCurrentItemFromList() {
         if let updatedItem = bucketListViewModel.items.first(where: { $0.id == itemID }) {
             self.currentItem = updatedItem
         }
     }
-    
-    private func uploadPickedImages(_ selections: [PhotosPickerItem]) async {
+
+    private func uploadImagesToStorage(from images: [UIImage]) async {
         guard currentItem.completed else { return }
         guard let user = onboardingViewModel.user else { return }
         guard let userId = user.id else { return }
-        
+
         var newUrls: [String] = []
         let storageRef = Storage.storage().reference()
             .child("users/\(userId)/item-\(currentItem.id.uuidString)")
-        
-        for (index, pickerItem) in selections.enumerated() {
-            do {
-                if let data = try await pickerItem.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data),
-                   let imageData = uiImage.jpegData(compressionQuality: 0.8) {
-                    
+
+        for (index, uiImage) in images.prefix(3).enumerated() {
+            if let imageData = uiImage.jpegData(compressionQuality: 0.8) {
+                do {
                     let imageRef = storageRef.child("photo\(index + 1).jpg")
                     try await imageRef.putDataAsync(imageData)
                     let downloadURL = try await imageRef.downloadURL()
                     newUrls.append(downloadURL.absoluteString)
+                } catch {
+                    print("[DetailItemView] uploadImagesToStorage error:", error.localizedDescription)
                 }
-            } catch {
-                print("[DetailItemView] uploadPickedImages error:", error.localizedDescription)
             }
         }
-        
+
         currentItem.imageUrls = newUrls
         bucketListViewModel.addOrUpdateItem(currentItem)
     }
-    
+
     private var bindingForCompletion: Binding<Bool> {
         Binding(get: {
             currentItem.completed
@@ -318,19 +307,19 @@ extension DetailItemView {
             bucketListViewModel.addOrUpdateItem(currentItem)
         })
     }
-    
+
     private func hideKeyboard() {
         isTitleFocused = false
         isNotesFocused = false
     }
-    
+
     private func formatDate(_ date: Date?) -> String {
         guard let date else { return "--" }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
-    
+
     private func datePickerSheet(
         title: String,
         date: Binding<Date>,
@@ -341,11 +330,11 @@ extension DetailItemView {
                 Text(title)
                     .font(.title3)
                     .padding(.top)
-                
+
                 DatePicker("", selection: date, displayedComponents: .date)
                     .datePickerStyle(.wheel)
                     .labelsHidden()
-                
+
                 Button("Done") {
                     onDismiss()
                 }
@@ -356,7 +345,7 @@ extension DetailItemView {
         }
         .presentationDetents([.height(350)])
     }
-    
+
     @ViewBuilder
     private var photoGridRow: some View {
         if !imagePickerVM.uiImages.isEmpty {
@@ -365,7 +354,7 @@ extension DetailItemView {
             photoGrid(urlStrings: currentItem.imageUrls)
         }
     }
-    
+
     private func photoGrid(uiImages: [UIImage]) -> some View {
         LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
             ForEach(uiImages, id: \.self) { uiImage in
@@ -378,7 +367,7 @@ extension DetailItemView {
             }
         }
     }
-    
+
     private func photoGrid(urlStrings: [String]) -> some View {
         LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
             ForEach(urlStrings, id: \.self) { urlStr in

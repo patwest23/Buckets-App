@@ -116,26 +116,28 @@ class PostViewModel: ObservableObject {
     /// Fetches the `ItemModel` from Firestore and embeds its fields in a new `PostModel`.
     func postItem() {
         guard let itemID = selectedItemID else {
-            print("[PostViewModel] postItem => selectedItemID is nil.")
+            print("[PostViewModel] postItem => selectedItemID is nil. Aborting.")
             return
         }
         guard let userId = userId else {
-            print("[PostViewModel] postItem => userId is nil.")
+            print("[PostViewModel] postItem => userId is nil. Aborting.")
             return
         }
         
-        isPosting = true
+        print("DEBUG: postItem() called => userId:", userId, "itemID:", itemID)
         
+        isPosting = true
+
         Task {
             do {
-                // 1) Fetch the item from Firestore
                 guard let item = try await fetchItemFromFirestore(itemID: itemID) else {
                     print("[PostViewModel] postItem => No item found with ID: \(itemID)")
                     isPosting = false
                     return
                 }
                 
-                // 2) Create a new PostModel, embedding the item fields
+                print("DEBUG: Fetched item doc successfully:", item.name)
+
                 let newPost = PostModel(
                     // If you want Firestore to generate an ID, leave this nil
                     authorId: userId,
@@ -152,8 +154,7 @@ class PostViewModel: ObservableObject {
                     itemDueDate: item.dueDate,
                     itemImageUrls: item.imageUrls
                 )
-                
-                // 3) Save the post
+
                 await addOrUpdatePost(newPost)
                 
             } catch {
@@ -194,21 +195,22 @@ class PostViewModel: ObservableObject {
     // MARK: - Add or Update
     func addOrUpdatePost(_ post: PostModel) async {
         guard let userId = userId else {
-            print("[PostViewModel] addOrUpdatePost: userId is nil. Cannot save post.")
+            print("[PostViewModel] addOrUpdatePost => userId is nil. Cannot save post.")
             return
         }
         
         let postDocId = post.id ?? UUID().uuidString
-        
         let docRef = db
             .collection("users")
             .document(userId)
             .collection("posts")
             .document(postDocId)
         
+        print("DEBUG: Writing post doc => /users/\(userId)/posts/\(postDocId) itemName:", post.itemName)
+        
         do {
             try docRef.setData(from: post, merge: true)
-            print("[PostViewModel] addOrUpdatePost => wrote post \(postDocId) to Firestore.")
+            print("[PostViewModel] addOrUpdatePost => Wrote post \(postDocId) to Firestore. itemName:", post.itemName)
         } catch {
             print("[PostViewModel] addOrUpdatePost => Error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription

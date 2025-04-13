@@ -21,45 +21,46 @@ class UserSearchViewModel: ObservableObject {
     
     private let db = Firestore.firestore()
     
-    // The current logged-in user’s UID
+    /// The current logged-in user’s UID
     private var currentUserId: String? {
         Auth.auth().currentUser?.uid
     }
     
-    // MARK: - Search by Username or Name
-    /// Searches Firestore for users whose `username` or `name` exactly matches `searchText`.
-    /// For partial matches, you'd need more advanced indexing or a 3rd-party solution.
+    // MARK: - Search by Lowercased Username or Name
+    /// Uses `username_lower` and `name_lower` for case-insensitive matching.
+    /// If your docs only have `username` or `name`, you must store them in lowercased form already.
     func searchUsers() async {
-        // If searchText is empty, clear results and return
+        // If searchText is empty, clear results
         guard !searchText.isEmpty else {
             searchResults = []
             return
         }
         
+        let lowercasedQuery = searchText.lowercased()
+        
         do {
-            // 1) Query: username == searchText
-            let usernameQuerySnap = try await db.collection("users")
-                .whereField("username", isEqualTo: searchText)
+            // 1) Query: username_lower == lowercasedQuery
+            let usernameSnap = try await db.collection("users")
+                .whereField("username_lower", isEqualTo: lowercasedQuery)
                 .getDocuments()
             
-            // 2) Query: name == searchText
-            let nameQuerySnap = try await db.collection("users")
-                .whereField("name", isEqualTo: searchText)
+            // 2) Query: name_lower == lowercasedQuery
+            let nameSnap = try await db.collection("users")
+                .whereField("name_lower", isEqualTo: lowercasedQuery)
                 .getDocuments()
             
             // 3) Decode results
             var allResults = [UserModel]()
-            for doc in usernameQuerySnap.documents + nameQuerySnap.documents {
-                // Safely decode into your UserModel
+            for doc in usernameSnap.documents + nameSnap.documents {
                 if let user = try? doc.data(as: UserModel.self) {
                     allResults.append(user)
                 }
             }
             
-            // 4) Remove duplicates and self
+            // 4) Filter out duplicates & self
             let uniqueResults = Array(Set(allResults)).filter { $0.id != currentUserId }
             
-            // 5) Assign to published property
+            // 5) Update published property
             self.searchResults = uniqueResults
             
         } catch {
@@ -69,42 +70,37 @@ class UserSearchViewModel: ObservableObject {
     }
     
     // MARK: - Suggested Followers
-    /// Loads a list of “suggested” users, i.e. those who are followed by the people you follow.
-    /// In other words, we look at `following` array of each user you follow, and gather that.
+    /// Loads a list of users who are followed by the people you follow
     func loadSuggestedUsers() async {
         guard let currentId = currentUserId else { return }
         
         do {
-            // 1) Fetch the current user doc to get their following list
+            // 1) Fetch current user doc to get their 'following' list
             let currentUserDoc = try await db.collection("users").document(currentId).getDocument()
             guard let currentData = currentUserDoc.data(),
                   let currentFollowing = currentData["following"] as? [String] else {
-                print("[UserSearchViewModel] Current user doc missing 'following' field.")
+                print("[UserSearchViewModel] Current user doc missing 'following' array.")
                 return
             }
             
-            // We'll collect the “followed by your following” in a set to avoid duplicates
             var potentialSuggestions = Set<String>()
             
-            // 2) For each user you follow, fetch that user’s doc and read _their_ following
+            // 2) For each followed user, fetch their doc & read their 'following' array
             for friendId in currentFollowing {
                 let friendDoc = try await db.collection("users").document(friendId).getDocument()
                 guard let friendData = friendDoc.data(),
                       let friendFollowing = friendData["following"] as? [String] else {
                     continue
                 }
-                
-                // 3) Add all friendFollowing userIds to the potential suggestions
-                for userId in friendFollowing {
-                    potentialSuggestions.insert(userId)
-                }
+                // 3) Add friendFollowing user IDs to our set
+                friendFollowing.forEach { potentialSuggestions.insert($0) }
             }
             
-            // 4) Remove yourself and anyone you already follow
+            // 4) Remove yourself & anyone you already follow
             potentialSuggestions.remove(currentId)
             potentialSuggestions.subtract(currentFollowing)
             
-            // 5) Fetch those user docs from Firestore
+            // 5) Fetch those user docs
             var fetchedSuggestions: [UserModel] = []
             for userId in potentialSuggestions {
                 let userDoc = try await db.collection("users").document(userId).getDocument()
@@ -112,7 +108,6 @@ class UserSearchViewModel: ObservableObject {
                     fetchedSuggestions.append(suggestedUser)
                 }
             }
-            
             self.suggestedUsers = fetchedSuggestions
             
         } catch {
@@ -127,22 +122,20 @@ class UserSearchViewModel: ObservableObject {
         guard let userToFollowId = user.id else { return }
         
         let currentUserRef = db.collection("users").document(currentId)
-        
-        // Optionally, if you also track a "followers" array in the user being followed:
         let userToFollowRef = db.collection("users").document(userToFollowId)
         
         do {
-            // 1) Add their ID to the current user’s "following" array
+            // Add their ID to this user's following array
             try await currentUserRef.updateData([
                 "following": FieldValue.arrayUnion([userToFollowId])
             ])
             
-            // 2) (optional) Add current user ID to the target user’s "followers" array
+            // Optionally add current user to their followers
             try await userToFollowRef.updateData([
                 "followers": FieldValue.arrayUnion([currentId])
             ])
             
-            // If you want immediate UI updates (e.g. removing from suggestedUsers):
+            // Remove from local results
             self.suggestedUsers.removeAll { $0.id == userToFollowId }
             self.searchResults.removeAll { $0.id == userToFollowId }
             
@@ -162,12 +155,12 @@ class UserSearchViewModel: ObservableObject {
         let userToUnfollowRef = db.collection("users").document(userToUnfollowId)
         
         do {
-            // 1) Remove their ID from "following"
+            // Remove them from 'following'
             try await currentUserRef.updateData([
                 "following": FieldValue.arrayRemove([userToUnfollowId])
             ])
             
-            // 2) (optional) Remove the current user from their "followers"
+            // Remove current user from their 'followers'
             try await userToUnfollowRef.updateData([
                 "followers": FieldValue.arrayRemove([currentId])
             ])
@@ -180,11 +173,10 @@ class UserSearchViewModel: ObservableObject {
     }
 }
 
+// MARK: - Mock For Previews
 class MockUserSearchViewModel: UserSearchViewModel {
     override init() {
         super.init()
-        
-        // Provide some static data right away
         self.searchResults = [
             UserModel(
                 id: "user_123",
@@ -203,7 +195,6 @@ class MockUserSearchViewModel: UserSearchViewModel {
                 username: "@bob"
             )
         ]
-        
         self.suggestedUsers = [
             UserModel(
                 id: "user_789",
@@ -217,22 +208,18 @@ class MockUserSearchViewModel: UserSearchViewModel {
     }
     
     override func searchUsers() async {
-        // No real Firestore call—maybe just filter or do nothing for the preview
         print("[MockUserSearchViewModel] searchUsers() called in preview.")
     }
     
     override func loadSuggestedUsers() async {
-        // Already have some suggested users set
         print("[MockUserSearchViewModel] loadSuggestedUsers() called in preview.")
     }
     
     override func followUser(_ user: UserModel) async {
-        // In a real call, we’d update Firestore—here we just print
         print("[MockUserSearchViewModel] followUser(\(user.username ?? "")) in preview.")
     }
     
     override func unfollowUser(_ user: UserModel) async {
-        // Same as above—just a stub for previews
         print("[MockUserSearchViewModel] unfollowUser(\(user.username ?? "")) in preview.")
     }
 }

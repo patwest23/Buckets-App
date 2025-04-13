@@ -138,6 +138,7 @@ struct ListView: View {
                                     .environmentObject(onboardingViewModel)
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
+                                    .environmentObject(postViewModel)
                             }
                             // Navigate to Feed
                             .navigationDestination(isPresented: $showFeed) {
