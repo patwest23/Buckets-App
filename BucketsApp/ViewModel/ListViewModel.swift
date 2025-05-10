@@ -11,6 +11,25 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+import UIKit
+// MARK: - Shared ImageCache
+final class ImageCache {
+    static let shared = ImageCache()
+    private let cache = NSCache<NSString, UIImage>()
+
+    private init() {
+        cache.countLimit = 100  // Limit to 100 images in memory
+    }
+
+    func image(forKey key: String) -> UIImage? {
+        return cache.object(forKey: key as NSString)
+    }
+
+    func setImage(_ image: UIImage, forKey key: String) {
+        cache.setObject(image, forKey: key as NSString)
+    }
+}
+
 enum SortingMode: String, CaseIterable {
     case manual
     case byDeadline
@@ -254,7 +273,7 @@ class ListViewModel: ObservableObject {
         }
     }
     
-    private func prefetchImages(for item: ItemModel) async {
+    func prefetchImages(for item: ItemModel) async {
         for urlStr in item.imageUrls {
             if imageCache[urlStr] != nil {
                 continue
@@ -265,11 +284,20 @@ class ListViewModel: ObservableObject {
     
     private func loadImage(urlStr: String) async {
         guard let url = URL(string: urlStr) else { return }
+
+        // First check disk cache
+        if let cachedImage = ImageCache.shared.image(forKey: urlStr) {
+            imageCache[urlStr] = cachedImage
+            print("[ListViewModel] Loaded image from shared cache for \(urlStr)")
+            return
+        }
+
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let uiImage = UIImage(data: data) {
                 imageCache[urlStr] = uiImage
-                print("[ListViewModel] Cached image for \(urlStr)")
+                ImageCache.shared.setImage(uiImage, forKey: urlStr)
+                print("[ListViewModel] Downloaded and cached image for \(urlStr)")
             }
         } catch {
             print("[ListViewModel] loadImage(\(urlStr)) error:", error.localizedDescription)

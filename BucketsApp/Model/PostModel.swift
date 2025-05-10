@@ -8,60 +8,49 @@
 import Foundation
 import FirebaseFirestore
 
+enum PostType: String, Codable {
+    case added
+    case completed
+    case photos
+}
+
 struct PostModel: Identifiable, Codable {
     
     @DocumentID var id: String? = nil
-    
-    /// The user ID of the post’s author. This should match `UserModel.id`.
+
+    // MARK: - Author Info
     var authorId: String
-    
-    /// The ID of the associated bucket-list item (optional, if we embed all item data).
+    var authorUsername: String?
+
+    // MARK: - Associated Item
     var itemId: String
-    
-    /// Timestamp for when the post was created.
-    var timestamp: Date
-    
-    /// Optional text or caption for this post.
-    var caption: String?
-    
-    /// Array of user IDs referencing `UserModel.id` for any tagged users.
-    var taggedUserIds: [String]?
-    
-    /// Who can see the post (public, friends, etc.).
-    var visibility: String?
-    
-    /// The user IDs of those who liked this post.
-    var likedBy: [String]?
-    
-    // MARK: - Embedded Item Fields
-    
-    /// Name of the item (e.g. “Visit Tokyo”)
     var itemName: String
-    
-    /// Whether the item is completed
     var itemCompleted: Bool
-    
-    /// Optional location (like from `ItemModel.location`)
     var itemLocation: Location?
-    
-    /// Optional date for item completion or due date
     var itemDueDate: Date?
-    
-    /// Image URLs for this item, displayed in the feed
     var itemImageUrls: [String]
-    
+
+    // MARK: - Post Metadata
+    var type: PostType
+    var timestamp: Date
+    var caption: String?
+    var taggedUserIds: [String]?
+    var visibility: String?
+    var likedBy: [String]?
+
     // MARK: - Initializer
     init(
         id: String? = nil,
         authorId: String,
+        authorUsername: String? = nil,
         itemId: String,
+        type: PostType,
         timestamp: Date = Date(),
         caption: String? = nil,
         taggedUserIds: [String]? = nil,
         visibility: String? = nil,
         likedBy: [String]? = nil,
         
-        // Embedded item data
         itemName: String,
         itemCompleted: Bool,
         itemLocation: Location? = nil,
@@ -70,13 +59,15 @@ struct PostModel: Identifiable, Codable {
     ) {
         self.id = id
         self.authorId = authorId
+        self.authorUsername = authorUsername
         self.itemId = itemId
+        self.type = type
         self.timestamp = timestamp
         self.caption = caption
         self.taggedUserIds = taggedUserIds
         self.visibility = visibility
         self.likedBy = likedBy
-        
+
         self.itemName = itemName
         self.itemCompleted = itemCompleted
         self.itemLocation = itemLocation
@@ -91,17 +82,17 @@ extension PostModel {
             PostModel(
                 id: "post_001",
                 authorId: "userA",
+                authorUsername: "@patrick",
                 itemId: "item_101",
+                type: .completed,
                 timestamp: Date(),
                 caption: "My trip to Tokyo was amazing!",
                 taggedUserIds: ["userB"],
                 likedBy: ["userC", "userD"],
-                
                 itemName: "Visit Tokyo",
                 itemCompleted: true,
                 itemLocation: Location(latitude: 35.6895, longitude: 139.6917, address: "Tokyo, Japan"),
-                itemDueDate: Date().addingTimeInterval(-86400), // Yesterday
-                // MULTIPLE IMAGE URLS
+                itemDueDate: Date().addingTimeInterval(-86400),
                 itemImageUrls: [
                     "https://picsum.photos/400/400?random=1",
                     "https://picsum.photos/400/400?random=2",
@@ -111,12 +102,13 @@ extension PostModel {
             PostModel(
                 id: "post_002",
                 authorId: "userB",
+                authorUsername: "@sam",
                 itemId: "item_202",
+                type: .completed,
                 timestamp: Date().addingTimeInterval(-3600),
                 caption: "Finally completed skydiving!",
                 taggedUserIds: [],
                 likedBy: [],
-                
                 itemName: "Skydive",
                 itemCompleted: true,
                 itemLocation: nil,
@@ -128,16 +120,17 @@ extension PostModel {
             PostModel(
                 id: "post_003",
                 authorId: "userC",
+                authorUsername: "@emily",
                 itemId: "item_303",
+                type: .photos,
                 timestamp: Date().addingTimeInterval(-7200),
                 caption: "Who wants to join me for a marathon?",
                 taggedUserIds: ["userA"],
                 likedBy: ["userA"],
-                
                 itemName: "Run a marathon",
                 itemCompleted: false,
                 itemLocation: nil,
-                itemDueDate: Date().addingTimeInterval(86400 * 30), // 30 days from now
+                itemDueDate: Date().addingTimeInterval(86400 * 30),
                 itemImageUrls: [
                     "https://picsum.photos/400/400?random=3"
                 ]

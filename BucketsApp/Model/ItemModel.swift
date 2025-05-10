@@ -47,10 +47,14 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var creationDate: Date
     var imageUrls: [String]
     
-    // MARK: - Embedded Post Metadata (optional)
+    // MARK: - Embedded Post Metadata
     var likeCount: Int? = nil
     var caption: String? = nil
-    var hasBeenPosted: Bool = false
+
+    // MARK: - Post Status Flags
+    var hasPostedAddEvent: Bool = false
+    var hasPostedCompletion: Bool = false
+    var hasPostedPhotos: Bool = false
 
     // MARK: - Initializer
     init(
@@ -71,7 +75,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
         imageUrls: [String] = [],
         likeCount: Int? = nil,
         caption: String? = nil,
-        hasBeenPosted: Bool = false
+        hasPostedAddEvent: Bool = false,
+        hasPostedCompletion: Bool = false,
+        hasPostedPhotos: Bool = false
     ) {
         self.id = id
         self.userId = userId
@@ -90,7 +96,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.imageUrls = imageUrls
         self.likeCount = likeCount
         self.caption = caption
-        self.hasBeenPosted = hasBeenPosted
+        self.hasPostedAddEvent = hasPostedAddEvent
+        self.hasPostedCompletion = hasPostedCompletion
+        self.hasPostedPhotos = hasPostedPhotos
     }
 
     // MARK: - Computed Properties

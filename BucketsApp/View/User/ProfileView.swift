@@ -197,35 +197,83 @@ extension ProfileView {
         )
     }
     
-    // MARK: - Posts Section
+    // MARK: - Posts Section / Activity Log
     private var postsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Your Posts")
+            Text("Activity Log")
                 .font(.headline)
                 .padding(.horizontal)
-            
+
             if postViewModel.posts.isEmpty {
                 Text("No posts yet!")
                     .foregroundColor(.secondary)
                     .italic()
                     .padding(.horizontal)
             } else {
-                // Display each post in a `FeedRowView`
-                ForEach(postViewModel.posts) { post in
-                    FeedRowView(
-                        post: post,
-                        onLike: {
-                            Task {
-                                // If you have a toggleLike method in postViewModel, call it here
-                                // e.g. await postViewModel.toggleLike(post)
-                            }
+                ForEach(postViewModel.posts.sorted(by: { $0.timestamp > $1.timestamp })) { post in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Image(systemName: icon(for: post.type))
+                                .foregroundColor(color(for: post.type))
+                            Text(activityLabel(for: post))
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
                         }
-                    )
+
+                        if let caption = post.caption, !caption.isEmpty {
+                            Text("“\(caption)”")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Text(timeAgoString(for: post.timestamp))
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
                     .padding(.horizontal)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(UIColor.secondarySystemGroupedBackground))
+                    )
                 }
             }
         }
         .padding(.top, 8)
+    }
+    
+    // MARK: - Activity Log Helpers
+    private func activityLabel(for post: PostModel) -> String {
+        switch post.type {
+        case .added:
+            return "Added “\(post.itemName)”"
+        case .completed:
+            return "✅ Completed “\(post.itemName)”"
+        case .photos:
+            return "📸 Shared photos of “\(post.itemName)”"
+        }
+    }
+
+    private func icon(for type: PostType) -> String {
+        switch type {
+        case .added: return "plus.circle.fill"
+        case .completed: return "checkmark.seal.fill"
+        case .photos: return "photo.fill.on.rectangle.fill"
+        }
+    }
+
+    private func color(for type: PostType) -> Color {
+        switch type {
+        case .added: return .blue
+        case .completed: return .green
+        case .photos: return .purple
+        }
+    }
+
+    private func timeAgoString(for date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
     
     // MARK: - Single Stat Card
@@ -290,7 +338,9 @@ struct ProfileView_Previews: PreviewProvider {
             PostModel(
                 id: "post_001",
                 authorId: "abc",
+                authorUsername: "@patrick",
                 itemId: "item001",
+                type: .completed,
                 timestamp: Date().addingTimeInterval(-3600), // 1 hour ago
                 caption: "Had an amazing trip to NYC!",
                 taggedUserIds: [],
@@ -306,7 +356,9 @@ struct ProfileView_Previews: PreviewProvider {
             PostModel(
                 id: "post_002",
                 authorId: "abc",
+                authorUsername: "@patrick",
                 itemId: "item002",
+                type: .completed,
                 timestamp: Date().addingTimeInterval(-7200), // 2 hours ago
                 caption: "Finally finished my painting class!",
                 taggedUserIds: [],
@@ -321,7 +373,9 @@ struct ProfileView_Previews: PreviewProvider {
             PostModel(
                 id: "post_003",
                 authorId: "abc",
+                authorUsername: "@patrick",
                 itemId: "item003",
+                type: .added,
                 timestamp: Date().addingTimeInterval(-10800), // 3 hours ago
                 caption: "No images, but so excited about this!",
                 taggedUserIds: [],

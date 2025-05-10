@@ -9,30 +9,40 @@ import SwiftUI
 
 struct FeedView: View {
     @StateObject var feedVM: FeedViewModel
-    
-    /// We assume `feedVM.posts` is an array of `PostModel` objects
-    /// that already contain embedded item data.
+
     init(feedVM: FeedViewModel) {
         _feedVM = StateObject(wrappedValue: feedVM)
     }
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
-                ForEach(feedVM.posts) { post in
-                    // FeedRowView now takes a single `PostModel` argument
-                    FeedRowView(
-                        post: post,
-                        onLike: {
-                            Task {
-                                await feedVM.toggleLike(post: post)
-                            }
+                VStack(spacing: 16) {
+                    ForEach(feedVM.posts) { post in
+                        VStack(alignment: .leading, spacing: 4) {
+                            // MARK: - Post Type Label
+                            Text(feedPostLabel(for: post))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            // MARK: - Feed Card
+                            FeedRowView(
+                                post: post,
+                                onLike: {
+                                    Task {
+                                        await feedVM.toggleLike(post: post)
+                                    }
+                                }
+                            )
+
+                            // MARK: - Timestamp
+                            Text(timeAgoString(for: post.timestamp))
+                                .font(.caption2)
+                                .foregroundColor(.gray)
                         }
-//                        onComment: {
-//                            // Show comment UI or navigate to a comment screen
-//                        }
-                    )
-                    .padding()
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                    }
                 }
             }
             .navigationTitle("Your Feed")
@@ -42,6 +52,28 @@ struct FeedView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Feed Message by Post Type
+    private func feedPostLabel(for post: PostModel) -> String {
+        let user = post.authorUsername ?? "Someone"
+        let item = post.itemName
+
+        switch post.type {
+        case .added:
+            return "\(user) added \"\(item)\" to their bucket list."
+        case .completed:
+            return "🎉 \(user) completed \"\(item)\"!"
+        case .photos:
+            return "📸 \(user) added photos to \"\(item)\"."
+        }
+    }
+
+    // MARK: - Time Ago Formatter
+    private func timeAgoString(for date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 

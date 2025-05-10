@@ -22,6 +22,8 @@ struct ListView: View {
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
     
+    // Track selected item by id (for floating action button)
+    @State private var selectedItemID: UUID? = nil
     // The ID of the item we want to scroll to in ScrollViewReader
     @State private var scrollToId: UUID? = nil
     
@@ -53,7 +55,7 @@ struct ListView: View {
                 ZStack {
                     Color(uiColor: .systemBackground)
                         .ignoresSafeArea()
-                    
+
                     ScrollViewReader { proxy in
                         contentView
                             .navigationBarTitleDisplayMode(.inline)
@@ -63,7 +65,7 @@ struct ListView: View {
                                     Text("Bucket List")
                                         .font(.headline)
                                 }
-                                
+
                                 // MARK: - Trailing: "Done" (if editing) or Profile
                                 ToolbarItem(placement: .navigationBarTrailing) {
                                     if isAnyTextFieldActive {
@@ -94,7 +96,7 @@ struct ListView: View {
                                         .buttonStyle(.plain)
                                     }
                                 }
-                                
+
                                 // MARK: - Bottom Bar => Feed (left), Add (center), UserSearch (right)
                                 ToolbarItem(placement: .bottomBar) {
                                     HStack {
@@ -104,14 +106,14 @@ struct ListView: View {
                                         } label: {
                                             Image(systemName: "house.fill")
                                         }
-                                        
+
                                         Spacer()
-                                        
+
                                         // Center: Add Button (circle)
                                         addButton
-                                        
+
                                         Spacer()
-                                        
+
                                         // Right: User Search
                                         Button {
                                             showUserSearch = true
@@ -183,6 +185,50 @@ struct ListView: View {
                                 }
                             }
                     }
+
+                    // Floating action button for selected item
+                    if let selectedItem = bucketListViewModel.items.first(where: { $0.id == selectedItemID }) {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                if selectedItem.completed, selectedItem.imageUrls.isEmpty {
+                                    Button {
+                                        print("📸 Add photos for item:", selectedItem.name)
+                                    } label: {
+                                        ZStack {
+                                            Circle()
+                                                .frame(width: 60, height: 60)
+                                                .foregroundColor(.accentColor)
+                                                .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
+                                            Image(systemName: "photo.on.rectangle")
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 24, weight: .bold))
+                                        }
+                                    }
+                                    .padding(.bottom, 16)
+                                    .padding(.trailing, 16)
+                                } else if selectedItem.completed && !selectedItem.imageUrls.isEmpty {
+                                    Button {
+                                        print("📣 Share item:", selectedItem.name)
+                                    } label: {
+                                        ZStack {
+                                            Circle()
+                                                .frame(width: 60, height: 60)
+                                                .foregroundColor(.accentColor)
+                                                .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
+                                            Image(systemName: "square.and.arrow.up")
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 24, weight: .bold))
+                                        }
+                                    }
+                                    .padding(.bottom, 16)
+                                    .padding(.trailing, 16)
+                                }
+                            }
+                        }
+                        .transition(.scale)
+                    }
                 }
                 // Extra space above keyboard
                 .safeAreaInset(edge: .bottom) {
@@ -190,7 +236,7 @@ struct ListView: View {
                         .frame(height: 70)
                         .allowsHitTesting(false)
                 }
-                
+
             } else {
                 Text("Please use iOS 17 or later.")
                     .font(.headline)
@@ -215,8 +261,9 @@ struct ListView: View {
     private var itemListView: some View {
         List {
             ForEach(displayedItems, id: \.id) { currentItem in
+                // Always get the latest item model for binding and image freshness
                 let itemBinding = bindingForItem(currentItem)
-                
+
                 ItemRowView(
                     item: itemBinding,
                     newlyCreatedItemID: newlyCreatedItemID,
@@ -228,6 +275,17 @@ struct ListView: View {
                     }
                 )
                 .environmentObject(bucketListViewModel)
+                .onAppear {
+                    Task {
+                        await bucketListViewModel.prefetchImages(for: itemBinding.wrappedValue)
+                    }
+                }
+                .onTapGesture {
+                    selectedItemID = currentItem.id
+                }
+                .onLongPressGesture {
+                    selectedItemID = currentItem.id
+                }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .id(currentItem.id)
@@ -341,7 +399,7 @@ struct ListView: View {
     private func loadItems() {
         Task {
             isLoading = true
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            await bucketListViewModel.loadItems()
             isLoading = false
         }
     }

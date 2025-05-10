@@ -40,10 +40,9 @@ struct FeedRowView: View {
                 Text(post.itemName)
                     .font(.headline)
                     .foregroundColor(dynamicTextColor)
-                
                 Spacer()
             }
-            
+
             // 2) Image carousel (or fallback)
             if post.itemImageUrls.isEmpty {
                 Rectangle()
@@ -64,34 +63,19 @@ struct FeedRowView: View {
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
                 .frame(height: 300)
             }
-            
-            // 3) Info row: date, location
-            HStack(spacing: 4) {
-                if let dateStr = completedDateString {
-                    Image(systemName: "calendar")
-                    Text(dateStr)
-                }
-                Spacer()
-                if let loc = post.itemLocation, let address = loc.address, !address.isEmpty {
-                    Image(systemName: "mappin.and.ellipse")
-                    Text(address)
-                }
-            }
-            .foregroundColor(dynamicTextColor)
-            
-            // 4) Username + Caption (if any)
+
+            // 3) Username + Caption
             if let caption = post.caption, !caption.isEmpty {
-                // If you have an actual username in PostModel, use that instead of authorId
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("@\(post.authorId)")  // or post.authorUsername if you have it
+                    Text(post.authorUsername ?? "@\(post.authorId)")
                         .fontWeight(.semibold)
                     Text(caption)
                 }
                 .foregroundColor(dynamicTextColor)
-                .padding(.vertical, 8) // add vertical padding around username+caption
+                .padding(.vertical, 8)
             }
-            
-            // 5) Like row (no comment button)
+
+            // 4) Like row
             HStack(spacing: 16) {
                 Button(action: onLike) {
                     HStack(spacing: 4) {
@@ -100,10 +84,9 @@ struct FeedRowView: View {
                     }
                 }
                 .foregroundColor(dynamicTextColor)
-                
+
                 Spacer()
             }
-            // If you want no top spacing above the Like row, remove .padding(.top)
             .padding(.top, 4)
         }
     }
@@ -142,7 +125,9 @@ struct FeedRowView_Previews: PreviewProvider {
         let samplePost = PostModel(
             id: "post_001",
             authorId: "userABC",
+            authorUsername: "@patrick",
             itemId: "item_101",
+            type: .completed,
             timestamp: Date(),
             caption: "Had an amazing trip to Tokyo!",
             taggedUserIds: ["userXYZ"],
@@ -169,14 +154,16 @@ struct FeedRowView_Previews: PreviewProvider {
                     }
                 )
             }
-            .previewDisplayName("FeedRowView - Completed Item w/ Multiple Images")
+            .previewDisplayName("FeedRowView - MVP Completed Item w/ Multiple Images")
             
             NavigationStack {
                 // A variant with no images, incomplete item
                 let noImagesPost = PostModel(
                     id: "post_002",
                     authorId: "userXYZ",
+                    authorUsername: "@samantha",
                     itemId: "item_202",
+                    type: .added,
                     timestamp: Date(),
                     caption: "No photos yet, but can't wait!",
                     taggedUserIds: [],
@@ -197,7 +184,7 @@ struct FeedRowView_Previews: PreviewProvider {
                     }
                 )
             }
-            .previewDisplayName("FeedRowView - Incomplete Item, No Images")
+            .previewDisplayName("FeedRowView - MVP Incomplete Item, No Images")
         }
     }
 }

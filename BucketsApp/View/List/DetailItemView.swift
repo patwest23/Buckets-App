@@ -15,18 +15,19 @@ struct DetailItemView: View {
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    @EnvironmentObject var postViewModel: PostViewModel
     @Environment(\.presentationMode) private var presentationMode
 
     @State private var currentItem: ItemModel
+    @State private var tempLocation: String = ""
+    @State private var tempDescription: String = ""
     @StateObject private var imagePickerVM = ImagePickerViewModel()
-
-    @State private var showDateCreatedSheet = false
-    @State private var showDateCompletedSheet = false
-    @State private var showDeleteAlert = false
 
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNotesFocused: Bool
+
+    // NEW: Social sharing state
+    @State private var showShareAlert: Bool = false
+    @State private var lastShareEvent: PostType? = nil
 
     init(item: ItemModel) {
         self.itemID = item.id
@@ -37,15 +38,10 @@ struct DetailItemView: View {
         Form {
             sectionTitleCompleted
             sectionPhotos
-            sectionDates
-            sectionLocation
-            sectionNotes
-
-            if currentItem.completed {
-                sectionPost
-            }
-
-            sectionDelete
+            // sectionDates
+            // sectionLocation
+            // sectionNotes
+            sectionShare
         }
         .navigationTitle("Detail")
         .navigationBarTitleDisplayMode(.inline)
@@ -58,72 +54,31 @@ struct DetailItemView: View {
                 }
             }
         }
-        .sheet(isPresented: $showDateCreatedSheet) {
-            datePickerSheet(
-                title: "Set Created Date",
-                date: Binding(
-                    get: { currentItem.creationDate },
-                    set: { newValue in
-                        currentItem.creationDate = newValue
-                        bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                )
-            ) {
-                showDateCreatedSheet = false
-            }
-        }
-        .sheet(isPresented: $showDateCompletedSheet) {
-            if currentItem.completed {
-                datePickerSheet(
-                    title: "Set Completion Date",
-                    date: Binding(
-                        get: { currentItem.dueDate ?? Date() },
-                        set: { newValue in
-                            currentItem.dueDate = newValue
-                            bucketListViewModel.addOrUpdateItem(currentItem)
-                        }
-                    )
-                ) {
-                    showDateCompletedSheet = false
-                }
-            }
-        }
-        .alert("Delete Item?",
-               isPresented: $showDeleteAlert,
-               actions: {
-                   Button("Delete", role: .destructive) {
-                       Task {
-                           await bucketListViewModel.deleteItem(currentItem)
-                       }
-                       presentationMode.wrappedValue.dismiss()
-                   }
-                   Button("Cancel", role: .cancel) {}
-               },
-               message: {
-                   Text("This cannot be undone. You will lose “\(currentItem.name)” permanently.")
-               })
-        .onChange(of: imagePickerVM.uiImages) { _, newImages in
-            Task {
-                await uploadImagesToStorage(from: newImages)
-            }
-        }
+        .scrollDismissesKeyboard(.interactively)
         .onAppear {
             refreshCurrentItemFromList()
+            tempLocation = currentItem.location?.address ?? ""
+            tempDescription = currentItem.description ?? ""
         }
+        .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
+            Button("Post") {
+                postToFeed(type: lastShareEvent ?? .added)
+            }
+            Button("Cancel", role: .cancel) {}
+        }, message: {
+            Text(shareMessage(for: lastShareEvent))
+        })
     }
 }
 
 // MARK: - Sections
 extension DetailItemView {
-    
+
     private var sectionTitleCompleted: some View {
         Section {
             TextField("Title...", text: Binding(
                 get: { currentItem.name },
-                set: { newValue in
-                    currentItem.name = newValue
-                    bucketListViewModel.addOrUpdateItem(currentItem)
-                }
+                set: { currentItem.name = $0 }
             ))
             .focused($isTitleFocused)
             .foregroundColor(currentItem.completed ? .gray : .primary)
@@ -148,134 +103,136 @@ extension DetailItemView {
                 HStack {
                     Text("📸  Select Photos")
                     Spacer()
-                    let hasImages = !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
-                    if hasImages {
+                    if isShowingChevron {
                         Image(systemName: "chevron.right")
                             .foregroundColor(.gray)
                     }
                 }
             }
             .disabled(!currentItem.completed)
+            .onChange(of: imagePickerVM.imageSelections) { _ in
+                Task {
+                    let uploadedUrls = await uploadImagesToStorage(from: imagePickerVM.uiImages)
+                    if !uploadedUrls.isEmpty {
+                        currentItem.imageUrls = uploadedUrls
+                        bucketListViewModel.addOrUpdateItem(currentItem)
+                        await bucketListViewModel.prefetchImages(for: currentItem)
+                        await bucketListViewModel.loadItems()
+                    }
+                }
+            }
 
-            let showGrid = !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
-            if showGrid {
+            if isShowingPhotoGrid {
                 photoGridRow
             }
         }
     }
 
+    /*
     private var sectionDates: some View {
         Section {
-            Button {
-                showDateCreatedSheet = true
-            } label: {
-                HStack {
-                    Text("📅 Created").font(.headline)
-                    Spacer()
-                    Text(formatDate(currentItem.creationDate))
-                        .foregroundColor(.accentColor)
-                }
-            }
-            .buttonStyle(.plain)
+            DatePicker("📅 Created", selection: Binding(
+                get: { currentItem.creationDate },
+                set: { currentItem.creationDate = $0 }
+            ), displayedComponents: .date)
 
-            Button {
-                if currentItem.completed {
-                    showDateCompletedSheet = true
-                }
-            } label: {
-                HStack {
-                    Text("📅 Completed").font(.headline)
-                    Spacer()
-                    let dateStr = currentItem.completed ? formatDate(currentItem.dueDate) : "--"
-                    Text(dateStr)
-                        .foregroundColor(currentItem.completed ? .accentColor : .gray)
-                }
+            if currentItem.completed {
+                DatePicker("📅 Completed", selection: Binding(
+                    get: { currentItem.dueDate ?? Date() },
+                    set: { currentItem.dueDate = $0 }
+                ), displayedComponents: .date)
             }
-            .buttonStyle(.plain)
-            .disabled(!currentItem.completed)
         }
     }
+    */
 
+    /*
     private var sectionLocation: some View {
-        Section {
-            HStack {
-                Text("📍 Location").font(.headline)
-                Spacer()
-                TextField("Enter location...", text: Binding(
-                    get: { currentItem.location?.address ?? "" },
-                    set: { newValue in
-                        var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: "")
-                        loc.address = newValue
-                        currentItem.location = loc
-                        bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                ))
-                .disableAutocorrection(false)
-                .autocapitalization(.none)
-                .multilineTextAlignment(.trailing)
-            }
-        }
-    }
-
-    private var sectionNotes: some View {
-        Section {
-            TextEditor(
-                text: Binding(
-                    get: { currentItem.description ?? "" },
-                    set: { newValue in
-                        currentItem.description = newValue
-                        bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                )
-            )
-            .frame(minHeight: 100)
-            .focused($isNotesFocused)
-        }
-    }
-
-    private var sectionPost: some View {
-        Section {
-            Button("Post") {
-                postViewModel.selectedItemID = currentItem.id.uuidString
-                Task {
-                    await postViewModel.postItem()
-                    presentationMode.wrappedValue.dismiss()
+        Section(header: Text("📍 Location")) {
+            TextField("Enter location...", text: $tempLocation)
+                .onChange(of: tempLocation) { newValue in
+                    var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: "")
+                    loc.address = newValue
+                    currentItem.location = loc
                 }
+                .disableAutocorrection(true)
+                .autocapitalization(.sentences)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.vertical, 4)
+        }
+    }
+    */
+
+    /*
+    private var sectionNotes: some View {
+        Section(header: Text("📝 Notes")) {
+            ZStack(alignment: .topLeading) {
+                if tempDescription.isEmpty {
+                    Text("Write notes or thoughts...")
+                        .foregroundColor(.gray)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 8)
+                }
+                TextEditor(text: $tempDescription)
+                    .onChange(of: tempDescription) { newValue in
+                        currentItem.description = newValue
+                    }
+                    .focused($isNotesFocused)
+                    .frame(minHeight: 120)
+                    .padding(4)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3))
+            )
+            .padding(.vertical, 4)
+        }
+    }
+    */
+
+    // 🔥 New: Share Section
+    private var sectionShare: some View {
+        Section(header: Text("📣 Share")) {
+            Button("Post to Feed") {
+                if currentItem.completed {
+                    lastShareEvent = .completed
+                } else if !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty {
+                    lastShareEvent = .photos
+                } else {
+                    lastShareEvent = .added
+                }
+                showShareAlert = true
             }
             .foregroundColor(.blue)
-            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
-    private var sectionDelete: some View {
-        Section {
-            Button {
-                showDeleteAlert = true
-            } label: {
-                Text("Delete")
-                    .foregroundColor(.red)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 12)
-            }
-            .listRowBackground(Color.red.opacity(0.2))
-            .buttonStyle(.plain)
-        }
+    // sectionSave removed: replaced by real-time persistence in photo handling logic
+}
+
+// MARK: - Computed Props
+extension DetailItemView {
+    @MainActor private var isShowingChevron: Bool {
+        !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
+    }
+
+    @MainActor private var isShowingPhotoGrid: Bool {
+        !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
     }
 }
 
 // MARK: - Helpers
 extension DetailItemView {
-    
+
     private func refreshCurrentItemFromList() {
         if let updatedItem = bucketListViewModel.items.first(where: { $0.id == itemID }) {
             self.currentItem = updatedItem
         }
     }
 
-    private func uploadImagesToStorage(from images: [UIImage]) async {
-        guard currentItem.completed else { return }
-        guard let user = onboardingViewModel.user else { return }
-        guard let userId = user.id else { return }
+    private func uploadImagesToStorage(from images: [UIImage]) async -> [String] {
+        guard currentItem.completed else { return [] }
+        guard let user = onboardingViewModel.user, let userId = user.id else { return [] }
 
         var newUrls: [String] = []
         let storageRef = Storage.storage().reference()
@@ -288,24 +245,32 @@ extension DetailItemView {
                     try await imageRef.putDataAsync(imageData)
                     let downloadURL = try await imageRef.downloadURL()
                     newUrls.append(downloadURL.absoluteString)
+                    print("✅ Uploaded image \(index + 1):", downloadURL.absoluteString)
                 } catch {
-                    print("[DetailItemView] uploadImagesToStorage error:", error.localizedDescription)
+                    print("❌ Failed to upload image \(index + 1):", error.localizedDescription)
                 }
             }
         }
 
-        currentItem.imageUrls = newUrls
-        bucketListViewModel.addOrUpdateItem(currentItem)
+        // Real-time persistence: update item and view model after upload
+        if !newUrls.isEmpty {
+            currentItem.imageUrls = newUrls
+            bucketListViewModel.addOrUpdateItem(currentItem)
+            await bucketListViewModel.prefetchImages(for: currentItem)
+            await bucketListViewModel.loadItems()
+        }
+
+        return newUrls
     }
 
     private var bindingForCompletion: Binding<Bool> {
-        Binding(get: {
-            currentItem.completed
-        }, set: { newValue in
-            currentItem.completed = newValue
-            currentItem.dueDate = newValue ? Date() : nil
-            bucketListViewModel.addOrUpdateItem(currentItem)
-        })
+        Binding(
+            get: { currentItem.completed },
+            set: { newValue in
+                currentItem.completed = newValue
+                currentItem.dueDate = newValue ? Date() : nil
+            }
+        )
     }
 
     private func hideKeyboard() {
@@ -313,37 +278,31 @@ extension DetailItemView {
         isNotesFocused = false
     }
 
-    private func formatDate(_ date: Date?) -> String {
-        guard let date else { return "--" }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
+    private func postToFeed(type: PostType) {
+        // Replace this with real PostModel creation logic later
+        print("📣 Posting \(type.rawValue) to feed for item:", currentItem.name)
+
+        // Optionally update flags (requires you add these to ItemModel)
+        switch type {
+        case .added: currentItem.hasPostedAddEvent = true
+        case .completed: currentItem.hasPostedCompletion = true
+        case .photos: currentItem.hasPostedPhotos = true
+        }
+
+        bucketListViewModel.addOrUpdateItem(currentItem)
     }
 
-    private func datePickerSheet(
-        title: String,
-        date: Binding<Date>,
-        onDismiss: @escaping () -> Void
-    ) -> some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text(title)
-                    .font(.title3)
-                    .padding(.top)
-
-                DatePicker("", selection: date, displayedComponents: .date)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-
-                Button("Done") {
-                    onDismiss()
-                }
-                .font(.headline)
-                .padding(.bottom, 20)
-            }
-            .navigationBarTitleDisplayMode(.inline)
+    private func shareMessage(for type: PostType?) -> String {
+        switch type {
+        case .added:
+            return "Share this new bucket list item to your feed?"
+        case .completed:
+            return "You completed this item! Want to post it to your feed?"
+        case .photos:
+            return "You’ve added photos — post an update to your feed?"
+        default:
+            return "Want to share this item to your feed?"
         }
-        .presentationDetents([.height(350)])
     }
 
     @ViewBuilder
@@ -392,6 +351,8 @@ extension DetailItemView {
         }
     }
 }
+
+
 
 #if DEBUG
 struct DetailItemView_Previews: PreviewProvider {

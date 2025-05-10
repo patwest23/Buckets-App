@@ -102,18 +102,20 @@ class FeedViewModel: ObservableObject {
                     
                     let itemImageUrls = data["itemImageUrls"] as? [String] ?? []
                     
-                    // Create PostModel
+                    let typeRaw = data["type"] as? String ?? "added"
+                    let type = PostType(rawValue: typeRaw) ?? .added
+                    
                     let post = PostModel(
                         id: doc.documentID,
                         authorId: authorId,
+                        authorUsername: data["authorUsername"] as? String,
                         itemId: itemId,
+                        type: type,
                         timestamp: timestamp,
                         caption: caption,
                         taggedUserIds: taggedUserIds,
                         visibility: visibility,
                         likedBy: likedBy,
-                        
-                        // The embedded item fields
                         itemName: itemName,
                         itemCompleted: itemCompleted,
                         itemLocation: itemLocation,

@@ -12,6 +12,9 @@ import FirebaseFirestore
 @MainActor
 class PostViewModel: ObservableObject {
     
+    // MARK: - Environment Objects
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    
     // MARK: - Published Properties
     @Published var posts: [PostModel] = []
     @Published var errorMessage: String?
@@ -139,15 +142,15 @@ class PostViewModel: ObservableObject {
                 print("DEBUG: Fetched item doc successfully:", item.name)
 
                 let newPost = PostModel(
-                    // If you want Firestore to generate an ID, leave this nil
                     authorId: userId,
+                    authorUsername: onboardingViewModel.user?.username, // optional if available
                     itemId: itemID,
+                    type: .completed, // or .added or .photos, depending on logic
                     timestamp: Date(),
                     caption: caption,
                     taggedUserIds: taggedUserIds,
                     likedBy: [],
                     
-                    // Embedded item data
                     itemName: item.name,
                     itemCompleted: item.completed,
                     itemLocation: item.location,

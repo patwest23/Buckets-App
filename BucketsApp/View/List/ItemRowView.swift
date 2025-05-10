@@ -25,117 +25,127 @@ struct ItemRowView: View {
     private let spacing: CGFloat = 6
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // MARK: - Top Row
-            HStack(spacing: 8) {
-                Button(action: toggleCompleted) {
-                    Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                        .imageScale(.large)
-                        .foregroundColor(item.completed ? .accentColor : .gray)
-                }
-                .buttonStyle(.borderless)
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 8) {
+                // MARK: - Top Row
+                HStack(spacing: 8) {
+                    Button(action: toggleCompleted) {
+                        Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
+                            .imageScale(.large)
+                            .foregroundColor(item.completed ? .accentColor : .gray)
+                    }
+                    .buttonStyle(.borderless)
 
-                TextField(
-                    "",
-                    text: bindingForName(),
-                    onCommit: handleOnSubmit
-                )
-                .font(.subheadline)
-                .foregroundColor(.primary)
-                .focused($isTextFieldFocused)
+                    TextField(
+                        "",
+                        text: bindingForName(),
+                        onCommit: handleOnSubmit
+                    )
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
+                    .focused($isTextFieldFocused)
 
-                Spacer()
+                    Spacer()
 
-                Button {
-                    onNavigateToDetail?()
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .imageScale(.medium)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.borderless)
-            }
-
-            // MARK: - Info Row: Location (left) + Date (right)
-            HStack {
-                if let location = item.location?.address, !location.isEmpty {
-                    Text(location)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Button {
+                        onNavigateToDetail?()
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .imageScale(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.borderless)
                 }
 
-                Spacer()
+                // MARK: - Info Row (removed for MVP)
 
-                if let date = item.dueDate {
-                    Text(formatDate(date))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            // MARK: - Carousel Images (if completed + has images)
-            if item.completed, !item.imageUrls.isEmpty {
-                TabView {
-                    ForEach(item.imageUrls, id: \.self) { urlStr in
-                        if let uiImage = bucketListViewModel.imageCache[urlStr] {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(maxWidth: .infinity)
-                                .frame(height: UIScreen.main.bounds.height / 2.5)
-                                .clipped()
-                                .onTapGesture {
-                                    showFullScreenGallery = true
+                // MARK: - Carousel Images (if completed + has images)
+                if item.completed, !item.imageUrls.isEmpty {
+                    TabView {
+                        ForEach(item.imageUrls, id: \.self) { urlStr in
+                            if let uiImage = bucketListViewModel.imageCache[urlStr] {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: UIScreen.main.bounds.height / 2.5)
+                                    .clipped()
+                                    .onTapGesture {
+                                        showFullScreenGallery = true
+                                    }
+                            } else {
+                                ZStack {
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.1))
+                                    ProgressView()
                                 }
-                        } else {
-                            ZStack {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.1))
-                                ProgressView()
+                                .frame(height: UIScreen.main.bounds.height / 2.5)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
-                            .frame(height: UIScreen.main.bounds.height / 2.5)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+                    .frame(height: UIScreen.main.bounds.height / 2.5)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.top, 8)
+                    .fullScreenCover(isPresented: $showFullScreenGallery) {
+                        FullScreenCarouselView(
+                            imageUrls: item.imageUrls,
+                            itemName: item.name,
+                            location: item.location?.address,
+                            dateCompleted: item.dueDate
+                        )
+                        .environmentObject(bucketListViewModel)
+                    }
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                .frame(height: UIScreen.main.bounds.height / 2.5)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.top, 8)
-                .fullScreenCover(isPresented: $showFullScreenGallery) {
-                    FullScreenCarouselView(
-                        imageUrls: item.imageUrls,
-                        itemName: item.name,
-                        location: item.location?.address,
-                        dateCompleted: item.dueDate
-                    )
-                    .environmentObject(bucketListViewModel)
+
+                // MARK: - Likes Row (if posted and liked)
+                if item.completed, let likeCount = item.likeCount, likeCount > 0 {
+                    Text("❤️ \(likeCount)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                }
+
+                // MARK: - Caption Row (if posted with caption)
+                if item.completed, let caption = item.caption, !caption.isEmpty {
+                    Text(caption)
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                        .padding(.top, 2)
                 }
             }
+            .padding(cardPadding)
+            .background(
+                RoundedRectangle(cornerRadius: cardCornerRadius)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+                    .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
+            )
+            .contentShape(Rectangle())
 
-            // MARK: - Likes Row (if posted and liked)
-            if item.completed, let likeCount = item.likeCount, likeCount > 0 {
-                Text("❤️ \(likeCount)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 2)
-            }
+            // MARK: - Overlay Icons
+            HStack(spacing: -10) {
+                if item.hasPostedCompletion || item.hasPostedAddEvent || item.hasPostedPhotos {
+                    Image(systemName: "megaphone.fill")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .padding(6)
+                        .background(Circle().fill(Color.white))
+                        .shadow(radius: 1)
+                }
 
-            // MARK: - Caption Row (if posted with caption)
-            if item.completed, let caption = item.caption, !caption.isEmpty {
-                Text(caption)
-                    .font(.caption)
-                    .foregroundColor(.primary)
-                    .padding(.top, 2)
+                if let likeCount = item.likeCount, likeCount > 0 {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(6)
+                        .background(Circle().fill(Color.white))
+                        .shadow(radius: 1)
+                }
+                // Add more icons here if needed
             }
+            .offset(x: 10, y: -10)
         }
-        .padding(cardPadding)
-        .background(
-            RoundedRectangle(cornerRadius: cardCornerRadius)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
-        )
-        .contentShape(Rectangle())
         .onAppear {
             guard !hasAutoFocused else { return }
             if item.id == newlyCreatedItemID {
@@ -143,6 +153,10 @@ struct ItemRowView: View {
                     isTextFieldFocused = true
                 }
                 hasAutoFocused = true
+            }
+
+            Task {
+                await bucketListViewModel.prefetchImages(for: item)
             }
         }
     }
@@ -210,7 +224,9 @@ struct ItemRowView_Previews: PreviewProvider {
             ],
             likeCount: 42,
             caption: "This was the most unforgettable day ever!",
-            hasBeenPosted: true
+            hasPostedAddEvent: true,
+            hasPostedCompletion: true,
+            hasPostedPhotos: true
         )
         
         let mockListVM = ListViewModel()
