@@ -53,7 +53,7 @@ final class OnboardingViewModel: ObservableObject {
     
     /// Convenience property for the user doc ID (matching Auth UID).
     var userId: String? {
-        user?.id
+        user?.id ?? Auth.auth().currentUser?.uid
     }
     
     // MARK: - Initialization
@@ -175,6 +175,7 @@ final class OnboardingViewModel: ObservableObject {
                     
                     // Fetch user doc (then optionally load more data)
                     await self.fetchUserDocument(userId: authUser.uid)
+                    self.startListeningToUserDocument(userId: authUser.uid)
                     await self.loadProfileImage()
                     
                     print("[OnboardingViewModel] Google sign-in success. UID:", authUser.uid)
@@ -202,6 +203,7 @@ final class OnboardingViewModel: ObservableObject {
             }
             
             await fetchUserDocument(userId: authResult.user.uid)
+            startListeningToUserDocument(userId: authResult.user.uid)
             await loadProfileImage()
             
         } catch {
@@ -240,6 +242,7 @@ final class OnboardingViewModel: ObservableObject {
             
             await createUserDocument(userId: authResult.user.uid)
             await fetchUserDocument(userId: authResult.user.uid)
+            startListeningToUserDocument(userId: authResult.user.uid)
             
         } catch {
             handleError(error)
@@ -405,19 +408,22 @@ final class OnboardingViewModel: ObservableObject {
             guard snapshot.exists else {
                 print("[OnboardingViewModel] No user document found at /users/\(userId). Creating new doc.")
                 await createUserDocument(userId: userId)
+                // After creating, re-fetch to populate self.user
+                await fetchUserDocument(userId: userId)
                 return
             }
-            
+
             self.user = try snapshot.data(as: UserModel.self)
+            self.user?.id = userId
             print("[OnboardingViewModel] User doc fetched. user?.id =", self.user?.id ?? "nil")
-            
+
             if self.user?.id == userId {
                 print("[OnboardingViewModel] Matches Auth UID:", userId)
             } else {
                 print("[OnboardingViewModel] Warning: doc ID mismatch. docID =", self.user?.id ?? "nil",
                       "AuthUID =", userId)
             }
-            
+
         } catch {
             print("[OnboardingViewModel] Error fetching/decoding user doc:", error.localizedDescription)
             handleError(error)

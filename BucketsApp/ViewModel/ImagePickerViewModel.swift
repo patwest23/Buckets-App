@@ -1,5 +1,5 @@
 //
-//  ImagePicker.swift
+//  ImagePickerViewModel.swift
 //  BucketsApp
 //
 //  Created by Patrick Westerkamp on 5/21/23.
@@ -10,55 +10,30 @@ import PhotosUI
 
 @MainActor
 class ImagePickerViewModel: ObservableObject {
-    // MARK: - Published Properties
-    @Published var uiImages: [UIImage] = []  // Holds the final selected images (max 3)
-    @Published var imageSelections: [PhotosPickerItem] = [] {
-        didSet {
-            guard !imageSelections.isEmpty else { return }
-            Task {
-                await loadImages(from: imageSelections)
+    @Published var selectedItem: PhotosPickerItem? = nil
+    @Published var pickedImage: UIImage? = nil
+    @Published var pickedImageData: Data? = nil
+
+    func loadSelectedImage() async {
+        guard let item = selectedItem else { return }
+
+        do {
+            let data = try await item.loadTransferable(type: Data.self)
+            if let data = data, let image = UIImage(data: data) {
+                self.pickedImage = image
+                self.pickedImageData = data
+                print("✅ Loaded image successfully, size: \(data.count) bytes")
+            } else {
+                print("⚠️ Unable to decode image data")
             }
+        } catch {
+            print("❌ Error loading image: \(error.localizedDescription)")
         }
     }
-    
-    // MARK: - Constants
-    private let maxImages: Int = 3 // Maximum allowed images
-    
-    // MARK: - Load Images from Selections
-    /// Asynchronously loads images from the selected `PhotosPickerItem`.
-    /// Ensures the number of images does not exceed `maxImages`.
-    private func loadImages(from selections: [PhotosPickerItem]) async {
-        var loadedImages: [UIImage] = []
-        
-        for selection in selections {
-            do {
-                if let data = try await selection.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    loadedImages.append(image)
-                }
-            } catch {
-                print("Error loading image: \(error.localizedDescription)")
-            }
-        }
-        // Limit the uiImages to maxImages
-        uiImages = Array(loadedImages.prefix(maxImages))
-    }
-    
-    // MARK: - Local Loading & Conversion
-    /// Loads existing UIImages from raw image `Data` (purely local usage).
-    func loadExistingImages(from imageDataArray: [Data]) {
-        uiImages = Array(imageDataArray.compactMap { UIImage(data: $0) }
-                                    .prefix(maxImages))
-    }
-    
-    /// Converts the current UIImages to a `[Data]` array (for local storage or other usage).
-    func getImagesAsData() -> [Data] {
-        uiImages.prefix(maxImages).compactMap {
-            $0.jpegData(compressionQuality: 1.0)
-        }
+
+    func clearSelection() {
+        selectedItem = nil
+        pickedImage = nil
+        pickedImageData = nil
     }
 }
-
-
-
-

@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import PhotosUI
+import FirebaseStorage
 
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
@@ -15,28 +17,25 @@ struct ListView: View {
     
     /// NEW: Consume the existing FeedViewModel from environment
     @EnvironmentObject var feedViewModel: FeedViewModel
-    
     // Loading / detail
     @State private var isLoading = true
     @State private var showProfileView = false
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
-    
-    // Track selected item by id (for floating action button)
-    @State private var selectedItemID: UUID? = nil
+
     // The ID of the item we want to scroll to in ScrollViewReader
     @State private var scrollToId: UUID? = nil
-    
+
     // Whether any text field is active => shows/hides "Done" button
     @State private var isAnyTextFieldActive: Bool = false
-    
+
     // Which newly created item => row can auto-focus
     @State private var newlyCreatedItemID: UUID? = nil
-    
+
     // Control for showing the FeedView
     @State private var showFeed = false
     @State private var showUserSearch = false
-    
+
     // For preview mode
     init(previewMode: Bool = false) {
         if previewMode {
@@ -59,71 +58,6 @@ struct ListView: View {
                     ScrollViewReader { proxy in
                         contentView
                             .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                // MARK: - Leading: "Bucket List"
-                                ToolbarItem(placement: .navigationBarLeading) {
-                                    Text("Bucket List")
-                                        .font(.headline)
-                                }
-
-                                // MARK: - Trailing: "Done" (if editing) or Profile
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    if isAnyTextFieldActive {
-                                        Button("Done") {
-                                            UIApplication.shared.endEditing()
-                                            isAnyTextFieldActive = false
-                                            removeBlankItems()
-                                        }
-                                        .font(.headline)
-                                        .foregroundColor(.accentColor)
-                                    } else {
-                                        // Profile
-                                        Button {
-                                            showProfileView = true
-                                        } label: {
-                                            HStack(spacing: 8) {
-                                                if let user = onboardingViewModel.user {
-                                                    Text(user.username ?? "Unknown")
-                                                        .font(.headline)
-                                                } else {
-                                                    Text("@NoName")
-                                                        .font(.headline)
-                                                }
-                                                profileImageView
-                                                    .frame(width: 35, height: 35)
-                                            }
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-
-                                // MARK: - Bottom Bar => Feed (left), Add (center), UserSearch (right)
-                                ToolbarItem(placement: .bottomBar) {
-                                    HStack {
-                                        // Left: Feed Button
-                                        Button {
-                                            showFeed = true
-                                        } label: {
-                                            Image(systemName: "house.fill")
-                                        }
-
-                                        Spacer()
-
-                                        // Center: Add Button (circle)
-                                        addButton
-
-                                        Spacer()
-
-                                        // Right: User Search
-                                        Button {
-                                            showUserSearch = true
-                                        } label: {
-                                            Image(systemName: "magnifyingglass")
-                                        }
-                                    }
-                                    .padding(.top, 4)
-                                }
-                            }
                             .onAppear {
                                 loadItems()
                                 startTextFieldListeners()
@@ -185,49 +119,71 @@ struct ListView: View {
                                 }
                             }
                     }
+                }
+                // Move toolbar here: apply to ZStack instead of inside ScrollViewReader/contentView
+                .toolbar {
+                    // MARK: - Leading: "Bucket List"
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Text("Bucket List")
+                            .font(.headline)
+                    }
 
-                    // Floating action button for selected item
-                    if let selectedItem = bucketListViewModel.items.first(where: { $0.id == selectedItemID }) {
-                        VStack {
-                            Spacer()
-                            HStack {
-                                Spacer()
-                                if selectedItem.completed, selectedItem.imageUrls.isEmpty {
-                                    Button {
-                                        print("📸 Add photos for item:", selectedItem.name)
-                                    } label: {
-                                        ZStack {
-                                            Circle()
-                                                .frame(width: 60, height: 60)
-                                                .foregroundColor(.accentColor)
-                                                .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
-                                            Image(systemName: "photo.on.rectangle")
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 24, weight: .bold))
-                                        }
+                    // MARK: - Trailing: "Done" (if editing) or Profile
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        if isAnyTextFieldActive {
+                            Button("Done") {
+                                UIApplication.shared.endEditing()
+                                isAnyTextFieldActive = false
+                                removeBlankItems()
+                            }
+                            .font(.headline)
+                            .foregroundColor(.accentColor)
+                        } else {
+                            // Profile
+                            Button {
+                                showProfileView = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if let user = onboardingViewModel.user {
+                                        Text(user.username ?? "Unknown")
+                                            .font(.headline)
+                                    } else {
+                                        Text("@NoName")
+                                            .font(.headline)
                                     }
-                                    .padding(.bottom, 16)
-                                    .padding(.trailing, 16)
-                                } else if selectedItem.completed && !selectedItem.imageUrls.isEmpty {
-                                    Button {
-                                        print("📣 Share item:", selectedItem.name)
-                                    } label: {
-                                        ZStack {
-                                            Circle()
-                                                .frame(width: 60, height: 60)
-                                                .foregroundColor(.accentColor)
-                                                .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
-                                            Image(systemName: "square.and.arrow.up")
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 24, weight: .bold))
-                                        }
-                                    }
-                                    .padding(.bottom, 16)
-                                    .padding(.trailing, 16)
+                                    profileImageView
+                                        .frame(width: 35, height: 35)
                                 }
                             }
+                            .buttonStyle(.plain)
                         }
-                        .transition(.scale)
+                    }
+
+                    // MARK: - Bottom Bar => Feed (left), Add (center), UserSearch (right)
+                    ToolbarItem(placement: .bottomBar) {
+                        HStack {
+                            // Left: Feed Button
+                            Button {
+                                showFeed = true
+                            } label: {
+                                Image(systemName: "house.fill")
+                            }
+
+                            Spacer()
+
+                            // Center: Add Button
+                            addButton
+
+                            Spacer()
+
+                            // Right: User Search
+                            Button {
+                                showUserSearch = true
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                            }
+                        }
+                        .padding(.top, 4)
                     }
                 }
                 // Extra space above keyboard
@@ -236,6 +192,7 @@ struct ListView: View {
                         .frame(height: 70)
                         .allowsHitTesting(false)
                 }
+
 
             } else {
                 Text("Please use iOS 17 or later.")
@@ -260,35 +217,8 @@ struct ListView: View {
     // MARK: - List of Items
     private var itemListView: some View {
         List {
-            ForEach(displayedItems, id: \.id) { currentItem in
-                // Always get the latest item model for binding and image freshness
-                let itemBinding = bindingForItem(currentItem)
-
-                ItemRowView(
-                    item: itemBinding,
-                    newlyCreatedItemID: newlyCreatedItemID,
-                    onNavigateToDetail: {
-                        selectedItem = currentItem
-                    },
-                    onEmptyNameLostFocus: {
-                        deleteItemIfEmpty(currentItem)
-                    }
-                )
-                .environmentObject(bucketListViewModel)
-                .onAppear {
-                    Task {
-                        await bucketListViewModel.prefetchImages(for: itemBinding.wrappedValue)
-                    }
-                }
-                .onTapGesture {
-                    selectedItemID = currentItem.id
-                }
-                .onLongPressGesture {
-                    selectedItemID = currentItem.id
-                }
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .id(currentItem.id)
+            ForEach(displayedItems, id: \.id) { item in
+                rowView(for: item)
             }
         }
         .listStyle(.plain)
@@ -334,13 +264,18 @@ struct ListView: View {
                 print("Already has empty item => not adding another.")
                 return
             }
-            
+
+            // Guard clause to ensure userId is not nil or empty
+            guard let userId = onboardingViewModel.userId, !userId.isEmpty else {
+                print("❌ Cannot create item: userId is nil or empty")
+                return
+            }
             // Create new item
-            let newItem = ItemModel(userId: onboardingViewModel.user?.id ?? "")
+            let newItem = ItemModel(userId: userId)
             bucketListViewModel.addOrUpdateItem(newItem)
-            
+
             newlyCreatedItemID = newItem.id
-            
+
             Task {
                 // Wait for SwiftUI to insert row
                 await Task.yield()
@@ -352,7 +287,7 @@ struct ListView: View {
                     .frame(width: 60, height: 60)
                     .foregroundColor(.accentColor)
                     .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
-                
+
                 Image(systemName: "plus")
                     .foregroundColor(.white)
                     .font(.system(size: 30, weight: .bold))
@@ -387,13 +322,6 @@ struct ListView: View {
         }
     }
     
-    // MARK: - Binding for Row
-    private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
-        guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
-            return .constant(item)
-        }
-        return $bucketListViewModel.items[index]
-    }
     
     // MARK: - Load
     private func loadItems() {
@@ -475,7 +403,7 @@ extension UIApplication {
 struct ListView_Previews: PreviewProvider {
     static var previews: some View {
         let mockListVMEmpty = ListViewModel()
-        
+
         let mockListVMWithItems = ListViewModel()
         mockListVMWithItems.items = [
             ItemModel(
@@ -487,11 +415,7 @@ struct ListView_Previews: PreviewProvider {
                 userId: "mockUID",
                 name: "Visit Tokyo",
                 completed: true,
-                imageUrls: [
-                    "https://picsum.photos/400/400?random=1",
-                    "https://picsum.photos/400/400?random=2",
-                    "https://picsum.photos/400/400?random=3"
-                ]
+                imageUrl1: "https://picsum.photos/400/400?random=1"
             ),
             ItemModel(
                 userId: "mockUID",
@@ -499,14 +423,14 @@ struct ListView_Previews: PreviewProvider {
                 completed: false
             )
         ]
-        
+        // Optionally preload the mock image into the image cache for testing display
+        mockListVMWithItems.imageCache["https://picsum.photos/400/400?random=1"] = UIImage(systemName: "photo")!
+
         let mockOnboardingVM = OnboardingViewModel()
         let mockUserVM = UserViewModel()
-        
-        // If you want to preview the feed navigation too,
-        // create a mock FeedViewModel & pass it as environment object:
         let mockFeedVM = FeedViewModel()
-        
+        let mockPostVM = PostViewModel()
+
         return Group {
             // 1) Empty scenario
             NavigationStack {
@@ -515,9 +439,10 @@ struct ListView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
                     .environmentObject(mockFeedVM)
+                    .environmentObject(mockPostVM)
             }
             .previewDisplayName("ListView - Empty")
-            
+
             // 2) Populated scenario
             NavigationStack {
                 ListView(previewMode: true)
@@ -525,9 +450,47 @@ struct ListView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
                     .environmentObject(mockFeedVM)
+                    .environmentObject(mockPostVM)
             }
             .previewDisplayName("ListView - With Items (3 real images)")
         }
     }
 }
 
+
+
+// MARK: - Move bindingForItem and rowView inside ListView struct
+extension ListView {
+    // MARK: - Binding for Row
+    private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
+        guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
+            return .constant(item)
+        }
+        return $bucketListViewModel.items[index]
+    }
+
+    // MARK: - Item Row ViewBuilder for type-checking performance
+    @ViewBuilder
+    private func rowView(for currentItem: ItemModel) -> some View {
+        let itemBinding = bindingForItem(currentItem)
+
+        ItemRowView(
+            item: itemBinding,
+            newlyCreatedItemID: newlyCreatedItemID,
+            onEmptyNameLostFocus: {
+                deleteItemIfEmpty(currentItem)
+            },
+            onNavigateToDetail: {
+                selectedItem = currentItem
+            }
+        )
+        .environmentObject(bucketListViewModel)
+        .onAppear {
+            Task {
+                await bucketListViewModel.prefetchImages(for: itemBinding.wrappedValue)
+            }
+        }
+        .listRowSeparator(.hidden)
+        .id(currentItem.id)
+    }
+}

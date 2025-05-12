@@ -155,7 +155,7 @@ class PostViewModel: ObservableObject {
                     itemCompleted: item.completed,
                     itemLocation: item.location,
                     itemDueDate: item.dueDate,
-                    itemImageUrls: item.imageUrls
+                    itemImageUrls: item.allImageUrls
                 )
 
                 await addOrUpdatePost(newPost)

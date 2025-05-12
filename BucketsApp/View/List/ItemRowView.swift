@@ -11,8 +11,8 @@ struct ItemRowView: View {
     @Binding var item: ItemModel
 
     let newlyCreatedItemID: UUID?
-    let onNavigateToDetail: (() -> Void)?
     let onEmptyNameLostFocus: (() -> Void)?
+    let onNavigateToDetail: (() -> Void)?
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @FocusState private var isTextFieldFocused: Bool
@@ -23,6 +23,7 @@ struct ItemRowView: View {
     private let cardPadding: CGFloat = 8
     private let cardShadowRadius: CGFloat = 4
     private let spacing: CGFloat = 6
+    private let imageHeight: CGFloat = 240
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -47,28 +48,30 @@ struct ItemRowView: View {
 
                     Spacer()
 
-                    Button {
-                        onNavigateToDetail?()
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .imageScale(.medium)
-                            .foregroundColor(.secondary)
+                    if isTextFieldFocused {
+                        Button {
+                            onNavigateToDetail?()
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .imageScale(.medium)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.borderless)
                     }
-                    .buttonStyle(.borderless)
                 }
 
                 // MARK: - Info Row (removed for MVP)
 
                 // MARK: - Carousel Images (if completed + has images)
-                if item.completed, !item.imageUrls.isEmpty {
+                if item.completed, !item.allImageUrls.isEmpty {
                     TabView {
-                        ForEach(item.imageUrls, id: \.self) { urlStr in
+                        ForEach(item.allImageUrls, id: \.self) { urlStr in
                             if let uiImage = bucketListViewModel.imageCache[urlStr] {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()
                                     .frame(maxWidth: .infinity)
-                                    .frame(height: UIScreen.main.bounds.height / 2.5)
+                                    .frame(height: imageHeight)
                                     .clipped()
                                     .onTapGesture {
                                         showFullScreenGallery = true
@@ -79,18 +82,18 @@ struct ItemRowView: View {
                                         .fill(Color.gray.opacity(0.1))
                                     ProgressView()
                                 }
-                                .frame(height: UIScreen.main.bounds.height / 2.5)
+                                .frame(height: imageHeight)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                         }
                     }
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                    .frame(height: UIScreen.main.bounds.height / 2.5)
+                    .frame(height: imageHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.top, 8)
                     .fullScreenCover(isPresented: $showFullScreenGallery) {
                         FullScreenCarouselView(
-                            imageUrls: item.imageUrls,
+                            imageUrls: item.allImageUrls,
                             itemName: item.name,
                             location: item.location?.address,
                             dateCompleted: item.dueDate
@@ -121,6 +124,7 @@ struct ItemRowView: View {
                     .fill(Color(UIColor.secondarySystemGroupedBackground))
                     .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
             )
+            // Removed blue outline overlay when selected
             .contentShape(Rectangle())
 
             // MARK: - Overlay Icons
@@ -147,14 +151,18 @@ struct ItemRowView: View {
             .offset(x: 10, y: -10)
         }
         .onAppear {
-            guard !hasAutoFocused else { return }
-            if item.id == newlyCreatedItemID {
+            Task {
+                await bucketListViewModel.prefetchImages(for: item)
+            }
+
+            if !hasAutoFocused, item.id == newlyCreatedItemID {
                 DispatchQueue.main.async {
                     isTextFieldFocused = true
                 }
                 hasAutoFocused = true
             }
-
+        }
+        .onChange(of: item.allImageUrls) {
             Task {
                 await bucketListViewModel.prefetchImages(for: item)
             }
@@ -217,11 +225,7 @@ struct ItemRowView_Previews: PreviewProvider {
             dueDate: Date(),
             location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
             completed: true,
-            imageUrls: [
-                "https://via.placeholder.com/400",
-                "https://via.placeholder.com/600",
-                "https://via.placeholder.com/800"
-            ],
+            imageUrl1: "https://via.placeholder.com/400",
             likeCount: 42,
             caption: "This was the most unforgettable day ever!",
             hasPostedAddEvent: true,
@@ -231,8 +235,7 @@ struct ItemRowView_Previews: PreviewProvider {
         
         let mockListVM = ListViewModel()
         
-        // Simulate images being loaded (optional: real image URLs will auto-load with AsyncImage or your caching logic)
-        for url in sampleItem.imageUrls {
+        if let url = sampleItem.imageUrl1 {
             mockListVM.imageCache[url] = UIImage(systemName: "photo")!
         }
 
@@ -241,8 +244,8 @@ struct ItemRowView_Previews: PreviewProvider {
             ItemRowView(
                 item: .constant(sampleItem),
                 newlyCreatedItemID: nil,
-                onNavigateToDetail: { print("Navigate detail!") },
-                onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
+                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
+                onNavigateToDetail: { print("Navigate to Detail View") }
             )
             .environmentObject(mockListVM)
             .environmentObject(OnboardingViewModel())
@@ -254,8 +257,8 @@ struct ItemRowView_Previews: PreviewProvider {
             ItemRowView(
                 item: .constant(sampleItem),
                 newlyCreatedItemID: nil,
-                onNavigateToDetail: { print("Navigate detail!") },
-                onEmptyNameLostFocus: { print("Empty name => auto-delete!") }
+                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
+                onNavigateToDetail: { print("Navigate to Detail View") }
             )
             .environmentObject(mockListVM)
             .environmentObject(OnboardingViewModel())

@@ -5,7 +5,6 @@
 //  Created by Patrick Westerkamp on 4/10/23.
 //
 
-
 import Foundation
 import SwiftUI
 import CoreLocation
@@ -45,7 +44,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var completed: Bool
     var orderIndex: Int
     var creationDate: Date
-    var imageUrls: [String]
+    var imageUrl1: String?
+    var imageUrl2: String?
+    var imageUrl3: String?
     
     // MARK: - Embedded Post Metadata
     var likeCount: Int? = nil
@@ -72,7 +73,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
         completed: Bool = false,
         orderIndex: Int = 0,
         creationDate: Date = Date(),
-        imageUrls: [String] = [],
+        imageUrl1: String? = nil,
+        imageUrl2: String? = nil,
+        imageUrl3: String? = nil,
         likeCount: Int? = nil,
         caption: String? = nil,
         hasPostedAddEvent: Bool = false,
@@ -93,7 +96,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.completed = completed
         self.orderIndex = orderIndex
         self.creationDate = creationDate
-        self.imageUrls = imageUrls
+        self.imageUrl1 = imageUrl1
+        self.imageUrl2 = imageUrl2
+        self.imageUrl3 = imageUrl3
         self.likeCount = likeCount
         self.caption = caption
         self.hasPostedAddEvent = hasPostedAddEvent
@@ -114,20 +119,8 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var firebaseDueDate: Date? {
         dueDate
     }
+    
+    var allImageUrls: [String] {
+        [imageUrl1, imageUrl2, imageUrl3].compactMap { $0 }
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

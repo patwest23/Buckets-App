@@ -63,6 +63,7 @@ class UserViewModel: ObservableObject {
             }
             
             self.user = fetchedUser
+            print("[UserViewModel] user set =>", fetchedUser)
             print("[UserViewModel] fetchUserData: Successfully fetched user doc for /users/\(userId). user.id =", fetchedUser.id ?? "nil")
             
             // If doc ID doesn't match, log a warning
@@ -102,6 +103,7 @@ class UserViewModel: ObservableObject {
             do {
                 let updatedUser = try snapshot.data(as: UserModel.self)
                 self.user = updatedUser
+                print("[UserViewModel] user set =>", updatedUser)
                 print("[UserViewModel] Real-time update for /users/\(userId). user.id =", updatedUser.id ?? "nil")
             } catch {
                 self.handleError(error, prefix: "startListeningToUserDoc")
@@ -207,5 +209,13 @@ class UserViewModel: ObservableObject {
         print("[UserViewModel] \(prefix) Error:", error.localizedDescription)
         errorMessage = error.localizedDescription
         showErrorAlert = true
+    }
+    // MARK: - Computed Properties
+    var userId: String? {
+        user?.id
+    }
+    
+    var userIsAuthenticated: Bool {
+        user?.id?.isEmpty == false
     }
 }

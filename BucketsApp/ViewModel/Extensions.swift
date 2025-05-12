@@ -43,6 +43,14 @@ extension StorageReference {
     }
 }
 
+extension StorageMetadata {
+    static var jpegImage: StorageMetadata {
+        let meta = StorageMetadata()
+        meta.contentType = "image/jpeg"
+        return meta
+    }
+}
+
 extension UIImage {
     /// Resizes the image to a specified width while maintaining the aspect ratio.
     /// - Parameter width: The desired width for the resized image.
@@ -52,6 +60,6 @@ extension UIImage {
         UIGraphicsBeginImageContextWithOptions(canvasSize, false, scale)
         defer { UIGraphicsEndImageContext() }
         draw(in: CGRect(origin: .zero, size: canvasSize))
-        return UIGraphicsGetImageFromCurrentImageContext()
+        return UIGraphicsGetImageFromCurrentImageContext() ?? self
     }
 }

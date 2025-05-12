@@ -8,6 +8,7 @@
 import SwiftUI
 import PhotosUI
 import FirebaseStorage
+import FirebaseAuth
 
 @MainActor
 struct DetailItemView: View {
@@ -18,8 +19,6 @@ struct DetailItemView: View {
     @Environment(\.presentationMode) private var presentationMode
 
     @State private var currentItem: ItemModel
-    @State private var tempLocation: String = ""
-    @State private var tempDescription: String = ""
     @StateObject private var imagePickerVM = ImagePickerViewModel()
 
     @FocusState private var isTitleFocused: Bool
@@ -35,189 +34,146 @@ struct DetailItemView: View {
     }
 
     var body: some View {
-        Form {
-            sectionTitleCompleted
-            sectionPhotos
-            // sectionDates
-            // sectionLocation
-            // sectionNotes
-            sectionShare
-        }
-        .navigationTitle("Detail")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if isTitleFocused || isNotesFocused {
-                    Button("Done") {
-                        hideKeyboard()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Top row: Checkmark + editable title
+                HStack(spacing: 8) {
+                    Button(action: toggleCompleted) {
+                        Image(systemName: currentItem.completed ? "checkmark.circle.fill" : "circle")
+                            .imageScale(.large)
+                            .foregroundColor(currentItem.completed ? .accentColor : .gray)
+                    }
+                    .buttonStyle(.borderless)
+
+                    TextField("Title...", text: Binding(
+                        get: { currentItem.name },
+                        set: { newValue in
+                            currentItem.name = newValue
+                            bucketListViewModel.addOrUpdateItem(currentItem)
+                        }
+                    ))
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .focused($isTitleFocused)
+
+                    Spacer()
+                }
+
+                // Image picker row
+                PhotosPicker(
+                    selection: $imagePickerVM.selectedItem,
+                    matching: .images
+                ) {
+                    HStack {
+                        Text("📸 Select Photo")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .disabled(!currentItem.completed)
+                .onChange(of: imagePickerVM.selectedItem) { _ in
+                    Task {
+                        await imagePickerVM.loadSelectedImage()
+                        guard let data = imagePickerVM.pickedImageData else {
+                            print("❌ No image data to upload.")
+                            return
+                        }
+                        print("Image loaded: \(data.count) bytes")
+
+                        if currentItem.userId.isEmpty,
+                           let uid = onboardingViewModel.user?.id {
+                            currentItem.userId = uid
+                        }
+
+                        if let image = UIImage(data: data) {
+                            if let url = await uploadImagesToStorage(from: [image]) {
+                                print("✅ Saving image URL to first available slot:", url)
+                                if currentItem.imageUrl1 == nil {
+                                    currentItem.imageUrl1 = url
+                                } else if currentItem.imageUrl2 == nil {
+                                    currentItem.imageUrl2 = url
+                                } else if currentItem.imageUrl3 == nil {
+                                    currentItem.imageUrl3 = url
+                                } else {
+                                    // All slots full, overwrite the first
+                                    currentItem.imageUrl1 = url
+                                }
+                                bucketListViewModel.addOrUpdateItem(currentItem)
+                            } else {
+                                print("❌ Failed to get image URL from upload.")
+                            }
+                        }
                     }
                 }
+
+                // Image preview grid
+                if imagePickerVM.pickedImageData != nil || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil {
+                    photoGridRow
+                }
+
+                // Share button
+                if currentItem.completed && currentItem.imageUrl1 != nil {
+                    Button("📣 Share to Feed") {
+                        lastShareEvent = .completed
+                        showShareAlert = true
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+
+                Spacer()
             }
+            .padding()
         }
-        .scrollDismissesKeyboard(.interactively)
-        .onAppear {
-            refreshCurrentItemFromList()
-            tempLocation = currentItem.location?.address ?? ""
-            tempDescription = currentItem.description ?? ""
-        }
+        .navigationTitle("Edit Item")
+        .navigationBarTitleDisplayMode(.inline)
         .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
             Button("Post") {
-                postToFeed(type: lastShareEvent ?? .added)
+                postToFeed(type: lastShareEvent ?? .completed)
             }
             Button("Cancel", role: .cancel) {}
         }, message: {
             Text(shareMessage(for: lastShareEvent))
         })
-    }
-}
-
-// MARK: - Sections
-extension DetailItemView {
-
-    private var sectionTitleCompleted: some View {
-        Section {
-            TextField("Title...", text: Binding(
-                get: { currentItem.name },
-                set: { currentItem.name = $0 }
-            ))
-            .focused($isTitleFocused)
-            .foregroundColor(currentItem.completed ? .gray : .primary)
-
-            Toggle(isOn: bindingForCompletion) {
-                Label(
-                    "Completed",
-                    systemImage: currentItem.completed ? "checkmark.circle.fill" : "circle"
-                )
-            }
-            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-        }
-    }
-
-    private var sectionPhotos: some View {
-        Section {
-            PhotosPicker(
-                selection: $imagePickerVM.imageSelections,
-                maxSelectionCount: 3,
-                matching: .images
-            ) {
-                HStack {
-                    Text("📸  Select Photos")
-                    Spacer()
-                    if isShowingChevron {
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
-                    }
+        .onAppear {
+            refreshCurrentItemFromList()
+            
+            if currentItem.userId.isEmpty,
+               let authUserId = onboardingViewModel.user?.id {
+                currentItem.userId = authUserId
+                if !currentItem.name.isEmpty || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil {
+                    bucketListViewModel.addOrUpdateItem(currentItem)
                 }
             }
-            .disabled(!currentItem.completed)
-            .onChange(of: imagePickerVM.imageSelections) { _ in
-                Task {
-                    let uploadedUrls = await uploadImagesToStorage(from: imagePickerVM.uiImages)
-                    if !uploadedUrls.isEmpty {
-                        currentItem.imageUrls = uploadedUrls
-                        bucketListViewModel.addOrUpdateItem(currentItem)
-                        await bucketListViewModel.prefetchImages(for: currentItem)
-                        await bucketListViewModel.loadItems()
-                    }
-                }
-            }
-
-            if isShowingPhotoGrid {
-                photoGridRow
-            }
         }
     }
 
-    /*
-    private var sectionDates: some View {
-        Section {
-            DatePicker("📅 Created", selection: Binding(
-                get: { currentItem.creationDate },
-                set: { currentItem.creationDate = $0 }
-            ), displayedComponents: .date)
-
-            if currentItem.completed {
-                DatePicker("📅 Completed", selection: Binding(
-                    get: { currentItem.dueDate ?? Date() },
-                    set: { currentItem.dueDate = $0 }
-                ), displayedComponents: .date)
-            }
+    private func toggleCompleted() {
+        currentItem.completed.toggle()
+        if currentItem.completed {
+            currentItem.dueDate = Date()
+        } else {
+            currentItem.dueDate = nil
         }
+        bucketListViewModel.addOrUpdateItem(currentItem)
     }
-    */
-
-    /*
-    private var sectionLocation: some View {
-        Section(header: Text("📍 Location")) {
-            TextField("Enter location...", text: $tempLocation)
-                .onChange(of: tempLocation) { newValue in
-                    var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: "")
-                    loc.address = newValue
-                    currentItem.location = loc
-                }
-                .disableAutocorrection(true)
-                .autocapitalization(.sentences)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.vertical, 4)
-        }
-    }
-    */
-
-    /*
-    private var sectionNotes: some View {
-        Section(header: Text("📝 Notes")) {
-            ZStack(alignment: .topLeading) {
-                if tempDescription.isEmpty {
-                    Text("Write notes or thoughts...")
-                        .foregroundColor(.gray)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 8)
-                }
-                TextEditor(text: $tempDescription)
-                    .onChange(of: tempDescription) { newValue in
-                        currentItem.description = newValue
-                    }
-                    .focused($isNotesFocused)
-                    .frame(minHeight: 120)
-                    .padding(4)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.gray.opacity(0.3))
-            )
-            .padding(.vertical, 4)
-        }
-    }
-    */
-
-    // 🔥 New: Share Section
-    private var sectionShare: some View {
-        Section(header: Text("📣 Share")) {
-            Button("Post to Feed") {
-                if currentItem.completed {
-                    lastShareEvent = .completed
-                } else if !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty {
-                    lastShareEvent = .photos
-                } else {
-                    lastShareEvent = .added
-                }
-                showShareAlert = true
-            }
-            .foregroundColor(.blue)
-        }
-    }
-
-    // sectionSave removed: replaced by real-time persistence in photo handling logic
 }
 
 // MARK: - Computed Props
 extension DetailItemView {
     @MainActor private var isShowingChevron: Bool {
-        !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
+        imagePickerVM.pickedImageData != nil || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
     }
 
     @MainActor private var isShowingPhotoGrid: Bool {
-        !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty
+        imagePickerVM.pickedImageData != nil || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
     }
 }
 
@@ -230,47 +186,38 @@ extension DetailItemView {
         }
     }
 
-    private func uploadImagesToStorage(from images: [UIImage]) async -> [String] {
-        guard currentItem.completed else { return [] }
-        guard let user = onboardingViewModel.user, let userId = user.id else { return [] }
+    private func uploadImagesToStorage(from images: [UIImage]) async -> String? {
+        print("🔍 Simplified single-image upload flow")
+        
+        guard currentItem.completed else { return nil }
+        guard let userId = onboardingViewModel.userId, !userId.isEmpty else {
+            print("❌ Missing userId")
+            return nil
+        }
 
-        var newUrls: [String] = []
-        let storageRef = Storage.storage().reference()
-            .child("users/\(userId)/item-\(currentItem.id.uuidString)")
-
-        for (index, uiImage) in images.prefix(3).enumerated() {
-            if let imageData = uiImage.jpegData(compressionQuality: 0.8) {
-                do {
-                    let imageRef = storageRef.child("photo\(index + 1).jpg")
-                    try await imageRef.putDataAsync(imageData)
-                    let downloadURL = try await imageRef.downloadURL()
-                    newUrls.append(downloadURL.absoluteString)
-                    print("✅ Uploaded image \(index + 1):", downloadURL.absoluteString)
-                } catch {
-                    print("❌ Failed to upload image \(index + 1):", error.localizedDescription)
-                }
+        if let firstImage = images.first {
+            guard let imageData = firstImage.jpegData(compressionQuality: 0.8) else {
+                print("❌ Failed to convert UIImage to JPEG data.")
+                return nil
+            }
+            
+            let storageRef = Storage.storage().reference()
+                .child("users/\(userId)/item-images/\(currentItem.id.uuidString)-image.jpg")
+            
+            print("Uploading to path: \(storageRef.fullPath) with size: \(imageData.count) bytes")
+            
+            do {
+                try await storageRef.putDataAsync(imageData)
+                let downloadURL = try await storageRef.downloadURL()
+                print("✅ Image uploaded to:", downloadURL.absoluteString)
+                return downloadURL.absoluteString
+            } catch {
+                print("❌ Upload error:", error.localizedDescription)
             }
         }
 
-        // Real-time persistence: update item and view model after upload
-        if !newUrls.isEmpty {
-            currentItem.imageUrls = newUrls
-            bucketListViewModel.addOrUpdateItem(currentItem)
-            await bucketListViewModel.prefetchImages(for: currentItem)
-            await bucketListViewModel.loadItems()
-        }
-
-        return newUrls
-    }
-
-    private var bindingForCompletion: Binding<Bool> {
-        Binding(
-            get: { currentItem.completed },
-            set: { newValue in
-                currentItem.completed = newValue
-                currentItem.dueDate = newValue ? Date() : nil
-            }
-        )
+        print("⚠️ No image data available to upload.")
+        return nil
     }
 
     private func hideKeyboard() {
@@ -307,51 +254,60 @@ extension DetailItemView {
 
     @ViewBuilder
     private var photoGridRow: some View {
-        if !imagePickerVM.uiImages.isEmpty {
-            photoGrid(uiImages: imagePickerVM.uiImages)
-        } else if !currentItem.imageUrls.isEmpty {
-            photoGrid(urlStrings: currentItem.imageUrls)
+        if let data = imagePickerVM.pickedImageData, let image = UIImage(data: data) {
+            photoGrid(uiImages: [image])
+        } else {
+            let urls = [currentItem.imageUrl1, currentItem.imageUrl2, currentItem.imageUrl3].compactMap { $0 }
+            if !urls.isEmpty {
+                photoGrid(urlStrings: urls)
+            }
         }
     }
 
     private func photoGrid(uiImages: [UIImage]) -> some View {
-        LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
-            ForEach(uiImages, id: \.self) { uiImage in
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 80, height: 80)
-                    .cornerRadius(6)
-                    .clipped()
+        HStack {
+            HStack(spacing: 8) {
+                ForEach(uiImages, id: \.self) { uiImage in
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 110, height: 110)
+                        .cornerRadius(10)
+                        .clipped()
+                }
             }
+            .frame(maxWidth: .infinity)
         }
     }
 
     private func photoGrid(urlStrings: [String]) -> some View {
-        LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
-            ForEach(urlStrings, id: \.self) { urlStr in
-                if let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 80, height: 80)
-                                .cornerRadius(6)
-                                .clipped()
-                        default:
-                            EmptyView()
+        HStack {
+            HStack(spacing: 8) {
+                ForEach(urlStrings, id: \.self) { urlStr in
+                    if let url = URL(string: urlStr) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                                    .frame(width: 110, height: 110)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 110, height: 110)
+                                    .cornerRadius(10)
+                                    .clipped()
+                            default:
+                                EmptyView()
+                            }
                         }
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
         }
     }
 }
-
 
 
 #if DEBUG
@@ -362,7 +318,7 @@ struct DetailItemView_Previews: PreviewProvider {
         let mockListVM = ListViewModel()
         let mockPostVM = PostViewModel()
         
-        // 2) Create a sample ItemModel with placeholder images
+        // 2) Create a sample ItemModel with placeholder image
         let sampleItem = ItemModel(
             userId: "previewUser",
             name: "Sample Bucket List Item",
@@ -371,11 +327,9 @@ struct DetailItemView_Previews: PreviewProvider {
             location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
             completed: true,
             creationDate: Date().addingTimeInterval(-86400), // 1 day ago
-            imageUrls: [
-                "https://via.placeholder.com/300",
-                "https://via.placeholder.com/300",
-                "https://via.placeholder.com/300"
-            ]
+            imageUrl1: "https://via.placeholder.com/300",
+            imageUrl2: nil,
+            imageUrl3: nil
         )
         
         // 3) Pass the sample item to DetailItemView in each preview
@@ -396,17 +350,3 @@ struct DetailItemView_Previews: PreviewProvider {
     }
 }
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-

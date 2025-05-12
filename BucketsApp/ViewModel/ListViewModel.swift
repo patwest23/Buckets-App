@@ -60,6 +60,9 @@ class ListViewModel: ObservableObject {
         Auth.auth().currentUser?.uid
     }
     
+    // MARK: - Throttling for image prefetch
+    private var lastPrefetchTimestamps: [String: Date] = [:]
+    
     // MARK: - Initialization
     init() {
         print("[ListViewModel] init.")
@@ -166,12 +169,23 @@ class ListViewModel: ObservableObject {
             newItem.orderIndex = currentMaxOrder + 1
         }
         
+        if newItem.userId.isEmpty {
+            newItem.userId = userId
+        }
+        
+        if newItem.userId.isEmpty {
+            print("❌ [ListViewModel] Cannot save: userId is still empty.")
+            return
+        }
+        
         let docRef = db
             .collection("users").document(userId)
             .collection("items").document(item.id.uuidString)
         
         do {
-            try docRef.setData(from: newItem, merge: true)
+            let encoded = try Firestore.Encoder().encode(newItem)
+            print("📝 Writing to Firestore:", encoded)
+            docRef.setData(encoded, merge: true)
             print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
             
             // Update local array with debug prints
@@ -274,7 +288,13 @@ class ListViewModel: ObservableObject {
     }
     
     func prefetchImages(for item: ItemModel) async {
-        for urlStr in item.imageUrls {
+        let now = Date()
+        print("[ListViewModel] Prefetching \(item.allImageUrls.count) image(s) for item:", item.name)
+        for urlStr in item.allImageUrls {
+            if let last = lastPrefetchTimestamps[urlStr], now.timeIntervalSince(last) < 5 {
+                continue // skip reloading this image too soon
+            }
+            lastPrefetchTimestamps[urlStr] = now
             if imageCache[urlStr] != nil {
                 continue
             }

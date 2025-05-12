@@ -44,8 +44,12 @@ struct BucketsApp: App {
                         .environmentObject(postViewModel)    // Pass the PostViewModel
                         .onAppear {
                             Task {
-                                // If we have a current Firebase user, start loading items, etc.
-                                if Auth.auth().currentUser != nil {
+                                if let firebaseUser = Auth.auth().currentUser {
+                                    // Pass user ID to the view models if needed
+                                    if onboardingViewModel.user?.id == nil {
+                                        onboardingViewModel.user?.id = firebaseUser.uid
+                                    }
+
                                     bucketListViewModel.startListeningToItems()
                                     await onboardingViewModel.loadProfileImage()
                                 }
@@ -92,5 +96,4 @@ struct BucketsApp: App {
         }
     }
 }
-
 
