@@ -48,16 +48,14 @@ struct ItemRowView: View {
 
                     Spacer()
 
-                    if isTextFieldFocused {
-                        Button {
-                            onNavigateToDetail?()
-                        } label: {
-                            Image(systemName: "chevron.right")
-                                .imageScale(.medium)
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.borderless)
+                    Button {
+                        onNavigateToDetail?()
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .imageScale(.medium)
+                            .foregroundColor(.secondary)
                     }
+                    .buttonStyle(.borderless)
                 }
 
                 // MARK: - Info Row (removed for MVP)
@@ -226,6 +224,8 @@ struct ItemRowView_Previews: PreviewProvider {
             location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
             completed: true,
             imageUrl1: "https://via.placeholder.com/400",
+            imageUrl2: "https://via.placeholder.com/401",
+            imageUrl3: "https://via.placeholder.com/402",
             likeCount: 42,
             caption: "This was the most unforgettable day ever!",
             hasPostedAddEvent: true,
@@ -235,8 +235,14 @@ struct ItemRowView_Previews: PreviewProvider {
         
         let mockListVM = ListViewModel()
         
-        if let url = sampleItem.imageUrl1 {
-            mockListVM.imageCache[url] = UIImage(systemName: "photo")!
+        if let url1 = sampleItem.imageUrl1 {
+            mockListVM.imageCache[url1] = UIImage(systemName: "photo")!
+        }
+        if let url2 = sampleItem.imageUrl2 {
+            mockListVM.imageCache[url2] = UIImage(systemName: "photo")!
+        }
+        if let url3 = sampleItem.imageUrl3 {
+            mockListVM.imageCache[url3] = UIImage(systemName: "photo")!
         }
 
         return Group {

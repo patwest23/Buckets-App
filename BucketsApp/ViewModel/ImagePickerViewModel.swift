@@ -1,39 +1,32 @@
-//
-//  ImagePickerViewModel.swift
-//  BucketsApp
-//
-//  Created by Patrick Westerkamp on 5/21/23.
-//
-
 import SwiftUI
 import PhotosUI
+import Combine
 
 @MainActor
 class ImagePickerViewModel: ObservableObject {
-    @Published var selectedItem: PhotosPickerItem? = nil
-    @Published var pickedImage: UIImage? = nil
-    @Published var pickedImageData: Data? = nil
+    @Published var selectedItems: [PhotosPickerItem] = []
+    @Published var images: [UIImage] = []
 
-    func loadSelectedImage() async {
-        guard let item = selectedItem else { return }
+    func loadImages() async {
+        images.removeAll()
 
-        do {
-            let data = try await item.loadTransferable(type: Data.self)
-            if let data = data, let image = UIImage(data: data) {
-                self.pickedImage = image
-                self.pickedImageData = data
-                print("✅ Loaded image successfully, size: \(data.count) bytes")
-            } else {
-                print("⚠️ Unable to decode image data")
+        for item in selectedItems.prefix(3) {
+            do {
+                if let data = try await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    images.append(image)
+                    print("✅ Loaded image of size: \(data.count) bytes")
+                } else {
+                    print("⚠️ Unable to decode image data.")
+                }
+            } catch {
+                print("❌ Failed to load image: \(error.localizedDescription)")
             }
-        } catch {
-            print("❌ Error loading image: \(error.localizedDescription)")
         }
     }
 
     func clearSelection() {
-        selectedItem = nil
-        pickedImage = nil
-        pickedImageData = nil
+        selectedItems = []
+        images = []
     }
 }

@@ -90,10 +90,13 @@ struct ListView: View {
                             }
                             // Navigate to Detail => PASS A COPY of the item
                             .navigationDestination(item: $selectedItem) { item in
-                                DetailItemView(item: item)
-                                    .environmentObject(bucketListViewModel)
-                                    .environmentObject(onboardingViewModel)
-                                    .environmentObject(postViewModel)
+                                // Only show DetailItemView after tapping chevron (not always)
+                                if let _ = selectedItem {
+                                    DetailItemView(item: item)
+                                        .environmentObject(bucketListViewModel)
+                                        .environmentObject(onboardingViewModel)
+                                        .environmentObject(postViewModel)
+                                }
                             }
                             // Delete confirmation
                             .alert(
@@ -111,25 +114,22 @@ struct ListView: View {
                                     Text("Delete “\(toDelete.name)” from your list?")
                                 }
                             }
-                            // Scroll to changed ID
-                            .onChange(of: scrollToId) { _, newVal in
+                            // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
+                            .onChange(of: scrollToId, { oldVal, newVal in
                                 guard let newVal = newVal else { return }
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     proxy.scrollTo(newVal, anchor: .bottom)
                                 }
-                            }
+                            })
                     }
                 }
                 // Move toolbar here: apply to ZStack instead of inside ScrollViewReader/contentView
                 .toolbar {
-                    // MARK: - Leading: "Bucket List"
-                    ToolbarItem(placement: .navigationBarLeading) {
+                    ToolbarItemGroup(placement: .navigationBarLeading) {
                         Text("Bucket List")
                             .font(.headline)
                     }
-
-                    // MARK: - Trailing: "Done" (if editing) or Profile
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
                         if isAnyTextFieldActive {
                             Button("Done") {
                                 UIApplication.shared.endEditing()
@@ -139,7 +139,6 @@ struct ListView: View {
                             .font(.headline)
                             .foregroundColor(.accentColor)
                         } else {
-                            // Profile
                             Button {
                                 showProfileView = true
                             } label: {
@@ -158,25 +157,16 @@ struct ListView: View {
                             .buttonStyle(.plain)
                         }
                     }
-
-                    // MARK: - Bottom Bar => Feed (left), Add (center), UserSearch (right)
-                    ToolbarItem(placement: .bottomBar) {
+                    ToolbarItemGroup(placement: .bottomBar) {
                         HStack {
-                            // Left: Feed Button
                             Button {
                                 showFeed = true
                             } label: {
                                 Image(systemName: "house.fill")
                             }
-
                             Spacer()
-
-                            // Center: Add Button
                             addButton
-
                             Spacer()
-
-                            // Right: User Search
                             Button {
                                 showUserSearch = true
                             } label: {
@@ -424,7 +414,9 @@ struct ListView_Previews: PreviewProvider {
             )
         ]
         // Optionally preload the mock image into the image cache for testing display
-        mockListVMWithItems.imageCache["https://picsum.photos/400/400?random=1"] = UIImage(systemName: "photo")!
+        if let mockImage = UIImage(systemName: "photo") {
+            mockListVMWithItems.imageCache["https://picsum.photos/400/400?random=1"] = mockImage
+        }
 
         let mockOnboardingVM = OnboardingViewModel()
         let mockUserVM = UserViewModel()

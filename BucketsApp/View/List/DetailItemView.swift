@@ -61,7 +61,8 @@ struct DetailItemView: View {
 
                 // Image picker row
                 PhotosPicker(
-                    selection: $imagePickerVM.selectedItem,
+                    selection: $imagePickerVM.selectedItems,
+                    maxSelectionCount: 3,
                     matching: .images
                 ) {
                     HStack {
@@ -75,43 +76,34 @@ struct DetailItemView: View {
                     .cornerRadius(8)
                 }
                 .disabled(!currentItem.completed)
-                .onChange(of: imagePickerVM.selectedItem) { _ in
+                .onChange(of: imagePickerVM.selectedItems) { _ in
                     Task {
-                        await imagePickerVM.loadSelectedImage()
-                        guard let data = imagePickerVM.pickedImageData else {
-                            print("❌ No image data to upload.")
-                            return
+                        await imagePickerVM.loadImages()
+
+                        var uploadedUrls: [String] = []
+                        for image in imagePickerVM.images {
+                            if let url = await uploadImageToStorage(image: image) {
+                                uploadedUrls.append(url)
+                            } else {
+                                print("❌ Failed to get image URL from upload.")
+                            }
                         }
-                        print("Image loaded: \(data.count) bytes")
 
                         if currentItem.userId.isEmpty,
                            let uid = onboardingViewModel.user?.id {
                             currentItem.userId = uid
                         }
 
-                        if let image = UIImage(data: data) {
-                            if let url = await uploadImagesToStorage(from: [image]) {
-                                print("✅ Saving image URL to first available slot:", url)
-                                if currentItem.imageUrl1 == nil {
-                                    currentItem.imageUrl1 = url
-                                } else if currentItem.imageUrl2 == nil {
-                                    currentItem.imageUrl2 = url
-                                } else if currentItem.imageUrl3 == nil {
-                                    currentItem.imageUrl3 = url
-                                } else {
-                                    // All slots full, overwrite the first
-                                    currentItem.imageUrl1 = url
-                                }
-                                bucketListViewModel.addOrUpdateItem(currentItem)
-                            } else {
-                                print("❌ Failed to get image URL from upload.")
-                            }
-                        }
+                        currentItem.imageUrl1 = uploadedUrls.indices.contains(0) ? uploadedUrls[0] : currentItem.imageUrl1
+                        currentItem.imageUrl2 = uploadedUrls.indices.contains(1) ? uploadedUrls[1] : currentItem.imageUrl2
+                        currentItem.imageUrl3 = uploadedUrls.indices.contains(2) ? uploadedUrls[2] : currentItem.imageUrl3
+
+                        bucketListViewModel.addOrUpdateItem(currentItem)
                     }
                 }
 
                 // Image preview grid
-                if imagePickerVM.pickedImageData != nil || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil {
+                if currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil {
                     photoGridRow
                 }
 
@@ -169,11 +161,11 @@ struct DetailItemView: View {
 // MARK: - Computed Props
 extension DetailItemView {
     @MainActor private var isShowingChevron: Bool {
-        imagePickerVM.pickedImageData != nil || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
+        currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
     }
 
     @MainActor private var isShowingPhotoGrid: Bool {
-        imagePickerVM.pickedImageData != nil || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
+        currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
     }
 }
 
@@ -186,8 +178,8 @@ extension DetailItemView {
         }
     }
 
-    private func uploadImagesToStorage(from images: [UIImage]) async -> String? {
-        print("🔍 Simplified single-image upload flow")
+    private func uploadImageToStorage(image: UIImage) async -> String? {
+        print("🔍 Uploading single image in multi-image flow")
         
         guard currentItem.completed else { return nil }
         guard let userId = onboardingViewModel.userId, !userId.isEmpty else {
@@ -195,28 +187,26 @@ extension DetailItemView {
             return nil
         }
 
-        if let firstImage = images.first {
-            guard let imageData = firstImage.jpegData(compressionQuality: 0.8) else {
-                print("❌ Failed to convert UIImage to JPEG data.")
-                return nil
-            }
-            
-            let storageRef = Storage.storage().reference()
-                .child("users/\(userId)/item-images/\(currentItem.id.uuidString)-image.jpg")
-            
-            print("Uploading to path: \(storageRef.fullPath) with size: \(imageData.count) bytes")
-            
-            do {
-                try await storageRef.putDataAsync(imageData)
-                let downloadURL = try await storageRef.downloadURL()
-                print("✅ Image uploaded to:", downloadURL.absoluteString)
-                return downloadURL.absoluteString
-            } catch {
-                print("❌ Upload error:", error.localizedDescription)
-            }
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            print("❌ Failed to convert UIImage to JPEG data.")
+            return nil
+        }
+        
+        let uniqueId = UUID().uuidString
+        let storageRef = Storage.storage().reference()
+            .child("users/\(userId)/item-images/\(currentItem.id.uuidString)-image-\(uniqueId).jpg")
+        
+        print("Uploading to path: \(storageRef.fullPath) with size: \(imageData.count) bytes")
+        
+        do {
+            try await storageRef.putDataAsync(imageData)
+            let downloadURL = try await storageRef.downloadURL()
+            print("✅ Image uploaded to:", downloadURL.absoluteString)
+            return downloadURL.absoluteString
+        } catch {
+            print("❌ Upload error:", error.localizedDescription)
         }
 
-        print("⚠️ No image data available to upload.")
         return nil
     }
 
@@ -254,29 +244,9 @@ extension DetailItemView {
 
     @ViewBuilder
     private var photoGridRow: some View {
-        if let data = imagePickerVM.pickedImageData, let image = UIImage(data: data) {
-            photoGrid(uiImages: [image])
-        } else {
-            let urls = [currentItem.imageUrl1, currentItem.imageUrl2, currentItem.imageUrl3].compactMap { $0 }
-            if !urls.isEmpty {
-                photoGrid(urlStrings: urls)
-            }
-        }
-    }
-
-    private func photoGrid(uiImages: [UIImage]) -> some View {
-        HStack {
-            HStack(spacing: 8) {
-                ForEach(uiImages, id: \.self) { uiImage in
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 110, height: 110)
-                        .cornerRadius(10)
-                        .clipped()
-                }
-            }
-            .frame(maxWidth: .infinity)
+        let urls = [currentItem.imageUrl1, currentItem.imageUrl2, currentItem.imageUrl3].compactMap { $0 }
+        if !urls.isEmpty {
+            photoGrid(urlStrings: urls)
         }
     }
 
@@ -318,7 +288,7 @@ struct DetailItemView_Previews: PreviewProvider {
         let mockListVM = ListViewModel()
         let mockPostVM = PostViewModel()
         
-        // 2) Create a sample ItemModel with placeholder image
+        // 2) Create a sample ItemModel with placeholder images
         let sampleItem = ItemModel(
             userId: "previewUser",
             name: "Sample Bucket List Item",
@@ -328,8 +298,8 @@ struct DetailItemView_Previews: PreviewProvider {
             completed: true,
             creationDate: Date().addingTimeInterval(-86400), // 1 day ago
             imageUrl1: "https://via.placeholder.com/300",
-            imageUrl2: nil,
-            imageUrl3: nil
+            imageUrl2: "https://via.placeholder.com/300",
+            imageUrl3: "https://via.placeholder.com/300"
         )
         
         // 3) Pass the sample item to DetailItemView in each preview
