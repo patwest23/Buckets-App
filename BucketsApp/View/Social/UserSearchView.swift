@@ -1,14 +1,8 @@
-//
-//  UserSearchView.swift
-//  BucketsApp
-//
-//  Created by Patrick Westerkamp on 3/9/25.
-//
-
 import SwiftUI
 
 struct UserSearchView: View {
     @ObservedObject var vm: UserSearchViewModel
+    @FocusState private var isSearchFocused: Bool
     
     var body: some View {
         NavigationView {
@@ -17,77 +11,42 @@ struct UserSearchView: View {
                 TextField("Search by username or Name", text: $vm.searchText)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-                    // 1) Make Return button say "Search"
                     .submitLabel(.search)
-                    // 2) Live searching: whenever searchText changes, do an async search
+                    .focused($isSearchFocused)
                     .onChange(of: vm.searchText) { newVal in
                         Task {
                             await vm.searchUsers()
                         }
                     }
                 
-                // Search results + suggested
+                // Results
                 List {
                     Section(header: Text("Search Results")) {
                         ForEach(vm.searchResults) { user in
-                            HStack(spacing: 12) {
-                                // PROFILE IMAGE
-                                userProfileImage(for: user.profileImageUrl)
-                                    .frame(width: 40, height: 40)
-                                    .clipShape(Circle())
-                                
-                                // USERNAME + DISPLAY NAME
-                                VStack(alignment: .leading) {
-                                    Text(user.username ?? "No username")
-                                    Text(user.name ?? "No name")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                // FOLLOW BUTTON
-                                Button("Follow") {
-                                    Task {
-                                        await vm.followUser(user)
-                                    }
-                                }
-                            }
+                            userRow(for: user)
                         }
                     }
                     
                     Section(header: Text("Suggested")) {
                         ForEach(vm.suggestedUsers) { user in
-                            HStack(spacing: 12) {
-                                // PROFILE IMAGE
-                                userProfileImage(for: user.profileImageUrl)
-                                    .frame(width: 40, height: 40)
-                                    .clipShape(Circle())
-                                
-                                // USERNAME + DISPLAY NAME
-                                VStack(alignment: .leading) {
-                                    Text(user.username ?? "No username")
-                                    Text(user.name ?? "No name")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                // FOLLOW BUTTON
-                                Button("Follow") {
-                                    Task {
-                                        await vm.followUser(user)
-                                    }
-                                }
+                            userRow(for: user)
+                        }
+                    }
+
+                    if vm.searchText.isEmpty && vm.searchResults.isEmpty && vm.suggestedUsers.isEmpty {
+                        Section(header: Text("Explore")) {
+                            ForEach(vm.allUsers) { user in
+                                userRow(for: user)
                             }
                         }
                     }
                 }
                 .listStyle(.plain)
-                .onAppear {
-                    Task {
-                        await vm.loadSuggestedUsers()
+                .task {
+                    await vm.loadSuggestedUsers()
+                    await vm.loadAllUsers()
+                    await MainActor.run {
+                        isSearchFocused = true
                     }
                 }
             }
@@ -101,7 +60,6 @@ struct UserSearchView: View {
         }
     }
     
-    /// Helper view builder for profile images
     @ViewBuilder
     private func userProfileImage(for urlString: String?) -> some View {
         if let urlString = urlString,
@@ -128,12 +86,49 @@ struct UserSearchView: View {
                 .scaledToFill()
         }
     }
+
+    @ViewBuilder
+    private func userRow(for user: UserModel) -> some View {
+        HStack(spacing: 12) {
+            userProfileImage(for: user.profileImageUrl)
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
+            
+            VStack(alignment: .leading) {
+                Text(user.username ?? "No username")
+                Text(user.name ?? "No name")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(user.isFollowed ? "Following" : "Follow") {
+                if !user.isFollowed {
+                    Task {
+                        await vm.followUser(user)
+                    }
+                }
+            }
+            .disabled(user.isFollowed)
+        }
+    }
 }
 
 struct UserSearchView_Previews: PreviewProvider {
     static var previews: some View {
-        // Provide a mock or real view model
-        UserSearchView(vm: MockUserSearchViewModel())
+        let mockVM = UserSearchViewModel()
+        mockVM.searchResults = [
+            UserModel(
+                id: "user_123",
+                email: "test@example.com",
+                createdAt: Date(),
+                profileImageUrl: nil,
+                name: "Test User",
+                username: "@test"
+            )
+        ]
+        return UserSearchView(vm: mockVM)
             .previewDisplayName("Mock Search View")
     }
 }

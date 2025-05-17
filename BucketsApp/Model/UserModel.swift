@@ -35,6 +35,13 @@ struct UserModel: Identifiable, Codable, Hashable {
     /// An optional array of user IDs who follow this user.
     var followers: [String]?
 
+    /// Lowercased versions of name/username for case-insensitive search.
+    var username_lower: String?
+    var name_lower: String?
+    
+    /// Local-only property to track if user is already followed (not written to Firestore)
+    var isFollowed: Bool = false
+
     // MARK: - Custom Initializer
     init(
         id: String? = nil,
@@ -44,7 +51,10 @@ struct UserModel: Identifiable, Codable, Hashable {
         name: String? = "Guest",
         username: String? = nil,
         following: [String] = [],
-        followers: [String]? = nil
+        followers: [String]? = nil,
+        username_lower: String? = nil,
+        name_lower: String? = nil,
+        isFollowed: Bool = false
     ) {
         self.id = id
         self.email = email
@@ -54,5 +64,8 @@ struct UserModel: Identifiable, Codable, Hashable {
         self.username = username
         self.following = following
         self.followers = followers
+        self.username_lower = username_lower
+        self.name_lower = name_lower
+        self.isFollowed = isFollowed
     }
 }

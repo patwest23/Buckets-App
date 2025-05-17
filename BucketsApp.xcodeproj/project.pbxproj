@@ -25,6 +25,8 @@
 		1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */; };
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
 		1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */; };
+		1FC64BCE2DD90CE600EA595C /* FollowingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */; };
+		1FC64BD02DD90CFD00EA595C /* FollowersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */; };
 		1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FCC05822D0E685100892746 /* FirebaseFirestore */; };
 		1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */; };
 		1FCD29342D6284A70022E4CB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCD29332D62849E0022E4CB /* SettingsView.swift */; };
@@ -60,6 +62,8 @@
 		1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 		1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateEmailView.swift; sourceTree = "<group>"; };
 		1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePasswordView.swift; sourceTree = "<group>"; };
+		1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowingListView.swift; sourceTree = "<group>"; };
+		1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowersListView.swift; sourceTree = "<group>"; };
 		1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinchZoomImage.swift; sourceTree = "<group>"; };
 		1FCD29332D62849E0022E4CB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemView.swift; sourceTree = "<group>"; };
@@ -107,6 +111,8 @@
 				1FCD29332D62849E0022E4CB /* SettingsView.swift */,
 				1F815C8D29ECA08B000063D3 /* HomeView.swift */,
 				1FE006E72A10541200B0A6D7 /* ProfileView.swift */,
+				1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */,
+				1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */,
 				1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */,
 				1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */,
 				1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */,
@@ -308,6 +314,7 @@
 			files = (
 				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
+				1FC64BD02DD90CFD00EA595C /* FollowersListView.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
 				1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */,
 				1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */,
@@ -331,6 +338,7 @@
 				1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */,
 				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
 				1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
+				1FC64BCE2DD90CE600EA595C /* FollowingListView.swift in Sources */,
 				1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -20,6 +20,7 @@ struct ProfileView: View {
     
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
+    @State private var navigationPath = NavigationPath()
     
     // Styling constants
     private let cardCornerRadius: CGFloat = 12
@@ -27,44 +28,55 @@ struct ProfileView: View {
     private let cardShadowRadius: CGFloat = 4
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                
-                // MARK: - Profile Image + Username
-                profileHeader
-                
-                // MARK: - Stats Dashboard
-                statsDashboard
-                
-                // MARK: - User’s Posts
-                postsSection
+        NavigationStack(path: $navigationPath) {
+            ScrollView {
+                VStack(spacing: 24) {
+                    
+                    // MARK: - Profile Image + Username
+                    profileHeader
+                    
+                    // MARK: - Stats Dashboard
+                    statsDashboard
+                    
+                    // MARK: - User’s Posts
+                    postsSection
+                }
+                .padding(.horizontal)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
-        }
-        .navigationBarTitle("Profile", displayMode: .inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                // Hide default nav title text
-                EmptyView()
-            }
-            // Settings gear icon
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink {
-                    SettingsView()
-                        .environmentObject(onboardingViewModel)
-                        .environmentObject(userViewModel)
-                } label: {
-                    Image(systemName: "gearshape.fill")
+            .navigationBarTitle("Profile", displayMode: .inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    // Hide default nav title text
+                    EmptyView()
+                }
+                // Settings gear icon
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        SettingsView()
+                            .environmentObject(onboardingViewModel)
+                            .environmentObject(userViewModel)
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                    }
                 }
             }
-        }
-        .onAppear {
-            // LOAD the user's posts from Firestore
-            Task {
-                await postViewModel.loadPosts()
-                // (Assuming postViewModel loads only the current user’s posts)
+            .onAppear {
+                // LOAD the user's posts from Firestore
+                Task {
+                    await postViewModel.loadPosts()
+                    // (Assuming postViewModel loads only the current user’s posts)
+                }
+            }
+            .navigationDestination(for: String.self) { route in
+                if route == "following" {
+                    FollowingListView()
+                        .environmentObject(userViewModel)
+                } else if route == "followers" {
+                    FollowersListView()
+                        .environmentObject(userViewModel)
+                }
             }
         }
     }
@@ -177,15 +189,27 @@ extension ProfileView {
             
             // 3) Second row: Following / Followers
             HStack(spacing: 16) {
-                statCard(emoji: "👥",
-                         title: "Following",
-                         value: "\(followingCount)",
-                         color: .blue)
-                
-                statCard(emoji: "🙋‍♂️",
-                         title: "Followers",
-                         value: "\(followersCount)",
-                         color: .green)
+                Button {
+                    // Navigate to FollowingListView
+                    navigationPath.append("following")
+                } label: {
+                    statCard(emoji: "👥",
+                             title: "Following",
+                             value: "\(followingCount)",
+                             color: .blue)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    // Navigate to FollowersListView
+                    navigationPath.append("followers")
+                } label: {
+                    statCard(emoji: "🙋‍♂️",
+                             title: "Followers",
+                             value: "\(followersCount)",
+                             color: .green)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding()

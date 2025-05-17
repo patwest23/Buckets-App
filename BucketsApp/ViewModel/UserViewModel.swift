@@ -29,51 +29,11 @@ class UserViewModel: ObservableObject {
         print("[UserViewModel] deinit.")
     }
     
-    // MARK: - One-Time Fetch
-    func fetchUserData(userId: String) async {
-        do {
-            // Example of explicit generic in withCheckedThrowingContinuation:
-            let fetchedUser: UserModel = try await withCheckedThrowingContinuation {
-                (continuation: CheckedContinuation<UserModel, Error>) in
-                
-                db.collection("users").document(userId).getDocument { snapshot, error in
-                    if let error = error {
-                        continuation.resume(throwing: error)
-                        return
-                    }
-                    guard let snapshot = snapshot, snapshot.exists else {
-                        let noDocError = NSError(
-                            domain: "NoDocumentFound",
-                            code: 404,
-                            userInfo: [
-                                NSLocalizedDescriptionKey: "No user document found for ID \(userId)."
-                            ]
-                        )
-                        continuation.resume(throwing: noDocError)
-                        return
-                    }
-                    
-                    do {
-                        let user = try snapshot.data(as: UserModel.self)
-                        continuation.resume(returning: user)
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            }
-            
-            self.user = fetchedUser
-            print("[UserViewModel] user set =>", fetchedUser)
-            print("[UserViewModel] fetchUserData: Successfully fetched user doc for /users/\(userId). user.id =", fetchedUser.id ?? "nil")
-            
-            // If doc ID doesn't match, log a warning
-            if fetchedUser.id != userId {
-                print("[UserViewModel] Warning: User doc ID (\(fetchedUser.id ?? "nil")) != Auth UID (\(userId))")
-            }
-            
-        } catch {
-            handleError(error, prefix: "fetchUserData")
-        }
+    func fetchUser(with userId: String) async throws -> UserModel {
+        let db = Firestore.firestore()
+        let docRef = db.collection("users").document(userId)
+        let snapshot = try await docRef.getDocument()
+        return try snapshot.data(as: UserModel.self)
     }
     
     // MARK: - Real-Time Listener
@@ -218,4 +178,29 @@ class UserViewModel: ObservableObject {
     var userIsAuthenticated: Bool {
         user?.id?.isEmpty == false
     }
+
+    // MARK: - Fetch Users by ID List
+    func fetchUsers(withIDs ids: [String]) async -> [UserModel] {
+        var users: [UserModel] = []
+        for id in ids {
+            do {
+                let docRef = db.collection("users").document(id)
+                let snapshot = try await docRef.getDocument()
+                if let user = try? snapshot.data(as: UserModel.self) {
+                    users.append(user)
+                }
+            } catch {
+                print("[UserViewModel] Error fetching user with ID \(id):", error.localizedDescription)
+            }
+        }
+        return users
+    }
 }
+
+    // MARK: - Fetch Single User
+    func fetchUser(with userId: String) async throws -> UserModel {
+        let db = Firestore.firestore()
+        let docRef = db.collection("users").document(userId)
+        let snapshot = try await docRef.getDocument()
+        return try snapshot.data(as: UserModel.self)
+    }

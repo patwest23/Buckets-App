@@ -20,11 +20,6 @@ struct FeedView: View {
                 VStack(spacing: 16) {
                     ForEach(feedVM.posts) { post in
                         VStack(alignment: .leading, spacing: 4) {
-                            // MARK: - Post Type Label
-                            Text(feedPostLabel(for: post))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
                             // MARK: - Feed Card
                             FeedRowView(
                                 post: post,
@@ -45,27 +40,11 @@ struct FeedView: View {
                     }
                 }
             }
-            .navigationTitle("Your Feed")
             .onAppear {
                 Task {
                     await feedVM.fetchFeedPosts()
                 }
             }
-        }
-    }
-
-    // MARK: - Feed Message by Post Type
-    private func feedPostLabel(for post: PostModel) -> String {
-        let user = post.authorUsername ?? "Someone"
-        let item = post.itemName
-
-        switch post.type {
-        case .added:
-            return "\(user) added \"\(item)\" to their bucket list."
-        case .completed:
-            return "🎉 \(user) completed \"\(item)\"!"
-        case .photos:
-            return "📸 \(user) added photos to \"\(item)\"."
         }
     }
 
