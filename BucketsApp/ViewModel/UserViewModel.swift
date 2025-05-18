@@ -14,6 +14,7 @@ class UserViewModel: ObservableObject {
     @Published var user: UserModel?
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
+    @Published var allUsers: [UserModel] = []
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -195,12 +196,24 @@ class UserViewModel: ObservableObject {
         }
         return users
     }
+    
+    // MARK: - Fetch All Users (Used in Explore Tab)
+    /// Loads all users from Firestore and assigns them to `allUsers`.
+    func loadAllUsers() async {
+        do {
+            let snapshot = try await db.collection("users").getDocuments()
+            var users: [UserModel] = []
+            for doc in snapshot.documents {
+                print("[UserSearchViewModel] Raw user data:", doc.data())
+                if let user = try? doc.data(as: UserModel.self) {
+                    users.append(user)
+                }
+            }
+            self.allUsers = users
+        } catch {
+            print("[UserViewModel] loadAllUsers error:", error.localizedDescription)
+            self.allUsers = []
+        }
+    }
 }
 
-    // MARK: - Fetch Single User
-    func fetchUser(with userId: String) async throws -> UserModel {
-        let db = Firestore.firestore()
-        let docRef = db.collection("users").document(userId)
-        let snapshot = try await docRef.getDocument()
-        return try snapshot.data(as: UserModel.self)
-    }

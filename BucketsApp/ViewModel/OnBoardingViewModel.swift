@@ -391,8 +391,12 @@ final class OnboardingViewModel: ObservableObject {
         do {
             let docData: [String: Any] = [
                 "email": email,
-                "createdAt": Date(), // or FieldValue.serverTimestamp()
-                "username": username
+                "createdAt": FieldValue.serverTimestamp(),
+                "username": username,
+                "name": "",
+                "profileImageUrl": "",
+                "followers": [],
+                "following": []
             ]
             try await userDoc.setData(docData)
             print("[OnboardingViewModel] User document created at /users/\(userId).")
@@ -413,15 +417,22 @@ final class OnboardingViewModel: ObservableObject {
                 return
             }
 
-            self.user = try snapshot.data(as: UserModel.self)
-            self.user?.id = userId
-            print("[OnboardingViewModel] User doc fetched. user?.id =", self.user?.id ?? "nil")
+            do {
+                self.user = try snapshot.data(as: UserModel.self)
+                self.user?.id = userId
+                print("[OnboardingViewModel] User doc fetched. user?.id =", self.user?.id ?? "nil")
 
-            if self.user?.id == userId {
-                print("[OnboardingViewModel] Matches Auth UID:", userId)
-            } else {
-                print("[OnboardingViewModel] Warning: doc ID mismatch. docID =", self.user?.id ?? "nil",
-                      "AuthUID =", userId)
+                if self.user?.id == userId {
+                    print("[OnboardingViewModel] Matches Auth UID:", userId)
+                } else {
+                    print("[OnboardingViewModel] Warning: doc ID mismatch. docID =", self.user?.id ?? "nil",
+                          "AuthUID =", userId)
+                }
+
+            } catch {
+                print("[OnboardingViewModel] Error decoding user doc:", error.localizedDescription)
+                print("[OnboardingViewModel] Raw snapshot data:", snapshot.data() ?? "nil")
+                handleError(error)
             }
 
         } catch {

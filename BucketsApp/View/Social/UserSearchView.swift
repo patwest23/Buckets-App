@@ -1,59 +1,31 @@
+import FirebaseAuth
 import SwiftUI
 
 struct UserSearchView: View {
     @ObservedObject var vm: UserSearchViewModel
-    @FocusState private var isSearchFocused: Bool
+    // Search and focus state removed for Explore-only section
     
     var body: some View {
         NavigationView {
             VStack {
-                // Search bar
-                TextField("Search by username or Name", text: $vm.searchText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding()
-                    .submitLabel(.search)
-                    .focused($isSearchFocused)
-                    .onChange(of: vm.searchText) { newVal in
-                        Task {
-                            await vm.searchUsers()
-                        }
-                    }
-                
-                // Results
                 List {
-                    Section(header: Text("Search Results")) {
-                        ForEach(vm.searchResults) { user in
+                    Section(header: Text("Explore")) {
+                        ForEach(vm.allUsers) { user in
                             userRow(for: user)
-                        }
-                    }
-                    
-                    Section(header: Text("Suggested")) {
-                        ForEach(vm.suggestedUsers) { user in
-                            userRow(for: user)
-                        }
-                    }
-
-                    if vm.searchText.isEmpty && vm.searchResults.isEmpty && vm.suggestedUsers.isEmpty {
-                        Section(header: Text("Explore")) {
-                            ForEach(vm.allUsers) { user in
-                                userRow(for: user)
-                            }
                         }
                     }
                 }
                 .listStyle(.plain)
-                .task {
-                    await vm.loadSuggestedUsers()
-                    await vm.loadAllUsers()
-                    await MainActor.run {
-                        isSearchFocused = true
+                .onAppear {
+                    Task {
+                        await vm.loadAllUsers()
                     }
                 }
             }
             .navigationTitle("Find Friends")
-            .alert("Error", isPresented: Binding<Bool>(
+            .alert("Error", isPresented: Binding(
                 get: { vm.errorMessage != nil },
-                set: { _ in vm.errorMessage = nil }
+                set: { _ in DispatchQueue.main.async { vm.errorMessage = nil } }
             ), actions: {}) {
                 Text(vm.errorMessage ?? "")
             }
@@ -118,14 +90,15 @@ struct UserSearchView: View {
 struct UserSearchView_Previews: PreviewProvider {
     static var previews: some View {
         let mockVM = UserSearchViewModel()
-        mockVM.searchResults = [
+        mockVM.allUsers = [
             UserModel(
                 id: "user_123",
                 email: "test@example.com",
                 createdAt: Date(),
                 profileImageUrl: nil,
                 name: "Test User",
-                username: "@test"
+                username: "@test",
+                isFollowed: false
             )
         ]
         return UserSearchView(vm: mockVM)

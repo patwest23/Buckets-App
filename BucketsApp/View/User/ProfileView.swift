@@ -157,7 +157,7 @@ extension ProfileView {
         }()
         
         // FOLLOWING / FOLLOWERS
-        let followingCount = userViewModel.user?.following.count ?? 0
+        let followingCount = userViewModel.user?.following?.count ?? 0
         let followersCount = userViewModel.user?.followers?.count ?? 0
         
         return VStack(spacing: 20) {

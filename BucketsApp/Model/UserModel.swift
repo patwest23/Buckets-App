@@ -12,13 +12,13 @@ import FirebaseFirestore
 struct UserModel: Identifiable, Codable, Hashable {
     
     /// The Firestore document ID for this user (managed automatically if using Firestore’s Swift APIs).
-    @DocumentID var id: String? = nil
+    @DocumentID var id: String?
     
     /// The user’s email address.
-    var email: String
+    var email: String?
     
     /// The date/time when this user record was created.
-    var createdAt: Date
+    var createdAt: Date?
     
     /// URL to the user’s profile image (stored in Firebase Storage or elsewhere).
     var profileImageUrl: String?
@@ -30,7 +30,7 @@ struct UserModel: Identifiable, Codable, Hashable {
     var username: String?
     
     /// An array of user IDs that this user is following.
-    var following: [String]
+    var following: [String]?
     
     /// An optional array of user IDs who follow this user.
     var followers: [String]?
@@ -42,22 +42,35 @@ struct UserModel: Identifiable, Codable, Hashable {
     /// Local-only property to track if user is already followed (not written to Firestore)
     var isFollowed: Bool = false
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case email
+        case createdAt
+        case profileImageUrl
+        case name
+        case username
+        case following
+        case followers
+        case username_lower
+        case name_lower
+    }
+    
     // MARK: - Custom Initializer
     init(
         id: String? = nil,
-        email: String,
+        email: String? = nil,
         createdAt: Date? = nil,
         profileImageUrl: String? = nil,
         name: String? = "Guest",
         username: String? = nil,
-        following: [String] = [],
+        following: [String]? = nil,
         followers: [String]? = nil,
         username_lower: String? = nil,
         name_lower: String? = nil,
         isFollowed: Bool = false
     ) {
         self.id = id
-        self.email = email
+        self.email = email ?? "unknown@example.com"
         self.createdAt = createdAt ?? Date()
         self.profileImageUrl = profileImageUrl
         self.name = name

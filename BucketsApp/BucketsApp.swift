@@ -18,69 +18,69 @@ struct BucketsApp: App {
     @StateObject var bucketListViewModel = ListViewModel()
     @StateObject var onboardingViewModel = OnboardingViewModel()
     @StateObject var userViewModel = UserViewModel()
-
-    /// Existing: for reading feed posts
     @StateObject var feedViewModel = FeedViewModel()
-
-    /// NEW: for creating / posting new items
     @StateObject var postViewModel = PostViewModel()
 
     var body: some Scene {
         WindowGroup {
             if !onboardingViewModel.isAuthenticated {
-                // 1) Not signed in => show onboarding
                 OnboardingView()
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
             } else {
-                // 2) Authenticated => Main content
                 NavigationStack {
                     ListView()
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                         .environmentObject(userViewModel)
                         .environmentObject(feedViewModel)
-                        .environmentObject(postViewModel)    // Pass the PostViewModel
+                        .environmentObject(postViewModel)
                         .onAppear {
                             Task {
-                                if let firebaseUser = Auth.auth().currentUser {
-                                    // Pass user ID to the view models if needed
-                                    if onboardingViewModel.user?.id == nil {
-                                        onboardingViewModel.user?.id = firebaseUser.uid
-                                    }
-
-                                    bucketListViewModel.startListeningToItems()
-                                    await onboardingViewModel.loadProfileImage()
+                                guard let firebaseUser = Auth.auth().currentUser else {
+                                    print("[BucketsApp] No authenticated user.")
+                                    return
                                 }
+
+                                if onboardingViewModel.user == nil {
+                                    onboardingViewModel.user = UserModel(
+                                        id: firebaseUser.uid,
+                                        email: firebaseUser.email ?? "unknown",
+                                        createdAt: Date(),
+                                        profileImageUrl: nil,
+                                        name: nil,
+                                        username: nil
+                                    )
+                                }
+
+                                onboardingViewModel.user?.id = firebaseUser.uid
+                                
+                                bucketListViewModel.startListeningToItems()
+                                await onboardingViewModel.loadProfileImage()
                             }
                         }
                 }
             }
         }
     }
-    
-    // MARK: - AppDelegate
+
     class AppDelegate: NSObject, UIApplicationDelegate {
         func application(
             _ application: UIApplication,
             didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
         ) -> Bool {
             FirebaseApp.configure()
-            
+
             if let options = FirebaseApp.app()?.options {
                 print("Firebase configured with options: \(options)")
             } else {
                 print("Failed to configure Firebase.")
             }
 
-            // Optional Firestore configuration
             let db = Firestore.firestore()
             let settings = db.settings
-
-            // Example: customizing cache size
             let persistentCache = PersistentCacheSettings()
-            // persistentCache.sizeBytes = 10_485_760 // e.g., 10MB
             settings.cacheSettings = persistentCache
             db.settings = settings
 
@@ -96,4 +96,3 @@ struct BucketsApp: App {
         }
     }
 }
-
