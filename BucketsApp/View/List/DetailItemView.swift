@@ -59,56 +59,28 @@ struct DetailItemView: View {
                     Spacer()
                 }
 
-                // Image picker row
-                PhotosPicker(
-                    selection: $imagePickerVM.selectedItems,
-                    maxSelectionCount: 3,
-                    matching: .images
-                ) {
-                    HStack {
-                        Text("📸 Select Photo")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                }
-                .disabled(!currentItem.completed)
-                .onChange(of: imagePickerVM.selectedItems) { _ in
-                    Task {
-                        await imagePickerVM.loadImages()
+                photoPickerView
 
-                        var uploadedUrls: [String] = []
-                        for image in imagePickerVM.images {
-                            if let url = await uploadImageToStorage(image: image) {
-                                uploadedUrls.append(url)
-                            } else {
-                                print("❌ Failed to get image URL from upload.")
-                            }
+                if !imagePickerVM.images.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(imagePickerVM.images, id: \.self) { image in
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .clipped()
                         }
-
-                        if currentItem.userId.isEmpty,
-                           let uid = onboardingViewModel.user?.id {
-                            currentItem.userId = uid
-                        }
-
-                        currentItem.imageUrl1 = uploadedUrls.indices.contains(0) ? uploadedUrls[0] : currentItem.imageUrl1
-                        currentItem.imageUrl2 = uploadedUrls.indices.contains(1) ? uploadedUrls[1] : currentItem.imageUrl2
-                        currentItem.imageUrl3 = uploadedUrls.indices.contains(2) ? uploadedUrls[2] : currentItem.imageUrl3
-
-                        bucketListViewModel.addOrUpdateItem(currentItem)
                     }
                 }
 
                 // Image preview grid
-                if currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil {
+                if !currentItem.imageUrls.isEmpty {
                     photoGridRow
                 }
 
                 // Share button
-                if currentItem.completed && currentItem.imageUrl1 != nil {
+                if currentItem.completed && !currentItem.imageUrls.isEmpty {
                     Button("📣 Share to Feed") {
                         lastShareEvent = .completed
                         showShareAlert = true
@@ -140,9 +112,54 @@ struct DetailItemView: View {
             if currentItem.userId.isEmpty,
                let authUserId = onboardingViewModel.user?.id {
                 currentItem.userId = authUserId
-                if !currentItem.name.isEmpty || currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil {
+                if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
                     bucketListViewModel.addOrUpdateItem(currentItem)
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var photoPickerView: some View {
+        let isUploading = imagePickerVM.isUploading
+        PhotosPicker(
+            selection: $imagePickerVM.selectedItems,
+            maxSelectionCount: 3,
+            matching: .images
+        ) {
+            HStack {
+                Text("📸 Select Photo")
+                if isUploading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
+            }
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+        }
+        .disabled(!currentItem.completed || isUploading)
+        .onChange(of: imagePickerVM.selectedItems) { oldValue, newValue in
+            Task {
+                let uploadedUrls = await imagePickerVM.uploadImages(
+                    userId: onboardingViewModel.userId ?? "",
+                    itemId: currentItem.id.uuidString,
+                    uploadFunc: uploadImageToStorage(image:)
+                )
+
+                if currentItem.userId.isEmpty,
+                   let uid = onboardingViewModel.user?.id {
+                    currentItem.userId = uid
+                }
+
+                currentItem.imageUrls = uploadedUrls
+
+                print("✅ Updated item with image URLs:", currentItem.imageUrls)
+
+                bucketListViewModel.addOrUpdateItem(currentItem)
             }
         }
     }
@@ -161,11 +178,11 @@ struct DetailItemView: View {
 // MARK: - Computed Props
 extension DetailItemView {
     @MainActor private var isShowingChevron: Bool {
-        currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
+        !currentItem.imageUrls.isEmpty
     }
 
     @MainActor private var isShowingPhotoGrid: Bool {
-        currentItem.imageUrl1 != nil || currentItem.imageUrl2 != nil || currentItem.imageUrl3 != nil
+        !currentItem.imageUrls.isEmpty
     }
 }
 
@@ -244,14 +261,15 @@ extension DetailItemView {
 
     @ViewBuilder
     private var photoGridRow: some View {
-        let urls = [currentItem.imageUrl1, currentItem.imageUrl2, currentItem.imageUrl3].compactMap { $0 }
+        let urls = currentItem.imageUrls
         if !urls.isEmpty {
             photoGrid(urlStrings: urls)
         }
     }
 
     private func photoGrid(urlStrings: [String]) -> some View {
-        HStack {
+        let imageSize: CGFloat = (UIScreen.main.bounds.width - 64) / 3
+        return AnyView(
             HStack(spacing: 8) {
                 ForEach(urlStrings, id: \.self) { urlStr in
                     if let url = URL(string: urlStr) {
@@ -259,13 +277,13 @@ extension DetailItemView {
                             switch phase {
                             case .empty:
                                 ProgressView()
-                                    .frame(width: 110, height: 110)
+                                    .frame(width: imageSize, height: imageSize)
                             case .success(let image):
                                 image
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(width: 110, height: 110)
-                                    .cornerRadius(10)
+                                    .frame(width: imageSize, height: imageSize)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .clipped()
                             default:
                                 EmptyView()
@@ -275,7 +293,7 @@ extension DetailItemView {
                 }
             }
             .frame(maxWidth: .infinity)
-        }
+        )
     }
 }
 
@@ -288,7 +306,7 @@ struct DetailItemView_Previews: PreviewProvider {
         let mockListVM = ListViewModel()
         let mockPostVM = PostViewModel()
         
-        // 2) Create a sample ItemModel with placeholder images
+        // 2) Create a sample ItemModel with placeholder images using the new imageUrls array
         let sampleItem = ItemModel(
             userId: "previewUser",
             name: "Sample Bucket List Item",
@@ -297,9 +315,11 @@ struct DetailItemView_Previews: PreviewProvider {
             location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
             completed: true,
             creationDate: Date().addingTimeInterval(-86400), // 1 day ago
-            imageUrl1: "https://via.placeholder.com/300",
-            imageUrl2: "https://via.placeholder.com/300",
-            imageUrl3: "https://via.placeholder.com/300"
+            imageUrls: [
+                "https://via.placeholder.com/300",
+                "https://via.placeholder.com/300",
+                "https://via.placeholder.com/300"
+            ]
         )
         
         // 3) Pass the sample item to DetailItemView in each preview

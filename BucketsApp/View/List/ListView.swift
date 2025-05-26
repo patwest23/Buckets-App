@@ -405,7 +405,7 @@ struct ListView_Previews: PreviewProvider {
                 userId: "mockUID",
                 name: "Visit Tokyo",
                 completed: true,
-                imageUrl1: "https://picsum.photos/400/400?random=1"
+                imageUrls: ["https://picsum.photos/400/400?random=1"]
             ),
             ItemModel(
                 userId: "mockUID",

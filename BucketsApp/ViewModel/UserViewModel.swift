@@ -210,10 +210,15 @@ class UserViewModel: ObservableObject {
                 }
             }
             self.allUsers = users
+            if self.user?.following == nil {
+                self.user?.following = []
+            }
+            if self.user?.followers == nil {
+                self.user?.followers = []
+            }
         } catch {
             print("[UserViewModel] loadAllUsers error:", error.localizedDescription)
             self.allUsers = []
         }
     }
 }
-

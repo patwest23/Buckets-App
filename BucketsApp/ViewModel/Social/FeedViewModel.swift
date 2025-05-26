@@ -38,21 +38,10 @@ class FeedViewModel: ObservableObject {
         }
         
         do {
-            // 1) Fetch the current user doc to get the `following` list
-            let userDoc = try await db.collection("users").document(userId).getDocument()
-            guard let userData = userDoc.data() else {
-                print("[FeedViewModel] Current user doc is empty.")
-                return
-            }
-            
-            // If your UserModel has an array `following: [String]`,
-            guard let followingList = userData["following"] as? [String] else {
-                print("[FeedViewModel] No 'following' array found, or it's not a [String].")
-                return
-            }
-            
-            // Optionally include the user’s own userId to see the user's own posts in the feed
-            let allUserIds = [userId] + followingList
+            // 1) Fetch ALL user IDs (MVP)
+            let usersSnapshot = try await db.collection("users").getDocuments()
+            let allUserIds = usersSnapshot.documents.map { $0.documentID }
+            print("[FeedViewModel] Retrieved all userIds: \(allUserIds.count)")
             
             // 2) For each user in allUserIds, fetch their /posts subcollection
             var allPosts: [PostModel] = []

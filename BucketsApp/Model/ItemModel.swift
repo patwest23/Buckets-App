@@ -44,9 +44,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var completed: Bool
     var orderIndex: Int
     var creationDate: Date
-    var imageUrl1: String?
-    var imageUrl2: String?
-    var imageUrl3: String?
+    var imageUrls: [String] = []
     
     // MARK: - Embedded Post Metadata
     var likeCount: Int? = nil
@@ -73,9 +71,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
         completed: Bool = false,
         orderIndex: Int = 0,
         creationDate: Date = Date(),
-        imageUrl1: String? = nil,
-        imageUrl2: String? = nil,
-        imageUrl3: String? = nil,
+        imageUrls: [String] = [],
         likeCount: Int? = nil,
         caption: String? = nil,
         hasPostedAddEvent: Bool = false,
@@ -96,14 +92,62 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.completed = completed
         self.orderIndex = orderIndex
         self.creationDate = creationDate
-        self.imageUrl1 = imageUrl1
-        self.imageUrl2 = imageUrl2
-        self.imageUrl3 = imageUrl3
+        self.imageUrls = imageUrls
         self.likeCount = likeCount
         self.caption = caption
         self.hasPostedAddEvent = hasPostedAddEvent
         self.hasPostedCompletion = hasPostedCompletion
         self.hasPostedPhotos = hasPostedPhotos
+    }
+
+    // MARK: - Custom Decoding to support legacy imageUrl fields
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId
+        case name
+        case description
+        case url
+        case dueDate
+        case hasDueTime
+        case tags
+        case location
+        case flagged
+        case priority
+        case completed
+        case orderIndex
+        case creationDate
+        case imageUrls
+        case likeCount
+        case caption
+        case hasPostedAddEvent
+        case hasPostedCompletion
+        case hasPostedPhotos
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        userId = try container.decode(String.self, forKey: .userId)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+        hasDueTime = try container.decode(Bool.self, forKey: .hasDueTime)
+        tags = try container.decodeIfPresent([Tag].self, forKey: .tags)
+        location = try container.decodeIfPresent(Location.self, forKey: .location)
+        flagged = try container.decode(Bool.self, forKey: .flagged)
+        priority = try container.decode(Priority.self, forKey: .priority)
+        completed = try container.decode(Bool.self, forKey: .completed)
+        orderIndex = try container.decode(Int.self, forKey: .orderIndex)
+        creationDate = try container.decode(Date.self, forKey: .creationDate)
+        likeCount = try container.decodeIfPresent(Int.self, forKey: .likeCount)
+        caption = try container.decodeIfPresent(String.self, forKey: .caption)
+        hasPostedAddEvent = try container.decode(Bool.self, forKey: .hasPostedAddEvent)
+        hasPostedCompletion = try container.decode(Bool.self, forKey: .hasPostedCompletion)
+        hasPostedPhotos = try container.decode(Bool.self, forKey: .hasPostedPhotos)
+        
+        imageUrls = try container.decodeIfPresent([String].self, forKey: .imageUrls) ?? []
     }
 
     // MARK: - Computed Properties
@@ -121,6 +165,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
     }
     
     var allImageUrls: [String] {
-        [imageUrl1, imageUrl2, imageUrl3].compactMap { $0 }
+        imageUrls
     }
+    
 }

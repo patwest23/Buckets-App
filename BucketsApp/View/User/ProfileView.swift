@@ -190,7 +190,7 @@ extension ProfileView {
             // 3) Second row: Following / Followers
             HStack(spacing: 16) {
                 Button {
-                    // Navigate to FollowingListView
+                    // Use navigationPath to navigate to FollowingListView
                     navigationPath.append("following")
                 } label: {
                     statCard(emoji: "👥",
@@ -201,7 +201,7 @@ extension ProfileView {
                 .buttonStyle(.plain)
 
                 Button {
-                    // Navigate to FollowersListView
+                    // Use navigationPath to navigate to FollowersListView
                     navigationPath.append("followers")
                 } label: {
                     statCard(emoji: "🙋‍♂️",

@@ -80,6 +80,7 @@ class ListViewModel: ObservableObject {
         listenerRegistration?.remove()
         listenerRegistration = nil
         print("[ListViewModel] Stopped listening to items.")
+        clearImageCache()
     }
     
     // MARK: - One-Time Fetch
@@ -192,10 +193,12 @@ class ListViewModel: ObservableObject {
             if let idx = items.firstIndex(where: { $0.id == newItem.id }) {
                 print("[ListViewModel] addOrUpdateItem => found index \(idx), items.count=\(items.count)")
                 items[idx] = newItem
+                print("✅ Updated item image URLs:", newItem.allImageUrls)
             } else if isNewItem {
                 print("[ListViewModel] addOrUpdateItem => appended new item. items.count was", items.count)
                 items.append(newItem)
                 print("[ListViewModel] Now items.count =", items.count)
+                print("✅ Updated item image URLs:", newItem.allImageUrls)
             }
             // else skip if the item was removed in the meantime
             
@@ -290,6 +293,7 @@ class ListViewModel: ObservableObject {
     func prefetchImages(for item: ItemModel) async {
         let now = Date()
         print("[ListViewModel] Prefetching \(item.allImageUrls.count) image(s) for item:", item.name)
+        print("📦 Prefetching images for \(item.name):", item.allImageUrls)
         for urlStr in item.allImageUrls {
             if let last = lastPrefetchTimestamps[urlStr], now.timeIntervalSince(last) < 5 {
                 continue // skip reloading this image too soon
@@ -323,22 +327,11 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] loadImage(\(urlStr)) error:", error.localizedDescription)
         }
     }
+    
+    // MARK: - Image Cache Helpers
+    func clearImageCache() {
+        imageCache.removeAll()
+        lastPrefetchTimestamps.removeAll()
+        print("[ListViewModel] Cleared image cache and prefetch timestamps.")
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-

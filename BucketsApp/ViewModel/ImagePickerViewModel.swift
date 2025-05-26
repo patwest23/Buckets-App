@@ -4,8 +4,15 @@ import Combine
 
 @MainActor
 class ImagePickerViewModel: ObservableObject {
-    @Published var selectedItems: [PhotosPickerItem] = []
+    @Published var selectedItems: [PhotosPickerItem] = [] {
+        didSet {
+            Task {
+                await loadImages()
+            }
+        }
+    }
     @Published var images: [UIImage] = []
+    @Published var isUploading: Bool = false
 
     func loadImages() async {
         images.removeAll()
@@ -28,5 +35,19 @@ class ImagePickerViewModel: ObservableObject {
     func clearSelection() {
         selectedItems = []
         images = []
+    }
+    
+    func uploadImages(userId: String, itemId: String, uploadFunc: @escaping (UIImage) async -> String?) async -> [String] {
+        print("[ImagePickerViewModel] Uploading images with userId: \(userId)")
+        isUploading = true
+        defer { isUploading = false }
+
+        var uploadedUrls: [String] = []
+        for image in images.prefix(3) {
+            if let url = await uploadFunc(image) {
+                uploadedUrls.append(url)
+            }
+        }
+        return uploadedUrls
     }
 }
