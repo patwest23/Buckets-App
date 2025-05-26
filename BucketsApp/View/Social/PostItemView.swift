@@ -5,6 +5,18 @@
 //  Created by Patrick Westerkamp on 3/9/25.
 //
 
+//
+//  PostItemView.swift
+//  BucketsApp
+//
+//  Created by Patrick Westerkamp on 3/9/25.
+//
+//
+//  NOTE: The following PostItemView implementation is currently unused.
+//  It is commented out and may be reintroduced later for posting functionality.
+//
+
+/*
 import SwiftUI
 
 struct PostItemView: View {
@@ -33,3 +45,4 @@ struct PostItemView: View {
         .padding()
     }
 }
+*/

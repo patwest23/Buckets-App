@@ -13,7 +13,8 @@ import FirebaseFirestore
 class PostViewModel: ObservableObject {
     
     // MARK: - Environment Objects
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    /// Optionally injected onboarding view model for username, etc.
+    var onboardingViewModel: OnboardingViewModel?
     
     // MARK: - Published Properties
     @Published var posts: [PostModel] = []
@@ -117,7 +118,7 @@ class PostViewModel: ObservableObject {
     
     // MARK: - Post a New Item
     /// Fetches the `ItemModel` from Firestore and embeds its fields in a new `PostModel`.
-    func postItem() {
+    func postItem() async {
         guard let itemID = selectedItemID else {
             print("[PostViewModel] postItem => selectedItemID is nil. Aborting.")
             return
@@ -131,46 +132,48 @@ class PostViewModel: ObservableObject {
         
         isPosting = true
 
-        Task {
-            do {
-                guard let item = try await fetchItemFromFirestore(itemID: itemID) else {
-                    print("[PostViewModel] postItem => No item found with ID: \(itemID)")
-                    isPosting = false
-                    return
-                }
-                
-                print("DEBUG: Fetched item doc successfully:", item.name)
-
-                let newPost = PostModel(
-                    authorId: userId,
-                    authorUsername: onboardingViewModel.user?.username, // optional if available
-                    itemId: itemID,
-                    type: .completed, // or .added or .photos, depending on logic
-                    timestamp: Date(),
-                    caption: caption,
-                    taggedUserIds: taggedUserIds,
-                    likedBy: [],
-                    
-                    itemName: item.name,
-                    itemCompleted: item.completed,
-                    itemLocation: item.location,
-                    itemDueDate: item.dueDate,
-                    itemImageUrls: item.allImageUrls
-                )
-
-                await addOrUpdatePost(newPost)
-                
-            } catch {
-                print("[PostViewModel] postItem => Error fetching item: \(error.localizedDescription)")
-                self.errorMessage = error.localizedDescription
+        do {
+            guard let item = try await fetchItemFromFirestore(itemID: itemID) else {
+                print("[PostViewModel] postItem => No item found with ID: \(itemID)")
+                isPosting = false
+                return
             }
             
-            // 4) Reset UI
-            isPosting = false
-            caption = ""
-            taggedUserIds = []
-            selectedItemID = nil
+            print("DEBUG: Fetched item doc successfully:", item.name)
+            print("DEBUG: item.allImageUrls:", item.allImageUrls)
+
+            let newPost = PostModel(
+                authorId: userId,
+                authorUsername: onboardingViewModel?.user?.username,
+                itemId: itemID,
+                type: .completed, // or .added or .photos, depending on logic
+                timestamp: Date(),
+                caption: caption,
+                taggedUserIds: taggedUserIds,
+                likedBy: [],
+                
+                itemName: item.name,
+                itemCompleted: item.completed,
+                itemLocation: item.location,
+                itemDueDate: item.dueDate,
+                itemImageUrls: item.allImageUrls
+            )
+            
+            print("[PostViewModel] new post fields:", newPost)
+
+            await addOrUpdatePost(newPost)
+            print("[PostViewModel] postItem => Finished writing post to Firestore.")
+            
+        } catch {
+            print("[PostViewModel] postItem => Error fetching item: \(error.localizedDescription)")
+            self.errorMessage = error.localizedDescription
         }
+        
+        // 4) Reset UI
+        isPosting = false
+        caption = ""
+        taggedUserIds = []
+        selectedItemID = nil
     }
     
     // MARK: - Fetch the Item from Firestore
@@ -186,12 +189,14 @@ class PostViewModel: ObservableObject {
             .document(itemID)
         
         let snapshot = try await docRef.getDocument()
+        print("[PostViewModel] fetchItemFromFirestore => Snapshot exists:", snapshot.exists)
         guard snapshot.exists else {
             return nil
         }
         
         // Decode the snapshot into an ItemModel
         let item = try snapshot.data(as: ItemModel.self)
+        print("[PostViewModel] fetchItemFromFirestore => Decoded item:", item.name)
         return item
     }
     

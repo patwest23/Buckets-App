@@ -56,6 +56,8 @@ struct BucketsApp: App {
 
                                 onboardingViewModel.user?.id = firebaseUser.uid
                                 
+                                postViewModel.onboardingViewModel = onboardingViewModel
+                                
                                 bucketListViewModel.startListeningToItems()
                                 await onboardingViewModel.loadProfileImage()
                             }

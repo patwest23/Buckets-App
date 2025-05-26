@@ -18,27 +18,37 @@ struct FeedView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    ForEach(feedVM.posts) { post in
-                        VStack(alignment: .leading, spacing: 4) {
-                            // MARK: - Feed Card
-                            FeedRowView(
-                                post: post,
-                                onLike: {
-                                    Task {
-                                        await feedVM.toggleLike(post: post)
+                    if feedVM.posts.isEmpty {
+                        Text("No posts yet.")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .padding()
+                    } else {
+                        ForEach(feedVM.posts) { post in
+                            VStack(alignment: .leading, spacing: 4) {
+                                // MARK: - Feed Card
+                                FeedRowView(
+                                    post: post,
+                                    onLike: {
+                                        Task {
+                                            await feedVM.toggleLike(post: post)
+                                        }
                                     }
-                                }
-                            )
+                                )
 
-                            // MARK: - Timestamp
-                            Text(timeAgoString(for: post.timestamp))
-                                .font(.caption2)
-                                .foregroundColor(.gray)
+                                // MARK: - Timestamp
+                                Text(timeAgoString(for: post.timestamp))
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 8)
                     }
                 }
+            }
+            .refreshable {
+                await feedVM.fetchFeedPosts()
             }
             .onAppear {
                 Task {

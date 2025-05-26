@@ -34,9 +34,9 @@ struct PostModel: Identifiable, Codable {
     var type: PostType
     var timestamp: Date
     var caption: String?
-    var taggedUserIds: [String]?
+    var taggedUserIds: [String]
     var visibility: String?
-    var likedBy: [String]?
+    var likedBy: [String]
 
     // MARK: - Initializer
     init(
@@ -47,10 +47,9 @@ struct PostModel: Identifiable, Codable {
         type: PostType,
         timestamp: Date = Date(),
         caption: String? = nil,
-        taggedUserIds: [String]? = nil,
+        taggedUserIds: [String] = [],
         visibility: String? = nil,
-        likedBy: [String]? = nil,
-        
+        likedBy: [String] = [],
         itemName: String,
         itemCompleted: Bool,
         itemLocation: Location? = nil,
@@ -73,6 +72,10 @@ struct PostModel: Identifiable, Codable {
         self.itemLocation = itemLocation
         self.itemDueDate = itemDueDate
         self.itemImageUrls = itemImageUrls
+    }
+
+    var hasImages: Bool {
+        !itemImageUrls.isEmpty
     }
 }
 

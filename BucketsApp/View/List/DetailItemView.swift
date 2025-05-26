@@ -16,10 +16,12 @@ struct DetailItemView: View {
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var postViewModel: PostViewModel
     @Environment(\.presentationMode) private var presentationMode
 
     @State private var currentItem: ItemModel
     @StateObject private var imagePickerVM = ImagePickerViewModel()
+    @State private var showFeedConfirmation = false
 
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNotesFocused: Bool
@@ -106,14 +108,22 @@ struct DetailItemView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
             Button("Post") {
+                // Set selected item ID before posting
+                postViewModel.selectedItemID = currentItem.id.uuidString
                 Task {
                     await postToFeed(type: lastShareEvent ?? .completed)
+                    // Show confirmation after posting
+                    showFeedConfirmation = true
                 }
             }
             Button("Cancel", role: .cancel) {}
         }, message: {
             Text(shareMessage(for: lastShareEvent))
         })
+        // Confirmation alert after posting
+        .alert("✅ Shared to Feed!", isPresented: $showFeedConfirmation) {
+            Button("OK", role: .cancel) { }
+        }
         .onAppear {
             Task {
                 refreshCurrentItemFromList()

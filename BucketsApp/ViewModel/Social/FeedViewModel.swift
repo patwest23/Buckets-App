@@ -42,11 +42,13 @@ class FeedViewModel: ObservableObject {
             let usersSnapshot = try await db.collection("users").getDocuments()
             let allUserIds = usersSnapshot.documents.map { $0.documentID }
             print("[FeedViewModel] Retrieved all userIds: \(allUserIds.count)")
+            print("[FeedViewModel] Fetching posts for userIds:", allUserIds)
             
             // 2) For each user in allUserIds, fetch their /posts subcollection
             var allPosts: [PostModel] = []
             
             for followedUserId in allUserIds {
+                print("[FeedViewModel] Fetching posts for user:", followedUserId)
                 let snapshot = try await db
                     .collection("users")
                     .document(followedUserId)
@@ -68,8 +70,8 @@ class FeedViewModel: ObservableObject {
                     let timestampRaw   = data["timestamp"]      as? Timestamp
                     let timestamp      = timestampRaw?.dateValue() ?? Date()
                     let caption        = data["caption"]        as? String
-                    let taggedUserIds  = data["taggedUserIds"]  as? [String]
-                    let likedBy        = data["likedBy"]        as? [String]
+                    let taggedUserIds  = data["taggedUserIds"]  as? [String] ?? []
+                    let likedBy        = data["likedBy"]        as? [String] ?? []
                     let visibility     = data["visibility"]     as? String
                     
                     // Embedded item fields
@@ -111,13 +113,16 @@ class FeedViewModel: ObservableObject {
                         itemDueDate: itemDueDate,
                         itemImageUrls: itemImageUrls
                     )
+                    print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", post.itemName, "-", post.itemImageUrls)
                     return post
                 }
                 allPosts.append(contentsOf: userPosts)
+                print("[FeedViewModel] \(followedUserId) => loaded \(userPosts.count) post(s)")
             }
             
             // 3) Sort combined posts by timestamp descending
             let sortedPosts = allPosts.sorted { $0.timestamp > $1.timestamp }
+            print("[FeedViewModel] Sorted posts (latest first):", sortedPosts.map { $0.itemName })
             
             // 4) Assign to published property
             self.posts = sortedPosts
@@ -163,6 +168,7 @@ class FeedViewModel: ObservableObject {
                 var updatedPost = posts[idx]
                 updatedPost.likedBy = newLikedBy
                 posts[idx] = updatedPost
+                print("[FeedViewModel] toggleLike updated local post:", postDocId)
             }
             
         } catch {
@@ -224,14 +230,12 @@ class MockFeedViewModel: FeedViewModel {
         var updated = posts[idx]
         let currentUserId = "mockCurrentUserID"
         
-        if let likedBy = updated.likedBy, likedBy.contains(currentUserId) {
-            // Unlike
-            updated.likedBy = likedBy.filter { $0 != currentUserId }
+        if updated.likedBy.contains(currentUserId) {
+            updated.likedBy.removeAll { $0 == currentUserId }
         } else {
-            // Like
-            updated.likedBy = (updated.likedBy ?? []) + [currentUserId]
+            updated.likedBy.append(currentUserId)
         }
         posts[idx] = updated
-        print("[MockFeedViewModel] toggleLike - updated post \(updated.id ?? "nil") likes to: \(updated.likedBy?.count ?? 0)")
+        print("[MockFeedViewModel] toggleLike - updated post \(updated.id ?? "nil") likes to: \(updated.likedBy.count)")
     }
 }

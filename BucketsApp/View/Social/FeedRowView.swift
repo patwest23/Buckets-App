@@ -44,15 +44,7 @@ struct FeedRowView: View {
             }
 
             // 2) Image carousel (or fallback)
-            if post.itemImageUrls.isEmpty {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.2))
-                    .frame(height: 300)
-                    .overlay(
-                        Text("No images")
-                            .foregroundColor(.gray)
-                    )
-            } else {
+            if post.hasImages {
                 TabView {
                     ForEach(post.itemImageUrls, id: \.self) { urlStr in
                         FeedRowImageView(urlStr: urlStr)
@@ -62,6 +54,14 @@ struct FeedRowView: View {
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
                 .frame(height: 300)
+            } else {
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(height: 300)
+                    .overlay(
+                        Text("No images")
+                            .foregroundColor(.gray)
+                    )
             }
 
             // 3) Username + Caption
@@ -80,7 +80,7 @@ struct FeedRowView: View {
                 Button(action: onLike) {
                     HStack(spacing: 4) {
                         Image(systemName: "heart")
-                        Text("Like (\(post.likedBy?.count ?? 0))")
+                        Text("Like (\(post.likedBy.count))")
                     }
                 }
                 .foregroundColor(dynamicTextColor)
