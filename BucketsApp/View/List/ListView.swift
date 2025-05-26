@@ -262,7 +262,9 @@ struct ListView: View {
             }
             // Create new item
             let newItem = ItemModel(userId: userId)
-            bucketListViewModel.addOrUpdateItem(newItem)
+            Task {
+                await bucketListViewModel.addOrUpdateItem(newItem)
+            }
 
             newlyCreatedItemID = newItem.id
 

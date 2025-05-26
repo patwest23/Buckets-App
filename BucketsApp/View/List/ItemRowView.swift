@@ -179,7 +179,9 @@ struct ItemRowView: View {
             updated.dueDate = nil
         }
 
-        bucketListViewModel.addOrUpdateItem(updated)
+        Task {
+            await bucketListViewModel.addOrUpdateItem(updated)
+        }
     }
 
     private func bindingForName() -> Binding<String> {
@@ -191,7 +193,9 @@ struct ItemRowView: View {
                 edited.name = newValue
 
                 if !trimmed.isEmpty {
-                    bucketListViewModel.addOrUpdateItem(edited)
+                    Task {
+                        await bucketListViewModel.addOrUpdateItem(edited)
+                    }
                 }
                 item = edited
             }

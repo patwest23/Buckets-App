@@ -38,7 +38,11 @@ struct DetailItemView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Top row: Checkmark + editable title
                 HStack(spacing: 8) {
-                    Button(action: toggleCompleted) {
+                    Button {
+                        Task {
+                            await toggleCompleted()
+                        }
+                    } label: {
                         Image(systemName: currentItem.completed ? "checkmark.circle.fill" : "circle")
                             .imageScale(.large)
                             .foregroundColor(currentItem.completed ? .accentColor : .gray)
@@ -49,7 +53,9 @@ struct DetailItemView: View {
                         get: { currentItem.name },
                         set: { newValue in
                             currentItem.name = newValue
-                            bucketListViewModel.addOrUpdateItem(currentItem)
+                            Task {
+                                await bucketListViewModel.addOrUpdateItem(currentItem)
+                            }
                         }
                     ))
                     .font(.headline)
@@ -100,20 +106,40 @@ struct DetailItemView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
             Button("Post") {
-                postToFeed(type: lastShareEvent ?? .completed)
+                Task {
+                    await postToFeed(type: lastShareEvent ?? .completed)
+                }
             }
             Button("Cancel", role: .cancel) {}
         }, message: {
             Text(shareMessage(for: lastShareEvent))
         })
         .onAppear {
-            refreshCurrentItemFromList()
-            
-            if currentItem.userId.isEmpty,
-               let authUserId = onboardingViewModel.user?.id {
-                currentItem.userId = authUserId
-                if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
-                    bucketListViewModel.addOrUpdateItem(currentItem)
+            Task {
+                refreshCurrentItemFromList()
+                
+                if currentItem.userId.isEmpty,
+                   let authUserId = onboardingViewModel.user?.id {
+                    currentItem.userId = authUserId
+                    if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
+                        await bucketListViewModel.addOrUpdateItem(currentItem)
+                    }
+                }
+                
+                imagePickerVM.onImagesLoaded = {
+                    Task {
+                        let uploadedUrls = await imagePickerVM.uploadImages(
+                            userId: onboardingViewModel.userId ?? "",
+                            itemId: currentItem.id.uuidString
+                        )
+                        if currentItem.userId.isEmpty,
+                           let uid = onboardingViewModel.user?.id {
+                            currentItem.userId = uid
+                        }
+                        currentItem.imageUrls = uploadedUrls
+                        print("✅ Updated item with image URLs:", currentItem.imageUrls)
+                        await bucketListViewModel.addOrUpdateItem(currentItem)
+                    }
                 }
             }
         }
@@ -142,36 +168,16 @@ struct DetailItemView: View {
             .cornerRadius(8)
         }
         .disabled(!currentItem.completed || isUploading)
-        .onChange(of: imagePickerVM.selectedItems) { oldValue, newValue in
-            Task {
-                let uploadedUrls = await imagePickerVM.uploadImages(
-                    userId: onboardingViewModel.userId ?? "",
-                    itemId: currentItem.id.uuidString,
-                    uploadFunc: uploadImageToStorage(image:)
-                )
-
-                if currentItem.userId.isEmpty,
-                   let uid = onboardingViewModel.user?.id {
-                    currentItem.userId = uid
-                }
-
-                currentItem.imageUrls = uploadedUrls
-
-                print("✅ Updated item with image URLs:", currentItem.imageUrls)
-
-                bucketListViewModel.addOrUpdateItem(currentItem)
-            }
-        }
     }
 
-    private func toggleCompleted() {
+    private func toggleCompleted() async {
         currentItem.completed.toggle()
         if currentItem.completed {
             currentItem.dueDate = Date()
         } else {
             currentItem.dueDate = nil
         }
-        bucketListViewModel.addOrUpdateItem(currentItem)
+        await bucketListViewModel.addOrUpdateItem(currentItem)
     }
 }
 
@@ -195,44 +201,13 @@ extension DetailItemView {
         }
     }
 
-    private func uploadImageToStorage(image: UIImage) async -> String? {
-        print("🔍 Uploading single image in multi-image flow")
-        
-        guard currentItem.completed else { return nil }
-        guard let userId = onboardingViewModel.userId, !userId.isEmpty else {
-            print("❌ Missing userId")
-            return nil
-        }
-
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            print("❌ Failed to convert UIImage to JPEG data.")
-            return nil
-        }
-        
-        let uniqueId = UUID().uuidString
-        let storageRef = Storage.storage().reference()
-            .child("users/\(userId)/item-images/\(currentItem.id.uuidString)-image-\(uniqueId).jpg")
-        
-        print("Uploading to path: \(storageRef.fullPath) with size: \(imageData.count) bytes")
-        
-        do {
-            try await storageRef.putDataAsync(imageData)
-            let downloadURL = try await storageRef.downloadURL()
-            print("✅ Image uploaded to:", downloadURL.absoluteString)
-            return downloadURL.absoluteString
-        } catch {
-            print("❌ Upload error:", error.localizedDescription)
-        }
-
-        return nil
-    }
 
     private func hideKeyboard() {
         isTitleFocused = false
         isNotesFocused = false
     }
 
-    private func postToFeed(type: PostType) {
+    private func postToFeed(type: PostType) async {
         // Replace this with real PostModel creation logic later
         print("📣 Posting \(type.rawValue) to feed for item:", currentItem.name)
 
@@ -243,7 +218,7 @@ extension DetailItemView {
         case .photos: currentItem.hasPostedPhotos = true
         }
 
-        bucketListViewModel.addOrUpdateItem(currentItem)
+        await bucketListViewModel.addOrUpdateItem(currentItem)
     }
 
     private func shareMessage(for type: PostType?) -> String {

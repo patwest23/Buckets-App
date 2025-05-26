@@ -155,7 +155,7 @@ class ListViewModel: ObservableObject {
     
     
     // MARK: - Add or Update
-    func addOrUpdateItem(_ item: ItemModel) {
+    func addOrUpdateItem(_ item: ItemModel) async {
         guard let userId = userId else {
             print("[ListViewModel] addOrUpdateItem: userId is nil. Cannot save item.")
             return
@@ -186,7 +186,7 @@ class ListViewModel: ObservableObject {
         do {
             let encoded = try Firestore.Encoder().encode(newItem)
             print("📝 Writing to Firestore:", encoded)
-            docRef.setData(encoded, merge: true)
+            try await docRef.setData(encoded, merge: true)
             print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
             
             // Update local array with debug prints
