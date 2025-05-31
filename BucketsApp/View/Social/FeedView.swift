@@ -8,30 +8,27 @@
 import SwiftUI
 
 struct FeedView: View {
-    @StateObject var feedVM: FeedViewModel
+    @EnvironmentObject var feedViewModel: FeedViewModel
 
-    init(feedVM: FeedViewModel) {
-        _feedVM = StateObject(wrappedValue: feedVM)
-    }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    if feedVM.posts.isEmpty {
+                    if feedViewModel.posts.isEmpty {
                         Text("No posts yet.")
                             .font(.subheadline)
                             .foregroundColor(.gray)
                             .padding()
                     } else {
-                        ForEach(feedVM.posts) { post in
+                        ForEach(feedViewModel.posts) { post in
                             VStack(alignment: .leading, spacing: 4) {
                                 // MARK: - Feed Card
                                 FeedRowView(
                                     post: post,
                                     onLike: {
                                         Task {
-                                            await feedVM.toggleLike(post: post)
+                                            await feedViewModel.toggleLike(post: post)
                                         }
                                     }
                                 )
@@ -48,11 +45,12 @@ struct FeedView: View {
                 }
             }
             .refreshable {
-                await feedVM.fetchFeedPosts()
+                await feedViewModel.fetchFeedPosts()
             }
             .onAppear {
+                print("📲 FeedView appeared")
                 Task {
-                    await feedVM.fetchFeedPosts()
+                    await feedViewModel.fetchFeedPosts()
                 }
             }
         }
@@ -76,7 +74,11 @@ struct FeedView_Previews: PreviewProvider {
         let mockVM = MockFeedViewModel(posts: samplePosts)
         
         // Inject the mock VM
-        FeedView(feedVM: mockVM)
-            .previewDisplayName("FeedView with Mock Data")
+        VStack {
+            Text("🛠 DEBUG MODE")
+                .font(.caption)
+                .foregroundColor(.gray)
+            FeedView()
+        }
     }
 }

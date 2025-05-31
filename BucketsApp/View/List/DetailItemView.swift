@@ -111,7 +111,9 @@ struct DetailItemView: View {
                 // Set selected item ID before posting
                 postViewModel.selectedItemID = currentItem.id.uuidString
                 Task {
-                    await postToFeed(type: lastShareEvent ?? .completed)
+                    // Ensure item is saved (with image URLs) before posting to feed
+                    await bucketListViewModel.addOrUpdateItem(currentItem)
+                    await postViewModel.postItem(with: currentItem)
                     // Show confirmation after posting
                     showFeedConfirmation = true
                 }
@@ -217,19 +219,6 @@ extension DetailItemView {
         isNotesFocused = false
     }
 
-    private func postToFeed(type: PostType) async {
-        // Replace this with real PostModel creation logic later
-        print("📣 Posting \(type.rawValue) to feed for item:", currentItem.name)
-
-        // Optionally update flags (requires you add these to ItemModel)
-        switch type {
-        case .added: currentItem.hasPostedAddEvent = true
-        case .completed: currentItem.hasPostedCompletion = true
-        case .photos: currentItem.hasPostedPhotos = true
-        }
-
-        await bucketListViewModel.addOrUpdateItem(currentItem)
-    }
 
     private func shareMessage(for type: PostType?) -> String {
         switch type {

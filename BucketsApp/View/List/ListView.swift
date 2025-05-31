@@ -79,9 +79,10 @@ struct ListView: View {
                             // Navigate to Feed
                             .navigationDestination(isPresented: $showFeed) {
                                 /// Use the existing environment object `feedViewModel`
-                                FeedView(feedVM: feedViewModel)
+                                FeedView()
                                     .environmentObject(onboardingViewModel)
                                     .environmentObject(userViewModel)
+                                    .environmentObject(feedViewModel)
                             }
                             // Navigate to the User Search View
                             .navigationDestination(isPresented: $showUserSearch) {

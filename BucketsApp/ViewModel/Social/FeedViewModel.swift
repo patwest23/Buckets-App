@@ -37,12 +37,15 @@ class FeedViewModel: ObservableObject {
             return
         }
         
+        print("[FeedViewModel] Current UID:", userId)
+        
         do {
             // 1) Fetch ALL user IDs (MVP)
             let usersSnapshot = try await db.collection("users").getDocuments()
             let allUserIds = usersSnapshot.documents.map { $0.documentID }
             print("[FeedViewModel] Retrieved all userIds: \(allUserIds.count)")
             print("[FeedViewModel] Fetching posts for userIds:", allUserIds)
+            print("[FeedViewModel] Includes current user?", allUserIds.contains(userId))
             
             // 2) For each user in allUserIds, fetch their /posts subcollection
             var allPosts: [PostModel] = []
@@ -55,66 +58,16 @@ class FeedViewModel: ObservableObject {
                     .collection("posts")
                     .getDocuments()
                 
-                let userPosts = try snapshot.documents.map { doc -> PostModel in
-                    // If you prefer, you can do:
-                    // let post = try doc.data(as: PostModel.self)
-                    // return post
-                    // ...assuming your Firestore doc exactly matches PostModel's fields.
-
-                    // Manual approach:
-                    let data = doc.data()
-                    
-                    // Basic fields
-                    let authorId       = data["authorId"]       as? String   ?? ""
-                    let itemId         = data["itemId"]         as? String   ?? ""
-                    let timestampRaw   = data["timestamp"]      as? Timestamp
-                    let timestamp      = timestampRaw?.dateValue() ?? Date()
-                    let caption        = data["caption"]        as? String
-                    let taggedUserIds  = data["taggedUserIds"]  as? [String] ?? []
-                    let likedBy        = data["likedBy"]        as? [String] ?? []
-                    let visibility     = data["visibility"]     as? String
-                    
-                    // Embedded item fields
-                    let itemName       = data["itemName"]       as? String   ?? "Untitled"
-                    let itemCompleted  = data["itemCompleted"]  as? Bool     ?? false
-                    
-                    // itemLocation (if stored as a dictionary)
-                    var itemLocation: Location? = nil
-                    if let locDict = data["itemLocation"] as? [String: Any] {
-                        let lat = locDict["latitude"] as? Double ?? 0
-                        let lon = locDict["longitude"] as? Double ?? 0
-                        let addr = locDict["address"] as? String
-                        itemLocation = Location(latitude: lat, longitude: lon, address: addr)
+                var userPosts: [PostModel] = []
+                for doc in snapshot.documents {
+                    print("[FeedViewModel] Document ID:", doc.documentID)
+                    print("[FeedViewModel] Raw data keys:", Array(doc.data().keys))
+                    let data: [String: Any] = doc.data()
+                    let post = await MainActor.run {
+                        return self.buildPostModel(from: data, documentID: doc.documentID)
                     }
-                    
-                    // itemDueDate
-                    let dueDateRaw  = data["itemDueDate"] as? Timestamp
-                    let itemDueDate = dueDateRaw?.dateValue()
-                    
-                    let itemImageUrls = data["itemImageUrls"] as? [String] ?? []
-                    
-                    let typeRaw = data["type"] as? String ?? "added"
-                    let type = PostType(rawValue: typeRaw) ?? .added
-                    
-                    let post = PostModel(
-                        id: doc.documentID,
-                        authorId: authorId,
-                        authorUsername: data["authorUsername"] as? String,
-                        itemId: itemId,
-                        type: type,
-                        timestamp: timestamp,
-                        caption: caption,
-                        taggedUserIds: taggedUserIds,
-                        visibility: visibility,
-                        likedBy: likedBy,
-                        itemName: itemName,
-                        itemCompleted: itemCompleted,
-                        itemLocation: itemLocation,
-                        itemDueDate: itemDueDate,
-                        itemImageUrls: itemImageUrls
-                    )
                     print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", post.itemName, "-", post.itemImageUrls)
-                    return post
+                    userPosts.append(post)
                 }
                 allPosts.append(contentsOf: userPosts)
                 print("[FeedViewModel] \(followedUserId) => loaded \(userPosts.count) post(s)")
@@ -132,6 +85,59 @@ class FeedViewModel: ObservableObject {
             print("[FeedViewModel] fetchFeedPosts error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
         }
+    }
+
+    private func buildPostModel(from data: [String: Any], documentID: String) -> PostModel {
+        // Basic fields
+        let authorId       = data["authorId"]       as? String   ?? ""
+        let itemId         = data["itemId"]         as? String   ?? ""
+        let timestampRaw   = data["timestamp"]      as? Timestamp
+        let timestamp      = timestampRaw?.dateValue() ?? Date()
+        let caption        = data["caption"]        as? String
+        let taggedUserIds  = data["taggedUserIds"]  as? [String] ?? []
+        let likedBy        = data["likedBy"]        as? [String] ?? []
+        let visibility     = data["visibility"]     as? String
+        
+        // Embedded item fields
+        let itemName       = data["itemName"]       as? String   ?? "Untitled"
+        let itemCompleted  = data["itemCompleted"]  as? Bool     ?? false
+        
+        // itemLocation (if stored as a dictionary)
+        var itemLocation: Location? = nil
+        if let locDict = data["itemLocation"] as? [String: Any] {
+            let lat = locDict["latitude"] as? Double ?? 0
+            let lon = locDict["longitude"] as? Double ?? 0
+            let addr = locDict["address"] as? String
+            itemLocation = Location(latitude: lat, longitude: lon, address: addr)
+        }
+        
+        // itemDueDate
+        let dueDateRaw  = data["itemDueDate"] as? Timestamp
+        let itemDueDate = dueDateRaw?.dateValue()
+        
+        let itemImageUrls = data["itemImageUrls"] as? [String] ?? []
+        
+        let typeRaw = data["type"] as? String ?? "added"
+        let type = PostType(rawValue: typeRaw) ?? .added
+        
+        let post = PostModel(
+            id: documentID,
+            authorId: authorId,
+            authorUsername: data["authorUsername"] as? String,
+            itemId: itemId,
+            type: type,
+            timestamp: timestamp,
+            caption: caption,
+            taggedUserIds: taggedUserIds,
+            visibility: visibility,
+            likedBy: likedBy,
+            itemName: itemName,
+            itemCompleted: itemCompleted,
+            itemLocation: itemLocation,
+            itemDueDate: itemDueDate,
+            itemImageUrls: itemImageUrls
+        )
+        return post
     }
     
     func refreshFeed() async {
@@ -152,7 +158,7 @@ class FeedViewModel: ObservableObject {
         
         do {
             // If `likedBy` already contains currentUID, remove it. Otherwise, add it.
-            var newLikedBy = post.likedBy ?? []
+            var newLikedBy = post.likedBy
             if newLikedBy.contains(currentUID) {
                 // Unlike
                 newLikedBy.removeAll { $0 == currentUID }
@@ -161,7 +167,10 @@ class FeedViewModel: ObservableObject {
                 newLikedBy.append(currentUID)
             }
             
-            try await postRef.updateData(["likedBy": newLikedBy])
+            let update: [String: Any] = await MainActor.run {
+                ["likedBy": newLikedBy]
+            }
+            try await postRef.updateData(update)
             
             // Update local feed array for immediate UI feedback
             if let idx = posts.firstIndex(where: { $0.id == postDocId }) {

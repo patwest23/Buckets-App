@@ -117,59 +117,38 @@ class PostViewModel: ObservableObject {
     }
     
     // MARK: - Post a New Item
-    /// Fetches the `ItemModel` from Firestore and embeds its fields in a new `PostModel`.
-    func postItem() async {
-        guard let itemID = selectedItemID else {
-            print("[PostViewModel] postItem => selectedItemID is nil. Aborting.")
+    /// Creates and posts a new PostModel using the provided ItemModel.
+    func postItem(with item: ItemModel) async {
+        guard let userId = onboardingViewModel?.userId, !userId.isEmpty else {
+            print("[PostViewModel] postItem => userId is missing from onboardingViewModel. Aborting.")
             return
         }
-        guard let userId = userId else {
-            print("[PostViewModel] postItem => userId is nil. Aborting.")
-            return
-        }
-        
-        print("DEBUG: postItem() called => userId:", userId, "itemID:", itemID)
-        
+        print("DEBUG: postItem(with:) called => userId:", userId, "itemID:", item.id.uuidString)
+
         isPosting = true
 
-        do {
-            guard let item = try await fetchItemFromFirestore(itemID: itemID) else {
-                print("[PostViewModel] postItem => No item found with ID: \(itemID)")
-                isPosting = false
-                return
-            }
-            
-            print("DEBUG: Fetched item doc successfully:", item.name)
-            print("DEBUG: item.allImageUrls:", item.allImageUrls)
+        let newPost = PostModel(
+            authorId: userId,
+            authorUsername: onboardingViewModel?.user?.username,
+            itemId: item.id.uuidString,
+            type: .completed, // or .added or .photos, depending on logic
+            timestamp: Date(),
+            caption: caption,
+            taggedUserIds: taggedUserIds,
+            likedBy: [],
 
-            let newPost = PostModel(
-                authorId: userId,
-                authorUsername: onboardingViewModel?.user?.username,
-                itemId: itemID,
-                type: .completed, // or .added or .photos, depending on logic
-                timestamp: Date(),
-                caption: caption,
-                taggedUserIds: taggedUserIds,
-                likedBy: [],
-                
-                itemName: item.name,
-                itemCompleted: item.completed,
-                itemLocation: item.location,
-                itemDueDate: item.dueDate,
-                itemImageUrls: item.allImageUrls
-            )
-            
-            print("[PostViewModel] new post fields:", newPost)
+            itemName: item.name,
+            itemCompleted: item.completed,
+            itemLocation: item.location,
+            itemDueDate: item.dueDate,
+            itemImageUrls: item.allImageUrls
+        )
 
-            await addOrUpdatePost(newPost)
-            print("[PostViewModel] postItem => Finished writing post to Firestore.")
-            
-        } catch {
-            print("[PostViewModel] postItem => Error fetching item: \(error.localizedDescription)")
-            self.errorMessage = error.localizedDescription
-        }
-        
-        // 4) Reset UI
+        print("[PostViewModel] new post fields:", newPost)
+        await addOrUpdatePost(post: newPost)
+        print("[PostViewModel] postItem(with:) => Finished writing post to Firestore.")
+
+        // Reset UI
         isPosting = false
         caption = ""
         taggedUserIds = []
@@ -201,23 +180,25 @@ class PostViewModel: ObservableObject {
     }
     
     // MARK: - Add or Update
-    func addOrUpdatePost(_ post: PostModel) async {
-        guard let userId = userId else {
-            print("[PostViewModel] addOrUpdatePost => userId is nil. Cannot save post.")
+    func addOrUpdatePost(post: PostModel) async {
+        var post = post
+        guard let userId = onboardingViewModel?.userId, !userId.isEmpty else {
+            print("[PostViewModel] addOrUpdatePost => userId is missing from onboardingViewModel. Cannot save post.")
             return
         }
         
         let postDocId = post.id ?? UUID().uuidString
+        post.id = postDocId
         let docRef = db
             .collection("users")
             .document(userId)
             .collection("posts")
             .document(postDocId)
         
-        print("DEBUG: Writing post doc => /users/\(userId)/posts/\(postDocId) itemName:", post.itemName)
-        
         do {
-            try docRef.setData(from: post, merge: true)
+            let encoded = try Firestore.Encoder().encode(post)
+            print("DEBUG: Encoded post:", encoded)
+            try await docRef.setData(encoded, merge: true)
             print("[PostViewModel] addOrUpdatePost => Wrote post \(postDocId) to Firestore. itemName:", post.itemName)
         } catch {
             print("[PostViewModel] addOrUpdatePost => Error:", error.localizedDescription)
