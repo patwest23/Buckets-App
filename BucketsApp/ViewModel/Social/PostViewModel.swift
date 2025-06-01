@@ -136,11 +136,6 @@ class PostViewModel: ObservableObject {
             caption: caption,
             taggedUserIds: taggedUserIds,
             likedBy: [],
-
-            itemName: item.name,
-            itemCompleted: item.completed,
-            itemLocation: item.location,
-            itemDueDate: item.dueDate,
             itemImageUrls: item.allImageUrls
         )
 
@@ -186,20 +181,33 @@ class PostViewModel: ObservableObject {
             print("[PostViewModel] addOrUpdatePost => userId is missing from onboardingViewModel. Cannot save post.")
             return
         }
-        
-        let postDocId = post.id ?? UUID().uuidString
-        post.id = postDocId
+        // Ensure authorId is set
+        if post.authorId.isEmpty {
+            post.authorId = userId
+        }
+        if post.id == nil {
+            post.id = UUID().uuidString
+        }
+        let postDocId = post.id!
         let docRef = db
             .collection("users")
             .document(userId)
             .collection("posts")
             .document(postDocId)
-        
         do {
             let encoded = try Firestore.Encoder().encode(post)
-            print("DEBUG: Encoded post:", encoded)
+            print("[PostViewModel] 🔒 Preparing to write post:")
+            print("  id: \(post.id ?? "nil")")
+            print("  itemId: \(post.itemId)")
+            print("  imageURLs: \(post.itemImageUrls)")
             try await docRef.setData(encoded, merge: true)
-            print("[PostViewModel] addOrUpdatePost => Wrote post \(postDocId) to Firestore. itemName:", post.itemName)
+            print("[PostViewModel] addOrUpdatePost => Wrote post \(postDocId) to Firestore. itemId:", post.itemId)
+            // Update local posts array with the saved post
+            if let idx = posts.firstIndex(where: { $0.id == post.id }) {
+                posts[idx] = post
+            } else {
+                posts.append(post)
+            }
         } catch {
             print("[PostViewModel] addOrUpdatePost => Error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
@@ -230,6 +238,34 @@ class PostViewModel: ObservableObject {
         } catch {
             print("[PostViewModel] deletePost error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
+        }
+    }
+    
+    // MARK: - Fetch Item for Post
+    /// Fetches the ItemModel for a given PostModel's itemId from Firestore.
+    func fetchItem(for post: PostModel) async -> ItemModel? {
+        let userId = post.authorId
+        print("[PostViewModel] fetchItem: Attempting for itemId: \(post.itemId) by authorId: \(userId)")
+
+        let docRef = db
+            .collection("users")
+            .document(userId)
+            .collection("items")
+            .document(post.itemId)
+
+        do {
+            let snapshot = try await docRef.getDocument()
+            guard snapshot.exists else {
+                print("[PostViewModel] fetchItem: ❌ Document not found at /users/\(userId)/items/\(post.itemId)")
+                return nil
+            }
+
+            let item = try snapshot.data(as: ItemModel.self)
+            print("[PostViewModel] fetchItem: ✅ Loaded item: \(item.name) from user: \(userId)")
+            return item
+        } catch {
+            print("[PostViewModel] fetchItem: 🛑 Error loading item for \(post.itemId) by user \(userId):", error.localizedDescription)
+            return nil
         }
     }
 }

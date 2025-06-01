@@ -9,12 +9,16 @@ import SwiftUI
 
 struct FeedView: View {
     @EnvironmentObject var feedViewModel: FeedViewModel
-
+    @State private var showLoading = false
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
+                    if showLoading {
+                        ProgressView("Loading Feed...")
+                            .padding()
+                    }
                     if feedViewModel.posts.isEmpty {
                         Text("No posts yet.")
                             .font(.subheadline)
@@ -45,13 +49,14 @@ struct FeedView: View {
                 }
             }
             .refreshable {
+                showLoading = true
                 await feedViewModel.fetchFeedPosts()
+                showLoading = false
             }
-            .onAppear {
-                print("📲 FeedView appeared")
-                Task {
-                    await feedViewModel.fetchFeedPosts()
-                }
+            .task {
+                showLoading = true
+                await feedViewModel.fetchFeedPosts()
+                showLoading = false
             }
         }
     }
@@ -79,6 +84,8 @@ struct FeedView_Previews: PreviewProvider {
                 .font(.caption)
                 .foregroundColor(.gray)
             FeedView()
+                .environmentObject(mockVM)
+                .environmentObject(PostViewModel())
         }
     }
 }

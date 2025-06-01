@@ -83,6 +83,7 @@ struct ListView: View {
                                     .environmentObject(onboardingViewModel)
                                     .environmentObject(userViewModel)
                                     .environmentObject(feedViewModel)
+                                    .environmentObject(postViewModel)
                             }
                             // Navigate to the User Search View
                             .navigationDestination(isPresented: $showUserSearch) {

@@ -24,10 +24,6 @@ struct PostModel: Identifiable, Codable {
 
     // MARK: - Associated Item
     var itemId: String
-    var itemName: String
-    var itemCompleted: Bool
-    var itemLocation: Location?
-    var itemDueDate: Date?
     var itemImageUrls: [String]
 
     // MARK: - Post Metadata
@@ -50,10 +46,6 @@ struct PostModel: Identifiable, Codable {
         taggedUserIds: [String] = [],
         visibility: String? = nil,
         likedBy: [String] = [],
-        itemName: String,
-        itemCompleted: Bool,
-        itemLocation: Location? = nil,
-        itemDueDate: Date? = nil,
         itemImageUrls: [String] = []
     ) {
         self.id = id
@@ -66,11 +58,6 @@ struct PostModel: Identifiable, Codable {
         self.taggedUserIds = taggedUserIds
         self.visibility = visibility
         self.likedBy = likedBy
-
-        self.itemName = itemName
-        self.itemCompleted = itemCompleted
-        self.itemLocation = itemLocation
-        self.itemDueDate = itemDueDate
         self.itemImageUrls = itemImageUrls
     }
 
@@ -92,10 +79,6 @@ extension PostModel {
                 caption: "My trip to Tokyo was amazing!",
                 taggedUserIds: ["userB"],
                 likedBy: ["userC", "userD"],
-                itemName: "Visit Tokyo",
-                itemCompleted: true,
-                itemLocation: Location(latitude: 35.6895, longitude: 139.6917, address: "Tokyo, Japan"),
-                itemDueDate: Date().addingTimeInterval(-86400),
                 itemImageUrls: [
                     "https://picsum.photos/400/400?random=1",
                     "https://picsum.photos/400/400?random=2",
@@ -112,10 +95,6 @@ extension PostModel {
                 caption: "Finally completed skydiving!",
                 taggedUserIds: [],
                 likedBy: [],
-                itemName: "Skydive",
-                itemCompleted: true,
-                itemLocation: nil,
-                itemDueDate: nil,
                 itemImageUrls: [
                     "https://picsum.photos/400/400?random=2"
                 ]
@@ -130,10 +109,6 @@ extension PostModel {
                 caption: "Who wants to join me for a marathon?",
                 taggedUserIds: ["userA"],
                 likedBy: ["userA"],
-                itemName: "Run a marathon",
-                itemCompleted: false,
-                itemLocation: nil,
-                itemDueDate: Date().addingTimeInterval(86400 * 30),
                 itemImageUrls: [
                     "https://picsum.photos/400/400?random=3"
                 ]

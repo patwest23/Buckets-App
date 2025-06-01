@@ -9,6 +9,8 @@ import SwiftUI
 
 struct FeedRowView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var postViewModel: PostViewModel
+    @State private var item: ItemModel?
     
     let post: PostModel
     
@@ -22,7 +24,7 @@ struct FeedRowView: View {
     
     /// If item is completed, format the due date for display
     private var completedDateString: String? {
-        guard post.itemCompleted, let date = post.itemDueDate else { return nil }
+        guard item?.completed == true, let date = item?.dueDate else { return nil }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
@@ -30,64 +32,84 @@ struct FeedRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            
-            // 1) Top row: optional checkmark + item name
-            HStack(spacing: 4) {
-                if post.itemCompleted {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.accentColor)
-                }
-                Text(post.itemName)
-                    .font(.headline)
-                    .foregroundColor(dynamicTextColor)
-                Spacer()
-            }
-
-            // 2) Image carousel (or fallback)
-            if post.hasImages {
-                TabView {
-                    ForEach(post.itemImageUrls, id: \.self) { urlStr in
-                        FeedRowImageView(urlStr: urlStr)
-                            .frame(height: 300)
-                            .clipped()
+            if let item = item {
+                // 1) Top row: optional checkmark + item name
+                HStack(spacing: 4) {
+                    if item.completed {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.accentColor)
                     }
+                    Text("\(post.authorUsername ?? "@\(post.authorId)") \(item.name)")
+                        .font(.headline)
+                        .foregroundColor(dynamicTextColor)
+                    Spacer()
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                .frame(height: 300)
-            } else {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.2))
+
+                // 2) Image carousel (or fallback)
+                if item.imageUrls.isEmpty == false {
+                    TabView {
+                        ForEach(item.imageUrls, id: \.self) { urlStr in
+                            FeedRowImageView(urlStr: urlStr)
+                                .frame(height: 300)
+                                .clipped()
+                        }
+                    }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
                     .frame(height: 300)
-                    .overlay(
-                        Text("No images")
-                            .foregroundColor(.gray)
-                    )
-            }
-
-            // 3) Username + Caption
-            if let caption = post.caption, !caption.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(post.authorUsername ?? "@\(post.authorId)")
-                        .fontWeight(.semibold)
-                    Text(caption)
+                } else {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 300)
+                        .overlay(
+                            Text("No images")
+                                .foregroundColor(.gray)
+                        )
                 }
-                .foregroundColor(dynamicTextColor)
-                .padding(.vertical, 8)
-            }
 
-            // 4) Like row
-            HStack(spacing: 16) {
-                Button(action: onLike) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "heart")
-                        Text("Like (\(post.likedBy.count))")
+                // 3) Username + Caption
+                if let caption = post.caption, !caption.isEmpty {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(post.authorUsername ?? "@\(post.authorId)")
+                            .fontWeight(.semibold)
+                        Text(caption)
                     }
+                    .foregroundColor(dynamicTextColor)
+                    .padding(.vertical, 8)
                 }
-                .foregroundColor(dynamicTextColor)
 
-                Spacer()
+                // 4) Like row
+                HStack(spacing: 16) {
+                    Button(action: onLike) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "heart")
+                            Text("Like (\(post.likedBy.count))")
+                        }
+                    }
+                    .foregroundColor(dynamicTextColor)
+
+                    Spacer()
+                }
+                .padding(.top, 4)
+            } else {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Loading item for post...")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .frame(height: 350)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.top, 4)
+        }
+        .task {
+            print("[FeedRowView] Fetching item for postId: \(post.id ?? "nil") from user \(post.authorId) for itemId: \(post.itemId)")
+            let fetchedItem = await postViewModel.fetchItem(for: post)
+            if let fetchedItem {
+                print("[FeedRowView] ✅ Successfully fetched item: \(fetchedItem.name)")
+                item = fetchedItem
+            } else {
+                print("[FeedRowView] ❌ Failed to fetch item for postId: \(post.id ?? "nil")")
+            }
         }
     }
 }
@@ -119,8 +141,11 @@ struct FeedRowImageView: View {
 }
 
 #if DEBUG
+@MainActor
 struct FeedRowView_Previews: PreviewProvider {
     static var previews: some View {
+        let postVM = PostViewModel()
+        
         // Sample mock post
         let samplePost = PostModel(
             id: "post_001",
@@ -133,12 +158,6 @@ struct FeedRowView_Previews: PreviewProvider {
             taggedUserIds: ["userXYZ"],
             visibility: nil,
             likedBy: ["user123", "user456"],
-            
-            // Embedded item fields
-            itemName: "Visit Tokyo",
-            itemCompleted: true,
-            itemLocation: Location(latitude: 35.6895, longitude: 139.6917, address: "Tokyo, Japan"),
-            itemDueDate: Date().addingTimeInterval(-86400), // completed 1 day ago
             itemImageUrls: [
                 "https://picsum.photos/400/400?random=1",
                 "https://picsum.photos/400/400?random=2"
@@ -153,6 +172,7 @@ struct FeedRowView_Previews: PreviewProvider {
                         print("[Preview] Liked post \(samplePost.id ?? "nil")")
                     }
                 )
+                .environmentObject(postVM)
             }
             .previewDisplayName("FeedRowView - MVP Completed Item w/ Multiple Images")
             
@@ -169,11 +189,6 @@ struct FeedRowView_Previews: PreviewProvider {
                     taggedUserIds: [],
                     visibility: nil,
                     likedBy: [],
-                    
-                    itemName: "Learn Guitar",
-                    itemCompleted: false,
-                    itemLocation: nil,
-                    itemDueDate: nil,
                     itemImageUrls: []
                 )
                 
@@ -183,6 +198,7 @@ struct FeedRowView_Previews: PreviewProvider {
                         print("[Preview] Liked post \(noImagesPost.id ?? "nil")")
                     }
                 )
+                .environmentObject(postVM)
             }
             .previewDisplayName("FeedRowView - MVP Incomplete Item, No Images")
         }

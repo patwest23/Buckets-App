@@ -45,6 +45,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var orderIndex: Int
     var creationDate: Date
     var imageUrls: [String] = []
+    var likedBy: [String] = []
     
     // MARK: - Embedded Post Metadata
     var likeCount: Int? = nil
@@ -72,6 +73,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
         orderIndex: Int = 0,
         creationDate: Date = Date(),
         imageUrls: [String] = [],
+        likedBy: [String] = [],
         likeCount: Int? = nil,
         caption: String? = nil,
         hasPostedAddEvent: Bool = false,
@@ -93,6 +95,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.orderIndex = orderIndex
         self.creationDate = creationDate
         self.imageUrls = imageUrls
+        self.likedBy = likedBy
         self.likeCount = likeCount
         self.caption = caption
         self.hasPostedAddEvent = hasPostedAddEvent
@@ -117,6 +120,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
         case orderIndex
         case creationDate
         case imageUrls
+        case likedBy
         case likeCount
         case caption
         case hasPostedAddEvent
@@ -148,6 +152,7 @@ struct ItemModel: Codable, Identifiable, Hashable {
         hasPostedPhotos = try container.decode(Bool.self, forKey: .hasPostedPhotos)
         
         imageUrls = try container.decodeIfPresent([String].self, forKey: .imageUrls) ?? []
+        likedBy = try container.decodeIfPresent([String].self, forKey: .likedBy) ?? []
     }
 
     // MARK: - Computed Properties
@@ -166,6 +171,10 @@ struct ItemModel: Codable, Identifiable, Hashable {
     
     var allImageUrls: [String] {
         imageUrls
+    }
+
+    var wasRecentlyLiked: Bool {
+        !likedBy.isEmpty
     }
     
 }

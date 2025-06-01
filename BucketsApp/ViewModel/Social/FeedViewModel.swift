@@ -13,6 +13,7 @@ import FirebaseFirestore
 class FeedViewModel: ObservableObject {
     @Published var posts: [PostModel] = []
     @Published var errorMessage: String?
+    @Published var isLoading: Bool = false
     
     private let db = Firestore.firestore()
     
@@ -32,6 +33,13 @@ class FeedViewModel: ObservableObject {
     
     // MARK: - Fetch Feed
     func fetchFeedPosts() async {
+        guard !isLoading else {
+            print("[FeedViewModel] fetchFeedPosts: already loading, skipping.")
+            return
+        }
+        isLoading = true
+        defer { isLoading = false }
+        
         guard let userId = currentUserId else {
             print("[FeedViewModel] fetchFeedPosts: No currentUserId (not authenticated).")
             return
@@ -52,38 +60,57 @@ class FeedViewModel: ObservableObject {
             
             for followedUserId in allUserIds {
                 print("[FeedViewModel] Fetching posts for user:", followedUserId)
-                let snapshot = try await db
-                    .collection("users")
-                    .document(followedUserId)
-                    .collection("posts")
-                    .getDocuments()
-                
-                var userPosts: [PostModel] = []
-                for doc in snapshot.documents {
-                    print("[FeedViewModel] Document ID:", doc.documentID)
-                    print("[FeedViewModel] Raw data keys:", Array(doc.data().keys))
-                    let data: [String: Any] = doc.data()
-                    let post = await MainActor.run {
-                        return self.buildPostModel(from: data, documentID: doc.documentID)
+                do {
+                    let snapshot = try await db
+                        .collection("users")
+                        .document(followedUserId)
+                        .collection("posts")
+                        .getDocuments()
+                    
+                    if snapshot.documents.isEmpty {
+                        print("[FeedViewModel] No posts found for user:", followedUserId)
+                    } else {
+                        print("[FeedViewModel] Retrieved \(snapshot.documents.count) post(s) for user:", followedUserId)
                     }
-                    print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", post.itemName, "-", post.itemImageUrls)
-                    userPosts.append(post)
+                    
+                    var userPosts: [PostModel] = []
+                    for doc in snapshot.documents {
+                        print("[FeedViewModel] Document ID:", doc.documentID)
+                        print("[FeedViewModel] Raw data keys:", Array(doc.data().keys))
+                        let data: [String: Any] = doc.data()
+                        let post = await MainActor.run {
+                            return self.buildPostModel(from: data, documentID: doc.documentID)
+                        }
+                        if post.id == nil || post.itemId.isEmpty {
+                            print("[FeedViewModel] Warning: Malformed post detected, skipping:", doc.documentID)
+                            continue
+                        }
+                        print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", post.itemImageUrls)
+                        userPosts.append(post)
+                    }
+                    allPosts.append(contentsOf: userPosts)
+                    print("[FeedViewModel] \(followedUserId) => loaded \(userPosts.count) post(s)")
+                } catch {
+                    print("[FeedViewModel] Error fetching posts for user \(followedUserId):", error.localizedDescription)
                 }
-                allPosts.append(contentsOf: userPosts)
-                print("[FeedViewModel] \(followedUserId) => loaded \(userPosts.count) post(s)")
             }
             
             // 3) Sort combined posts by timestamp descending
             let sortedPosts = allPosts.sorted { $0.timestamp > $1.timestamp }
-            print("[FeedViewModel] Sorted posts (latest first):", sortedPosts.map { $0.itemName })
+            print("[FeedViewModel] Sorted posts (latest first):", sortedPosts.map { $0.itemId })
             
             // 4) Assign to published property
+            print("[FeedViewModel] Assigning sorted posts to self.posts...")
             self.posts = sortedPosts
+            print("[FeedViewModel] Assigned posts count:", self.posts.count)
             print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
+            print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
             
         } catch {
             print("[FeedViewModel] fetchFeedPosts error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
+            // Even on error, ensure posts is set to empty to reflect failure state
+            self.posts = []
         }
     }
 
@@ -97,23 +124,6 @@ class FeedViewModel: ObservableObject {
         let taggedUserIds  = data["taggedUserIds"]  as? [String] ?? []
         let likedBy        = data["likedBy"]        as? [String] ?? []
         let visibility     = data["visibility"]     as? String
-        
-        // Embedded item fields
-        let itemName       = data["itemName"]       as? String   ?? "Untitled"
-        let itemCompleted  = data["itemCompleted"]  as? Bool     ?? false
-        
-        // itemLocation (if stored as a dictionary)
-        var itemLocation: Location? = nil
-        if let locDict = data["itemLocation"] as? [String: Any] {
-            let lat = locDict["latitude"] as? Double ?? 0
-            let lon = locDict["longitude"] as? Double ?? 0
-            let addr = locDict["address"] as? String
-            itemLocation = Location(latitude: lat, longitude: lon, address: addr)
-        }
-        
-        // itemDueDate
-        let dueDateRaw  = data["itemDueDate"] as? Timestamp
-        let itemDueDate = dueDateRaw?.dateValue()
         
         let itemImageUrls = data["itemImageUrls"] as? [String] ?? []
         
@@ -131,12 +141,11 @@ class FeedViewModel: ObservableObject {
             taggedUserIds: taggedUserIds,
             visibility: visibility,
             likedBy: likedBy,
-            itemName: itemName,
-            itemCompleted: itemCompleted,
-            itemLocation: itemLocation,
-            itemDueDate: itemDueDate,
             itemImageUrls: itemImageUrls
         )
+        if post.id == nil || post.itemId.isEmpty {
+            print("[FeedViewModel] buildPostModel returned malformed post for docID:", documentID)
+        }
         return post
     }
     

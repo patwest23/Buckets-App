@@ -144,6 +144,14 @@ struct ItemRowView: View {
                         .background(Circle().fill(Color.white))
                         .shadow(radius: 1)
                 }
+                if item.wasRecentlyLiked {
+                    Image(systemName: "bell.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .padding(6)
+                        .background(Circle().fill(Color.white))
+                        .shadow(radius: 1)
+                }
                 // Add more icons here if needed
             }
             .offset(x: 10, y: -10)

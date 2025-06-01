@@ -334,4 +334,26 @@ class ListViewModel: ObservableObject {
         lastPrefetchTimestamps.removeAll()
         print("[ListViewModel] Cleared image cache and prefetch timestamps.")
     }
+
+    // MARK: - Sync Likes Helper
+    /// Syncs the likedBy array from a post to the corresponding item document in Firestore.
+    func syncItemLikes(for itemId: UUID, from postLikedBy: [String]) async {
+        guard let userId = userId else { return }
+
+        let docRef = db
+            .collection("users")
+            .document(userId)
+            .collection("items")
+            .document(itemId.uuidString)
+
+        do {
+            let update: [String: Any] = await MainActor.run {
+                ["likedBy": postLikedBy]
+            }
+            try await docRef.updateData(update)
+            print("❤️ Synced likes to item \(itemId)")
+        } catch {
+            print("❌ Failed to sync likes to item:", error.localizedDescription)
+        }
+    }
 }

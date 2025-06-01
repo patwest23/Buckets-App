@@ -269,12 +269,9 @@ extension ProfileView {
     // MARK: - Activity Log Helpers
     private func activityLabel(for post: PostModel) -> String {
         switch post.type {
-        case .added:
-            return "Added “\(post.itemName)”"
-        case .completed:
-            return "✅ Completed “\(post.itemName)”"
-        case .photos:
-            return "📸 Shared photos of “\(post.itemName)”"
+        case .added: return "Added item"
+        case .completed: return "✅ Completed item"
+        case .photos: return "📸 Shared photos"
         }
     }
 
@@ -369,12 +366,6 @@ struct ProfileView_Previews: PreviewProvider {
                 caption: "Had an amazing trip to NYC!",
                 taggedUserIds: [],
                 likedBy: ["userXYZ"],
-                
-                // Embedded item data
-                itemName: "Visit NYC",
-                itemCompleted: true,
-                itemLocation: Location(latitude: 40.7128, longitude: -74.0060, address: "New York, NY"),
-                itemDueDate: Date().addingTimeInterval(-86400), // completed 1 day ago
                 itemImageUrls: ["https://picsum.photos/400/400?random=1"]
             ),
             PostModel(
@@ -387,11 +378,6 @@ struct ProfileView_Previews: PreviewProvider {
                 caption: "Finally finished my painting class!",
                 taggedUserIds: [],
                 likedBy: [],
-                
-                itemName: "Painting Masterclass",
-                itemCompleted: true,
-                itemLocation: nil,
-                itemDueDate: Date().addingTimeInterval(-172800), // 2 days ago
                 itemImageUrls: ["https://picsum.photos/400/400?random=2", "https://picsum.photos/400/400?random=3"]
             ),
             PostModel(
@@ -404,11 +390,6 @@ struct ProfileView_Previews: PreviewProvider {
                 caption: "No images, but so excited about this!",
                 taggedUserIds: [],
                 likedBy: ["userABC", "user123"],
-                
-                itemName: "Future Item",
-                itemCompleted: false,
-                itemLocation: nil,
-                itemDueDate: nil,
                 itemImageUrls: []
             )
         ]
