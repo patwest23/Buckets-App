@@ -38,6 +38,7 @@ struct BucketsApp: App {
                         .environmentObject(postViewModel)
                         .onAppear {
                             Task {
+                                bucketListViewModel.startListeningToItems()
                                 guard let firebaseUser = Auth.auth().currentUser else {
                                     print("[BucketsApp] No authenticated user.")
                                     return
@@ -55,10 +56,8 @@ struct BucketsApp: App {
                                 }
 
                                 onboardingViewModel.user?.id = firebaseUser.uid
-                                
                                 postViewModel.onboardingViewModel = onboardingViewModel
-                                
-                                bucketListViewModel.startListeningToItems()
+
                                 await onboardingViewModel.loadProfileImage()
                             }
                         }

@@ -322,6 +322,10 @@ struct ListView: View {
         Task {
             isLoading = true
             await bucketListViewModel.loadItems()
+
+            // 🚨 Delay to ensure items are ready for navigation
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+
             isLoading = false
         }
     }
@@ -469,7 +473,6 @@ extension ListView {
     @ViewBuilder
     private func rowView(for currentItem: ItemModel) -> some View {
         let itemBinding = bindingForItem(currentItem)
-
         ItemRowView(
             item: itemBinding,
             newlyCreatedItemID: newlyCreatedItemID,
@@ -477,14 +480,26 @@ extension ListView {
                 deleteItemIfEmpty(currentItem)
             },
             onNavigateToDetail: {
+                print("[ListView] selectedItem set: \(currentItem.name)")
+                bucketListViewModel.currentEditingItem = currentItem
                 selectedItem = currentItem
             }
         )
         .environmentObject(bucketListViewModel)
         .onAppear {
+            print("[DetailItemView Trigger] Appeared item: \(currentItem.name)")
+            print("[ListView] Total items in view model: \(bucketListViewModel.items.count)")
+            if let match = bucketListViewModel.items.first(where: { $0.id == currentItem.id }) {
+                print("[ListView] ✅ Found matching item: \(match.name)")
+            } else {
+                print("[ListView] ❌ Could not find item in items array")
+            }
             Task {
                 await bucketListViewModel.prefetchImages(for: itemBinding.wrappedValue)
             }
+        }
+        .onTapGesture {
+            print("[ListView] User tapped on item row: \(currentItem.name)")
         }
         .listRowSeparator(.hidden)
         .id(currentItem.id)

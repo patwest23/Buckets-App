@@ -410,10 +410,8 @@ final class OnboardingViewModel: ObservableObject {
         do {
             let snapshot = try await userDoc.getDocument()
             guard snapshot.exists else {
-                print("[OnboardingViewModel] No user document found at /users/\(userId). Creating new doc.")
-                await createUserDocument(userId: userId)
-                // After creating, re-fetch to populate self.user
-                await fetchUserDocument(userId: userId)
+                print("[OnboardingViewModel] No user document found at /users/\(userId). Signing out.")
+                await signOut()
                 return
             }
 
@@ -567,3 +565,4 @@ final class KeychainHelper {
         SecItemDelete(query as CFDictionary)
     }
 }
+

@@ -46,7 +46,15 @@ class ListViewModel: ObservableObject {
     @Published var showImages: Bool = true
     @Published var hideCompleted: Bool = false
     @Published var sortingMode: SortingMode = .manual
-    @Published var currentEditingItem: ItemModel?
+    @Published var currentEditingItem: ItemModel? {
+        didSet {
+            if let item = currentEditingItem {
+                print("[ListViewModel] currentEditingItem set: \(item.name)")
+            } else {
+                print("[ListViewModel] currentEditingItem cleared.")
+            }
+        }
+    }
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
     

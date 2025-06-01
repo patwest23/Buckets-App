@@ -22,6 +22,7 @@ struct DetailItemView: View {
     @State private var currentItem: ItemModel
     @StateObject private var imagePickerVM = ImagePickerViewModel()
     @State private var showFeedConfirmation = false
+    @State private var showDeleteAlert = false
 
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNotesFocused: Bool
@@ -69,18 +70,6 @@ struct DetailItemView: View {
 
                 photoPickerView
 
-                if !imagePickerVM.images.isEmpty {
-                    HStack(spacing: 8) {
-                        ForEach(imagePickerVM.images, id: \.self) { image in
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 100, height: 100)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .clipped()
-                        }
-                    }
-                }
 
                 // Image preview grid
                 if !currentItem.imageUrls.isEmpty {
@@ -100,7 +89,66 @@ struct DetailItemView: View {
                     .cornerRadius(10)
                 }
 
+                Button(role: .destructive) {
+                    showDeleteAlert = true
+                } label: {
+                    Text("🗑️ Delete This Item")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                    Button("Delete", role: .destructive) {
+                        Task {
+                            await bucketListViewModel.deleteItem(currentItem)
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                }
+
                 Spacer()
+        }
+            .onAppear {
+                print("[DetailItemView] onAppear fired for item: \(currentItem.name)")
+
+                if let editingItem = bucketListViewModel.currentEditingItem {
+                    print("[DetailItemView] using currentEditingItem: \(editingItem.name)")
+                    currentItem = editingItem
+                } else {
+                    print("[DetailItemView] WARNING: currentEditingItem was nil — using init fallback: \(currentItem.name)")
+                }
+
+                if currentItem.userId.isEmpty,
+                   let authUserId = onboardingViewModel.user?.id {
+                    currentItem.userId = authUserId
+                    if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
+                        Task {
+                            await bucketListViewModel.addOrUpdateItem(currentItem)
+                        }
+                    }
+                }
+
+                imagePickerVM.onImagesLoaded = {
+                    Task {
+                        let uploadedUrls = await imagePickerVM.uploadImages(
+                            userId: onboardingViewModel.userId ?? "",
+                            itemId: currentItem.id.uuidString
+                        )
+                        if currentItem.userId.isEmpty,
+                           let uid = onboardingViewModel.user?.id {
+                            currentItem.userId = uid
+                        }
+                        currentItem.imageUrls = uploadedUrls
+                        print("✅ Updated item with image URLs:", currentItem.imageUrls)
+                        await bucketListViewModel.addOrUpdateItem(currentItem)
+                    }
+                }
+            }
+            .onAppear {
+                print("[DetailItemView] body loaded. itemID: \(itemID)")
             }
             .padding()
         }
@@ -126,35 +174,7 @@ struct DetailItemView: View {
         .alert("✅ Shared to Feed!", isPresented: $showFeedConfirmation) {
             Button("OK", role: .cancel) { }
         }
-        .onAppear {
-            Task {
-                refreshCurrentItemFromList()
-                
-                if currentItem.userId.isEmpty,
-                   let authUserId = onboardingViewModel.user?.id {
-                    currentItem.userId = authUserId
-                    if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
-                        await bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                }
-                
-                imagePickerVM.onImagesLoaded = {
-                    Task {
-                        let uploadedUrls = await imagePickerVM.uploadImages(
-                            userId: onboardingViewModel.userId ?? "",
-                            itemId: currentItem.id.uuidString
-                        )
-                        if currentItem.userId.isEmpty,
-                           let uid = onboardingViewModel.user?.id {
-                            currentItem.userId = uid
-                        }
-                        currentItem.imageUrls = uploadedUrls
-                        print("✅ Updated item with image URLs:", currentItem.imageUrls)
-                        await bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                }
-            }
-        }
+        
     }
 
     @ViewBuilder
@@ -206,13 +226,6 @@ extension DetailItemView {
 
 // MARK: - Helpers
 extension DetailItemView {
-
-    private func refreshCurrentItemFromList() {
-        if let updatedItem = bucketListViewModel.items.first(where: { $0.id == itemID }) {
-            self.currentItem = updatedItem
-        }
-    }
-
 
     private func hideKeyboard() {
         isTitleFocused = false
