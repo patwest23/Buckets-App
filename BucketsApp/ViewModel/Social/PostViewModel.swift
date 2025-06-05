@@ -23,6 +23,7 @@ class PostViewModel: ObservableObject {
     @Published var isPosting = false
     @Published var taggedUserIds: [String] = []
     @Published var selectedItemID: String?
+    @Published var injectedItems: [String: ItemModel] = [:]
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -244,6 +245,11 @@ class PostViewModel: ObservableObject {
     // MARK: - Fetch Item for Post
     /// Fetches the ItemModel for a given PostModel's itemId from Firestore.
     func fetchItem(for post: PostModel) async -> ItemModel? {
+        if let injected = injectedItems[post.itemId] {
+            print("[PostViewModel] ⚡️ Using injected item for preview: \(injected.name)")
+            return injected
+        }
+
         let userId = post.authorId
         print("[PostViewModel] fetchItem: Attempting for itemId: \(post.itemId) by authorId: \(userId)")
 

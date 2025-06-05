@@ -17,6 +17,8 @@
 		1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774929E5020F00B66F63 /* ListViewModel.swift */; };
 		1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774B29E5023600B66F63 /* ItemModel.swift */; };
 		1F64774E29E5025000B66F63 /* ListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774D29E5025000B66F63 /* ListView.swift */; };
+		1F6ECAE12DF123D4006A05E9 /* ProfilePostRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6ECAE02DF123D4006A05E9 /* ProfilePostRowView.swift */; };
+		1F6ECAE32DF12649006A05E9 /* ProfilePostEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6ECAE22DF12649006A05E9 /* ProfilePostEditView.swift */; };
 		1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F70BCB629E350D5000B3BB9 /* OnBoardingView.swift */; };
 		1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F815C8D29ECA08B000063D3 /* HomeView.swift */; };
 		1F8EB9562B537915009CC18E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 1F8EB9552B537915009CC18E /* GoogleSignIn */; };
@@ -55,6 +57,8 @@
 		1F64774929E5020F00B66F63 /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
 		1F64774B29E5023600B66F63 /* ItemModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemModel.swift; sourceTree = "<group>"; };
 		1F64774D29E5025000B66F63 /* ListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListView.swift; sourceTree = "<group>"; };
+		1F6ECAE02DF123D4006A05E9 /* ProfilePostRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePostRowView.swift; sourceTree = "<group>"; };
+		1F6ECAE22DF12649006A05E9 /* ProfilePostEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePostEditView.swift; sourceTree = "<group>"; };
 		1F70BCB629E350D5000B3BB9 /* OnBoardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingView.swift; sourceTree = "<group>"; };
 		1F815C8D29ECA08B000063D3 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		1F8EB9592B5379E5009CC18E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -111,6 +115,8 @@
 				1FCD29332D62849E0022E4CB /* SettingsView.swift */,
 				1F815C8D29ECA08B000063D3 /* HomeView.swift */,
 				1FE006E72A10541200B0A6D7 /* ProfileView.swift */,
+				1F6ECAE02DF123D4006A05E9 /* ProfilePostRowView.swift */,
+				1F6ECAE22DF12649006A05E9 /* ProfilePostEditView.swift */,
 				1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */,
 				1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */,
 				1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */,
@@ -314,6 +320,7 @@
 			files = (
 				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
+				1F6ECAE12DF123D4006A05E9 /* ProfilePostRowView.swift in Sources */,
 				1FC64BD02DD90CFD00EA595C /* FollowersListView.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
 				1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */,
@@ -331,6 +338,7 @@
 				1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */,
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
 				1FE7B0E42D7E2A8700D7BDC1 /* PostModel.swift in Sources */,
+				1F6ECAE32DF12649006A05E9 /* ProfilePostEditView.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,
 				1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */,

@@ -5,7 +5,6 @@
 //  Created by Patrick Westerkamp on 5/13/23.
 //
 
-
 import SwiftUI
 import PhotosUI
 import FirebaseFirestore
@@ -235,31 +234,8 @@ extension ProfileView {
                     .padding(.horizontal)
             } else {
                 ForEach(postViewModel.posts.sorted(by: { $0.timestamp > $1.timestamp })) { post in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Image(systemName: icon(for: post.type))
-                                .foregroundColor(color(for: post.type))
-                            Text(activityLabel(for: post))
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                        }
-
-                        if let caption = post.caption, !caption.isEmpty {
-                            Text("“\(caption)”")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Text(timeAgoString(for: post.timestamp))
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(UIColor.secondarySystemGroupedBackground))
-                    )
+                    ProfilePostRowView(post: post, injectedItem: postViewModel.injectedItems[post.itemId])
+                        .environmentObject(postViewModel)
                 }
             }
         }
@@ -344,25 +320,23 @@ struct ProfileView_Previews: PreviewProvider {
         let mockOnboardingVM = OnboardingViewModel()
         let mockListVM = ListViewModel()
         let mockUserVM = UserViewModel()
-        
+        let mockPostVM = PostViewModel()
+
         // Example bucket items for the stats
         mockListVM.items = [
             ItemModel(userId: "abc", name: "Bucket 1", completed: false),
             ItemModel(userId: "abc", name: "Bucket 2", completed: true)
         ]
-        
-        // Create a mock PostViewModel with some sample posts
-        let mockPostVM = PostViewModel()
-        
-        // Provide 3 sample posts in chronological order
-        mockPostVM.posts = [
+
+        // Sample posts
+        let posts: [PostModel] = [
             PostModel(
                 id: "post_001",
                 authorId: "abc",
                 authorUsername: "@patrick",
                 itemId: "item001",
                 type: .completed,
-                timestamp: Date().addingTimeInterval(-3600), // 1 hour ago
+                timestamp: Date().addingTimeInterval(-3600),
                 caption: "Had an amazing trip to NYC!",
                 taggedUserIds: [],
                 likedBy: ["userXYZ"],
@@ -374,7 +348,7 @@ struct ProfileView_Previews: PreviewProvider {
                 authorUsername: "@patrick",
                 itemId: "item002",
                 type: .completed,
-                timestamp: Date().addingTimeInterval(-7200), // 2 hours ago
+                timestamp: Date().addingTimeInterval(-7200),
                 caption: "Finally finished my painting class!",
                 taggedUserIds: [],
                 likedBy: [],
@@ -386,14 +360,27 @@ struct ProfileView_Previews: PreviewProvider {
                 authorUsername: "@patrick",
                 itemId: "item003",
                 type: .added,
-                timestamp: Date().addingTimeInterval(-10800), // 3 hours ago
+                timestamp: Date().addingTimeInterval(-10800),
                 caption: "No images, but so excited about this!",
                 taggedUserIds: [],
                 likedBy: ["userABC", "user123"],
                 itemImageUrls: []
             )
         ]
-        
+
+        mockPostVM.posts = posts
+
+        // Inject mock items into PostViewModel
+        for post in posts {
+            mockPostVM.injectedItems[post.itemId] = ItemModel(
+                id: UUID(),
+                userId: post.authorId,
+                name: "Mock Item for \(post.itemId)",
+                completed: post.type == .completed,
+                imageUrls: post.itemImageUrls
+            )
+        }
+
         return Group {
             // Light Mode
             NavigationView {
@@ -401,10 +388,10 @@ struct ProfileView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockListVM)
                     .environmentObject(mockUserVM)
-                    .environmentObject(mockPostVM)  // <-- Provide mock posts here
+                    .environmentObject(mockPostVM)
             }
             .previewDisplayName("ProfileView - Light Mode")
-            
+
             // Dark Mode
             NavigationView {
                 ProfileView()
@@ -419,11 +406,3 @@ struct ProfileView_Previews: PreviewProvider {
     }
 }
 #endif
-
-
-
-
-
-
-
-
