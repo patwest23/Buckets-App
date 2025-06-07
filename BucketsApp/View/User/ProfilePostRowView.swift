@@ -68,6 +68,18 @@ struct ProfilePostRowView: View {
                         )
                 }
 
+                // Like count (only if likes exist)
+                if post.likedBy.count > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill")
+                            .foregroundColor(.red)
+                        Text("\(post.likedBy.count) like\(post.likedBy.count == 1 ? "" : "s")")
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 // 3) Caption
                 if let caption = post.caption, !caption.isEmpty {
                     Text(caption)
@@ -163,7 +175,7 @@ struct ProfilePostRowView_Previews: PreviewProvider {
             caption: "Just crossed this off my list!",
             taggedUserIds: [],
             visibility: nil,
-            likedBy: [],
+            likedBy: ["mockUser", "otherUser"],
             itemImageUrls: [
                 "https://picsum.photos/400/400?random=10",
                 "https://picsum.photos/400/400?random=11"

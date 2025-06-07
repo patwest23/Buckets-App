@@ -68,14 +68,8 @@ struct ProfileView: View {
                     // (Assuming postViewModel loads only the current user’s posts)
                 }
             }
-            .navigationDestination(for: String.self) { route in
-                if route == "following" {
-                    FollowingListView()
-                        .environmentObject(userViewModel)
-                } else if route == "followers" {
-                    FollowersListView()
-                        .environmentObject(userViewModel)
-                }
+            .navigationDestination(isPresented: .constant(false)) {
+                EmptyView()
             }
         }
     }
@@ -188,27 +182,25 @@ extension ProfileView {
             
             // 3) Second row: Following / Followers
             HStack(spacing: 16) {
-                Button {
-                    // Use navigationPath to navigate to FollowingListView
-                    navigationPath.append("following")
+                NavigationLink {
+                    FollowingListView()
+                        .environmentObject(userViewModel)
                 } label: {
                     statCard(emoji: "👥",
                              title: "Following",
                              value: "\(followingCount)",
                              color: .blue)
                 }
-                .buttonStyle(.plain)
 
-                Button {
-                    // Use navigationPath to navigate to FollowersListView
-                    navigationPath.append("followers")
+                NavigationLink {
+                    FollowersListView()
+                        .environmentObject(userViewModel)
                 } label: {
                     statCard(emoji: "🙋‍♂️",
                              title: "Followers",
                              value: "\(followersCount)",
                              color: .green)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding()

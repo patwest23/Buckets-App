@@ -165,6 +165,27 @@ class UserViewModel: ObservableObject {
         }
     }
     
+    /// Checks if a given username is already taken by any user in the database
+    func isUsernameTaken(_ username: String) async -> Bool {
+        do {
+            let snapshot = try await db.collection("users")
+                .whereField("name", isEqualTo: username)
+                .getDocuments()
+            return !snapshot.documents.isEmpty
+        } catch {
+            print("[UserViewModel] Error checking username:", error.localizedDescription)
+            return true // Assume taken on failure
+        }
+    }
+    
+    /// Sets the username if it's not already taken. Returns true if successful.
+    func setUsernameIfAvailable(_ username: String) async -> Bool {
+        let isTaken = await isUsernameTaken(username)
+        guard isTaken == false else { return false }
+        await updateUserName(to: username)
+        return true
+    }
+    
     // MARK: - Error Handling
     private func handleError(_ error: Error, prefix: String) {
         print("[UserViewModel] \(prefix) Error:", error.localizedDescription)

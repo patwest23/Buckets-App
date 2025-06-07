@@ -11,6 +11,7 @@ struct OnboardingView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @State private var showSignUp = false
     @State private var showLogIn = false
+    @State private var showUsernameSetup = false
     
     // Detect whether we’re in Light or Dark mode
     @Environment(\.colorScheme) private var colorScheme
@@ -81,10 +82,13 @@ struct OnboardingView: View {
                                 .environmentObject(onboardingViewModel)
                         }
                         
-                        /*
-                        // MARK: - Google Sign-In Button (Commented Out)
+                        // MARK: - Google Sign-In Button
                         Button(action: {
-                            onboardingViewModel.signInWithGoogle()
+                            onboardingViewModel.signInWithGoogle(completion: { success in
+                                if success && onboardingViewModel.username.isEmpty {
+                                    showUsernameSetup = true
+                                }
+                            })
                         }) {
                             HStack {
                                 Image("google_logo")
@@ -102,7 +106,10 @@ struct OnboardingView: View {
                             .cornerRadius(10)
                             .shadow(radius: 5)
                         }
-                        */
+                        .sheet(isPresented: $showUsernameSetup) {
+                            UsernameSetupView()
+                                .environmentObject(onboardingViewModel)
+                        }
                     }
                     .padding(.horizontal)
                     

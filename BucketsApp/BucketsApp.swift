@@ -28,6 +28,11 @@ struct BucketsApp: App {
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
+            } else if onboardingViewModel.shouldPromptUsername {
+                UsernameSetupView()
+                    .environmentObject(onboardingViewModel)
+                    .environmentObject(bucketListViewModel)
+                    .environmentObject(userViewModel)
             } else {
                 NavigationStack {
                     ListView()

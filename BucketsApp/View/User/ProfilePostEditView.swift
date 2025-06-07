@@ -87,7 +87,9 @@ struct ProfilePostEditView: View {
                         userId: onboardingViewModel.userId ?? "",
                         itemId: post.itemId
                     )
-                    post.itemImageUrls.append(contentsOf: uploadedUrls)
+                    post.itemImageUrls = uploadedUrls
+                    print("✅ Updated post with image URLs:", post.itemImageUrls)
+                    await postViewModel.addOrUpdatePost(post: post)
                 }
             }
         }
