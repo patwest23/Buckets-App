@@ -65,7 +65,7 @@ struct ProfileView: View {
                 // LOAD the user's posts from Firestore
                 Task {
                     await postViewModel.loadPosts()
-                    // (Assuming postViewModel loads only the current user’s posts)
+                    await userViewModel.loadCurrentUser() // Add this line to refresh follow data
                 }
             }
             .navigationDestination(isPresented: .constant(false)) {

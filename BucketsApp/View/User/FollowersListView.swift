@@ -39,6 +39,7 @@ struct FollowersListView: View {
         .navigationTitle("Followers")
         .onAppear {
             Task {
+                await userViewModel.loadCurrentUser()
                 await loadFollowerUsers()
             }
         }
@@ -98,3 +99,4 @@ struct FollowersListView: View {
             .environmentObject(mockUserVM)
     }
 }
+

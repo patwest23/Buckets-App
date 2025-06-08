@@ -7,17 +7,18 @@
 
 import SwiftUI
 
+
 struct FollowingListView: View {
     @EnvironmentObject var userViewModel: UserViewModel
-    @State private var followedUsers: [UserModel] = []
+    @State private var followingUsers: [UserModel] = []
 
     var body: some View {
         List {
-            if followedUsers.isEmpty {
-                Text("You aren't following anyone yet.")
+            if followingUsers.isEmpty {
+                Text("You're not following anyone yet.")
                     .foregroundColor(.secondary)
             } else {
-                ForEach(followedUsers) { user in
+                ForEach(followingUsers) { user in
                     HStack(spacing: 12) {
                         userProfileImage(for: user.profileImageUrl)
                             .frame(width: 40, height: 40)
@@ -31,15 +32,30 @@ struct FollowingListView: View {
                         }
 
                         Spacer()
+
+                        Button(role: .destructive) {
+                            Task {
+                                await userViewModel.unfollowUser(user)
+                                await userViewModel.loadCurrentUser()
+                                await loadFollowingUsers()
+                            }
+                        } label: {
+                            Text("Unfollow")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
         .navigationTitle("Following")
+        
         .onAppear {
             Task {
-                await loadFollowedUsers()
+                await userViewModel.loadCurrentUser()
+                print("[FollowingListView] onAppear triggered")
+                followingUsers = await userViewModel.loadFollowingUsers()
             }
         }
     }
@@ -69,11 +85,21 @@ struct FollowingListView: View {
         }
     }
 
-    private func loadFollowedUsers() async {
+    private func loadFollowingUsers() async {
+        print("[FollowingListView] loadFollowingUsers triggered")
         guard let followingIDs = userViewModel.user?.following else { return }
-        let users = await userViewModel.fetchUsers(withIDs: followingIDs)
+        var loadedUsers: [UserModel] = []
+
+        for uid in followingIDs {
+            if let user = try? await userViewModel.fetchUser(with: uid) {
+                loadedUsers.append(user)
+            }
+        }
+
+        print("[FollowingListView] Loaded followingUsers count: \(loadedUsers.count)")
+
         await MainActor.run {
-            self.followedUsers = users
+            self.followingUsers = loadedUsers
         }
     }
 }

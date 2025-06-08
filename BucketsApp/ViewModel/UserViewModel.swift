@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 @MainActor
 class UserViewModel: ObservableObject {
@@ -241,5 +242,29 @@ class UserViewModel: ObservableObject {
             print("[UserViewModel] loadAllUsers error:", error.localizedDescription)
             self.allUsers = []
         }
+    }
+    @MainActor
+    func loadCurrentUser() async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        do {
+            let snapshot = try await db.collection("users").document(userId).getDocument()
+            self.user = try snapshot.data(as: UserModel.self)
+            print("[UserViewModel] loadCurrentUser: Refreshed user document.")
+        } catch {
+            handleError(error, prefix: "loadCurrentUser")
+        }
+    }
+
+    @MainActor
+    func loadFollowingUsers() async -> [UserModel] {
+        guard let followingIDs = user?.following else { return [] }
+        var loadedUsers: [UserModel] = []
+
+        for uid in followingIDs {
+            if let user = try? await fetchUser(with: uid) {
+                loadedUsers.append(user)
+            }
+        }
+        return loadedUsers
     }
 }

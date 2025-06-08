@@ -7,45 +7,56 @@
 
 import SwiftUI
 
-struct User: Identifiable {
-    let id = UUID()
-    let profileImageName: String
-    let username: String
-    let name: String
-}
-
 struct FollowingView: View {
-    let followedUsers: [User] = [
-        User(profileImageName: "person.circle.fill", username: "johndoe", name: "John Doe"),
-        User(profileImageName: "person.circle.fill", username: "janedoe", name: "Jane Doe"),
-        User(profileImageName: "person.circle.fill", username: "alice123", name: "Alice Smith")
-    ]
+    @ObservedObject var userViewModel: UserViewModel
 
     var body: some View {
         NavigationView {
-            List(followedUsers) { user in
-                HStack(spacing: 12) {
-                    Image(systemName: user.profileImageName)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 40, height: 40)
-                        .clipShape(Circle())
-                        .foregroundColor(.blue)
-                    VStack(alignment: .leading) {
-                        Text(user.username)
-                            .font(.headline)
-                        Text(user.name)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+            List {
+                ForEach(userViewModel.user?.following ?? [], id: \.self) { userId in
+                    if let user = userViewModel.allUsers.first(where: { $0.id == userId }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                                .foregroundColor(.blue)
+
+                            VStack(alignment: .leading) {
+                                Text(user.username)
+                                    .font(.headline)
+                                Text(user.name)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+
+                            Spacer()
+
+                            Button("Unfollow") {
+                                Task {
+                                    await userViewModel.unfollow(user)
+                                    await userViewModel.loadAllUsers()
+                                    await userViewModel.loadCurrentUser()
+                                }
+                            }
+                            .foregroundColor(.red)
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
-                .padding(.vertical, 4)
             }
             .navigationTitle("Following")
+            .onAppear {
+                Task {
+                    await userViewModel.loadCurrentUser()
+                    await userViewModel.loadAllUsers()
+                }
+            }
         }
     }
 }
 
 #Preview {
-    FollowingView()
+    FollowingView(userViewModel: UserViewModel())
 }
