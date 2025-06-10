@@ -14,6 +14,7 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var postViewModel: PostViewModel
+    @EnvironmentObject var followViewModel: FollowViewModel
     
     /// NEW: Consume the existing FeedViewModel from environment
     @EnvironmentObject var feedViewModel: FeedViewModel
@@ -57,11 +58,11 @@ struct ListView: View {
 
                     ScrollViewReader { proxy in
                         contentView
-                            .navigationBarTitleDisplayMode(.inline)
-                            .onAppear {
+                            .task {
                                 loadItems()
                                 startTextFieldListeners()
                             }
+                            .navigationBarTitleDisplayMode(.inline)
                             .onDisappear {
                                 newlyCreatedItemID = nil
                                 UIApplication.shared.endEditing()
@@ -75,6 +76,7 @@ struct ListView: View {
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
                                     .environmentObject(postViewModel)
+                                    .environmentObject(followViewModel)
                             }
                             // Navigate to Feed
                             .navigationDestination(isPresented: $showFeed) {
@@ -209,8 +211,8 @@ struct ListView: View {
     // MARK: - List of Items
     private var itemListView: some View {
         List {
-            ForEach(displayedItems, id: \.id) { item in
-                rowView(for: item)
+            ForEach($bucketListViewModel.items) { $item in
+                rowView(for: $item)
             }
         }
         .listStyle(.plain)
@@ -461,47 +463,38 @@ struct ListView_Previews: PreviewProvider {
 
 // MARK: - Move bindingForItem and rowView inside ListView struct
 extension ListView {
-    // MARK: - Binding for Row
-    private func bindingForItem(_ item: ItemModel) -> Binding<ItemModel> {
-        guard let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) else {
-            return .constant(item)
-        }
-        return $bucketListViewModel.items[index]
-    }
-
     // MARK: - Item Row ViewBuilder for type-checking performance
     @ViewBuilder
-    private func rowView(for currentItem: ItemModel) -> some View {
-        let itemBinding = bindingForItem(currentItem)
+    private func rowView(for item: Binding<ItemModel>) -> some View {
         ItemRowView(
-            item: itemBinding,
+            item: item,
             newlyCreatedItemID: newlyCreatedItemID,
             onEmptyNameLostFocus: {
-                deleteItemIfEmpty(currentItem)
+                deleteItemIfEmpty(item.wrappedValue)
             },
             onNavigateToDetail: {
-                print("[ListView] selectedItem set: \(currentItem.name)")
-                bucketListViewModel.currentEditingItem = currentItem
-                selectedItem = currentItem
+                print("[ListView] selectedItem set: \(item.wrappedValue.name)")
+                bucketListViewModel.currentEditingItem = item.wrappedValue
+                selectedItem = item.wrappedValue
             }
         )
         .environmentObject(bucketListViewModel)
         .onAppear {
-            print("[DetailItemView Trigger] Appeared item: \(currentItem.name)")
+            print("[DetailItemView Trigger] Appeared item: \(item.wrappedValue.name)")
             print("[ListView] Total items in view model: \(bucketListViewModel.items.count)")
-            if let match = bucketListViewModel.items.first(where: { $0.id == currentItem.id }) {
+            if let match = bucketListViewModel.items.first(where: { $0.id == item.wrappedValue.id }) {
                 print("[ListView] ✅ Found matching item: \(match.name)")
             } else {
                 print("[ListView] ❌ Could not find item in items array")
             }
             Task {
-                await bucketListViewModel.prefetchImages(for: itemBinding.wrappedValue)
+                await bucketListViewModel.prefetchImages(for: item.wrappedValue)
             }
         }
         .onTapGesture {
-            print("[ListView] User tapped on item row: \(currentItem.name)")
+            print("[ListView] User tapped on item row: \(item.wrappedValue.name)")
         }
         .listRowSeparator(.hidden)
-        .id(currentItem.id)
+        .id(item.wrappedValue.id)
     }
 }

@@ -8,13 +8,14 @@
 import SwiftUI
 
 struct FollowingView: View {
-    @ObservedObject var userViewModel: UserViewModel
+    @EnvironmentObject var followViewModel: FollowViewModel
 
     var body: some View {
         NavigationView {
             List {
-                ForEach(userViewModel.user?.following ?? [], id: \.self) { userId in
-                    if let user = userViewModel.allUsers.first(where: { $0.id == userId }) {
+                ForEach(followViewModel.following, id: \.self) { userId in
+                    let matchedUser = followViewModel.allUsers.first(where: { $0.id == userId })
+                    if let user = matchedUser {
                         HStack(spacing: 12) {
                             Image(systemName: "person.circle.fill")
                                 .resizable()
@@ -24,9 +25,9 @@ struct FollowingView: View {
                                 .foregroundColor(.blue)
 
                             VStack(alignment: .leading) {
-                                Text(user.username)
+                                Text(user.username ?? "Unknown")
                                     .font(.headline)
-                                Text(user.name)
+                                Text(user.name ?? "")
                                     .font(.subheadline)
                                     .foregroundColor(.gray)
                             }
@@ -35,9 +36,8 @@ struct FollowingView: View {
 
                             Button("Unfollow") {
                                 Task {
-                                    await userViewModel.unfollow(user)
-                                    await userViewModel.loadAllUsers()
-                                    await userViewModel.loadCurrentUser()
+                                    await followViewModel.unfollowUser(user)
+                                    await followViewModel.loadFollowingUsers()
                                 }
                             }
                             .foregroundColor(.red)
@@ -49,14 +49,9 @@ struct FollowingView: View {
             .navigationTitle("Following")
             .onAppear {
                 Task {
-                    await userViewModel.loadCurrentUser()
-                    await userViewModel.loadAllUsers()
+                    await followViewModel.loadFollowingUsers()
                 }
             }
         }
     }
-}
-
-#Preview {
-    FollowingView(userViewModel: UserViewModel())
 }

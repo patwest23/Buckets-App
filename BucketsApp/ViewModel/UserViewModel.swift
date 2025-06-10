@@ -16,6 +16,7 @@ class UserViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
     @Published var allUsers: [UserModel] = []
+    @Published var followingUsers: [UserModel] = []
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -232,12 +233,6 @@ class UserViewModel: ObservableObject {
                 }
             }
             self.allUsers = users
-            if self.user?.following == nil {
-                self.user?.following = []
-            }
-            if self.user?.followers == nil {
-                self.user?.followers = []
-            }
         } catch {
             print("[UserViewModel] loadAllUsers error:", error.localizedDescription)
             self.allUsers = []
@@ -256,15 +251,14 @@ class UserViewModel: ObservableObject {
     }
 
     @MainActor
-    func loadFollowingUsers() async -> [UserModel] {
-        guard let followingIDs = user?.following else { return [] }
-        var loadedUsers: [UserModel] = []
-
-        for uid in followingIDs {
-            if let user = try? await fetchUser(with: uid) {
-                loadedUsers.append(user)
-            }
+    func loadUser(with userId: String) async {
+        do {
+            let snapshot = try await db.collection("users").document(userId).getDocument()
+            self.user = try snapshot.data(as: UserModel.self)
+            print("[UserViewModel] loadUser: Loaded user with ID \(userId)")
+        } catch {
+            handleError(error, prefix: "loadUser")
         }
-        return loadedUsers
     }
+
 }

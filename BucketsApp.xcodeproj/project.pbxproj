@@ -25,11 +25,11 @@
 		1F8EB9562B537915009CC18E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 1F8EB9552B537915009CC18E /* GoogleSignIn */; };
 		1F8EB9582B537915009CC18E /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1F8EB9572B537915009CC18E /* GoogleSignInSwift */; };
 		1F91D69B2C9678F300947A9D /* MockOnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */; };
+		1FA89F892DF7C15D00DCC5BA /* FollowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA89F882DF7C15D00DCC5BA /* FollowModel.swift */; };
+		1FA89F8B2DF7C1AE00DCC5BA /* FollowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA89F8A2DF7C1AE00DCC5BA /* FollowViewModel.swift */; };
 		1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */; };
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
 		1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */; };
-		1FC64BCE2DD90CE600EA595C /* FollowingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */; };
-		1FC64BD02DD90CFD00EA595C /* FollowersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */; };
 		1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FCC05822D0E685100892746 /* FirebaseFirestore */; };
 		1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */; };
 		1FCD29342D6284A70022E4CB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCD29332D62849E0022E4CB /* SettingsView.swift */; };
@@ -65,11 +65,11 @@
 		1F815C8D29ECA08B000063D3 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		1F8EB9592B5379E5009CC18E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOnBoardingViewModel.swift; sourceTree = "<group>"; };
+		1FA89F882DF7C15D00DCC5BA /* FollowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowModel.swift; sourceTree = "<group>"; };
+		1FA89F8A2DF7C1AE00DCC5BA /* FollowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowViewModel.swift; sourceTree = "<group>"; };
 		1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 		1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateEmailView.swift; sourceTree = "<group>"; };
 		1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePasswordView.swift; sourceTree = "<group>"; };
-		1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowingListView.swift; sourceTree = "<group>"; };
-		1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowersListView.swift; sourceTree = "<group>"; };
 		1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinchZoomImage.swift; sourceTree = "<group>"; };
 		1FCD29332D62849E0022E4CB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemView.swift; sourceTree = "<group>"; };
@@ -119,8 +119,6 @@
 				1FE006E72A10541200B0A6D7 /* ProfileView.swift */,
 				1F6ECAE02DF123D4006A05E9 /* ProfilePostRowView.swift */,
 				1F6ECAE22DF12649006A05E9 /* ProfilePostEditView.swift */,
-				1FC64BCD2DD90CE500EA595C /* FollowingListView.swift */,
-				1FC64BCF2DD90CFD00EA595C /* FollowersListView.swift */,
 				1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */,
 				1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */,
 				1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */,
@@ -191,6 +189,7 @@
 			isa = PBXGroup;
 			children = (
 				1F234B222D21DAE7000DF507 /* UserViewModel.swift */,
+				1FA89F8A2DF7C1AE00DCC5BA /* FollowViewModel.swift */,
 				1F64774929E5020F00B66F63 /* ListViewModel.swift */,
 				1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */,
 				1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */,
@@ -205,6 +204,7 @@
 			isa = PBXGroup;
 			children = (
 				1F64774B29E5023600B66F63 /* ItemModel.swift */,
+				1FA89F882DF7C15D00DCC5BA /* FollowModel.swift */,
 				1F234B242D21DC7E000DF507 /* UserModel.swift */,
 				1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */,
 			);
@@ -323,8 +323,8 @@
 			files = (
 				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
+				1FA89F892DF7C15D00DCC5BA /* FollowModel.swift in Sources */,
 				1F6ECAE12DF123D4006A05E9 /* ProfilePostRowView.swift in Sources */,
-				1FC64BD02DD90CFD00EA595C /* FollowersListView.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
 				1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */,
 				1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */,
@@ -348,9 +348,9 @@
 				1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */,
 				1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */,
 				1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */,
+				1FA89F8B2DF7C1AE00DCC5BA /* FollowViewModel.swift in Sources */,
 				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
 				1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
-				1FC64BCE2DD90CE600EA595C /* FollowingListView.swift in Sources */,
 				1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

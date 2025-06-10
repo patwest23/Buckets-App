@@ -20,6 +20,7 @@ struct BucketsApp: App {
     @StateObject var userViewModel = UserViewModel()
     @StateObject var feedViewModel = FeedViewModel()
     @StateObject var postViewModel = PostViewModel()
+    @StateObject var followViewModel = FollowViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -41,6 +42,7 @@ struct BucketsApp: App {
                         .environmentObject(userViewModel)
                         .environmentObject(feedViewModel)
                         .environmentObject(postViewModel)
+                        .environmentObject(followViewModel)
                         .onAppear {
                             Task {
                                 bucketListViewModel.startListeningToItems()
@@ -61,6 +63,7 @@ struct BucketsApp: App {
                                 }
 
                                 onboardingViewModel.user?.id = firebaseUser.uid
+                                await userViewModel.loadCurrentUser()
                                 postViewModel.onboardingViewModel = onboardingViewModel
 
                                 await onboardingViewModel.loadProfileImage()

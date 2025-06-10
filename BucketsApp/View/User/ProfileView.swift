@@ -13,6 +13,7 @@ struct ProfileView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var listViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
+    @EnvironmentObject var followViewModel: FollowViewModel
     
     // ADD THIS: to show the user's own posts
     @EnvironmentObject var postViewModel: PostViewModel
@@ -61,12 +62,9 @@ struct ProfileView: View {
                     }
                 }
             }
-            .onAppear {
-                // LOAD the user's posts from Firestore
-                Task {
-                    await postViewModel.loadPosts()
-                    await userViewModel.loadCurrentUser() // Add this line to refresh follow data
-                }
+            .task {
+                await postViewModel.loadPosts()
+                await userViewModel.loadCurrentUser()
             }
             .navigationDestination(isPresented: .constant(false)) {
                 EmptyView()
@@ -150,8 +148,8 @@ extension ProfileView {
         }()
         
         // FOLLOWING / FOLLOWERS
-        let followingCount = userViewModel.user?.following?.count ?? 0
-        let followersCount = userViewModel.user?.followers?.count ?? 0
+        let followingCount = (userViewModel.user?.following ?? []).count
+        let followersCount = (userViewModel.user?.followers ?? []).count
         
         return VStack(spacing: 20) {
             
@@ -183,8 +181,8 @@ extension ProfileView {
             // 3) Second row: Following / Followers
             HStack(spacing: 16) {
                 NavigationLink {
-                    FollowingListView()
-                        .environmentObject(userViewModel)
+                    FollowingView()
+                        .environmentObject(followViewModel)
                 } label: {
                     statCard(emoji: "👥",
                              title: "Following",
@@ -193,8 +191,8 @@ extension ProfileView {
                 }
 
                 NavigationLink {
-                    FollowersListView()
-                        .environmentObject(userViewModel)
+                    FollowerView()
+                        .environmentObject(followViewModel)
                 } label: {
                     statCard(emoji: "🙋‍♂️",
                              title: "Followers",
@@ -305,96 +303,54 @@ extension ProfileView {
     }
 }
 
-// MARK: - Preview
-#if DEBUG
-struct ProfileView_Previews: PreviewProvider {
-    static var previews: some View {
-        let mockOnboardingVM = OnboardingViewModel()
-        let mockListVM = ListViewModel()
-        let mockUserVM = UserViewModel()
-        let mockPostVM = PostViewModel()
-
-        // Example bucket items for the stats
-        mockListVM.items = [
-            ItemModel(userId: "abc", name: "Bucket 1", completed: false),
-            ItemModel(userId: "abc", name: "Bucket 2", completed: true)
-        ]
-
-        // Sample posts
-        let posts: [PostModel] = [
-            PostModel(
-                id: "post_001",
-                authorId: "abc",
-                authorUsername: "@patrick",
-                itemId: "item001",
-                type: .completed,
-                timestamp: Date().addingTimeInterval(-3600),
-                caption: "Had an amazing trip to NYC!",
-                taggedUserIds: [],
-                likedBy: ["userXYZ"],
-                itemImageUrls: ["https://picsum.photos/400/400?random=1"]
-            ),
-            PostModel(
-                id: "post_002",
-                authorId: "abc",
-                authorUsername: "@patrick",
-                itemId: "item002",
-                type: .completed,
-                timestamp: Date().addingTimeInterval(-7200),
-                caption: "Finally finished my painting class!",
-                taggedUserIds: [],
-                likedBy: [],
-                itemImageUrls: ["https://picsum.photos/400/400?random=2", "https://picsum.photos/400/400?random=3"]
-            ),
-            PostModel(
-                id: "post_003",
-                authorId: "abc",
-                authorUsername: "@patrick",
-                itemId: "item003",
-                type: .added,
-                timestamp: Date().addingTimeInterval(-10800),
-                caption: "No images, but so excited about this!",
-                taggedUserIds: [],
-                likedBy: ["userABC", "user123"],
-                itemImageUrls: []
-            )
-        ]
-
-        mockPostVM.posts = posts
-
-        // Inject mock items into PostViewModel
-        for post in posts {
-            mockPostVM.injectedItems[post.itemId] = ItemModel(
-                id: UUID(),
-                userId: post.authorId,
-                name: "Mock Item for \(post.itemId)",
-                completed: post.type == .completed,
-                imageUrls: post.itemImageUrls
-            )
-        }
-
-        return Group {
-            // Light Mode
-            NavigationView {
-                ProfileView()
-                    .environmentObject(mockOnboardingVM)
-                    .environmentObject(mockListVM)
-                    .environmentObject(mockUserVM)
-                    .environmentObject(mockPostVM)
-            }
-            .previewDisplayName("ProfileView - Light Mode")
-
-            // Dark Mode
-            NavigationView {
-                ProfileView()
-                    .environmentObject(mockOnboardingVM)
-                    .environmentObject(mockListVM)
-                    .environmentObject(mockUserVM)
-                    .environmentObject(mockPostVM)
-                    .preferredColorScheme(.dark)
-            }
-            .previewDisplayName("ProfileView - Dark Mode")
-        }
-    }
-}
-#endif
+//// MARK: - Preview
+//#if DEBUG
+//struct ProfileView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        let mockOnboardingVM = OnboardingViewModel()
+//        let mockListVM = ListViewModel()
+//        let mockUserVM = UserViewModel()
+//        let mockPostVM = PostViewModel()
+//        let mockFollowVM = FollowViewModel()
+//
+//        // Set up a mock user
+//        mockUserVM.user = UserModel(
+//            id: "mockUser",
+//            email: "mock@example.com",
+//            createdAt: Date(),
+//            name: "Mock User",
+//            username: "@mockuser",
+//            following: ["following1", "following2"], followers: ["follower1", "follower2"]
+//        )
+//
+//        // Mock list items
+//        mockListVM.items = [
+//            ItemModel(userId: "mockUser", name: "Go Skydiving", completed: false),
+//            ItemModel(userId: "mockUser", name: "Climb Everest", completed: true)
+//        ]
+//
+//        return Group {
+//            NavigationStack {
+//                ProfileView()
+//                    .environmentObject(mockOnboardingVM)
+//                    .environmentObject(mockListVM)
+//                    .environmentObject(mockUserVM)
+//                    .environmentObject(mockPostVM)
+//                    .environmentObject(mockFollowVM)
+//            }
+//            .previewDisplayName("ProfileView – Light Mode")
+//
+//            NavigationStack {
+//                ProfileView()
+//                    .environmentObject(mockOnboardingVM)
+//                    .environmentObject(mockListVM)
+//                    .environmentObject(mockUserVM)
+//                    .environmentObject(mockPostVM)
+//                    .environmentObject(mockFollowVM)
+//                    .preferredColorScheme(.dark)
+//            }
+//            .previewDisplayName("ProfileView – Dark Mode")
+//        }
+//    }
+//}
+//#endif

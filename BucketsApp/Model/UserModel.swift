@@ -30,10 +30,10 @@ struct UserModel: Identifiable, Codable, Hashable {
     var username: String?
     
     /// An array of user IDs that this user is following.
-    var following: [String]?
+    var following: [String] = []
     
     /// An optional array of user IDs who follow this user.
-    var followers: [String]?
+    var followers: [String] = []
 
     /// Lowercased versions of name/username for case-insensitive search.
     var username_lower: String?
@@ -63,8 +63,8 @@ struct UserModel: Identifiable, Codable, Hashable {
         profileImageUrl: String? = nil,
         name: String? = "Guest",
         username: String? = nil,
-        following: [String]? = nil,
-        followers: [String]? = nil,
+        following: [String] = [],
+        followers: [String] = [],
         username_lower: String? = nil,
         name_lower: String? = nil,
         isFollowed: Bool = false
