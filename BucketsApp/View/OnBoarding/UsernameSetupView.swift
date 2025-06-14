@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct UsernameSetupView: View {
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var username: String = ""
     @State private var isUsernameValid: Bool = false
@@ -39,8 +39,8 @@ struct UsernameSetupView: View {
 
             Button(action: {
                 Task {
-                    await onboardingViewModel.updateUsername(username)
-                    if onboardingViewModel.username == username {
+                    await userViewModel.updateUserName(to: username)
+                    if userViewModel.user?.username == username {
                         dismiss()
                     }
                 }
@@ -70,7 +70,7 @@ struct UsernameSetupView: View {
             return
         }
 
-        let available = await onboardingViewModel.isUsernameAvailable(trimmed)
+        let available = await userViewModel.checkUsernameAvailability(trimmed)
         if available {
             isUsernameValid = true
         } else {

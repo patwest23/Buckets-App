@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import FirebaseAuth
 
 enum SignUpNavigationDestination {
     case listView
@@ -14,6 +15,7 @@ enum SignUpNavigationDestination {
 
 struct SignUpView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
 
     @State private var username: String = ""
     @State private var confirmPassword: String = ""
@@ -59,7 +61,7 @@ struct SignUpView: View {
                 case .listView:
                     // Navigate to ListView after successful sign-up
                     ListView()
-                        .environmentObject(viewModel)
+                        .environmentObject(userViewModel)
                 }
             }
         }
@@ -200,9 +202,12 @@ struct SignUpView: View {
     
     /// Actually performs the sign-up in OnboardingViewModel after storing typed username
     private func signUpUser() async {
-        // Transfer the final username (with "@") to the ViewModel
-        viewModel.username = username
-        await viewModel.createUser()
+        await viewModel.createUser(using: userViewModel)
+        if let currentUser = Auth.auth().currentUser {
+            await userViewModel.createUserDocument(userId: currentUser.uid, email: currentUser.email ?? "")
+            await userViewModel.updateUsername(username)
+            await userViewModel.loadCurrentUser()
+        }
         
         if viewModel.isAuthenticated {
             navigationPath.append(SignUpNavigationDestination.listView)
@@ -255,4 +260,3 @@ struct SignUpView_Previews: PreviewProvider {
     }
 }
 #endif
-

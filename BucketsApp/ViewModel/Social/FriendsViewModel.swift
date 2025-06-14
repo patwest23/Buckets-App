@@ -29,7 +29,6 @@ class FriendsViewModel: ObservableObject {
             let followingIds = userDoc.data()?["following"] as? [String] ?? []
             let followerIds = userDoc.data()?["followers"] as? [String] ?? []
 
-            // Fetch each user
             async let fetchedFollowing = fetchUsers(with: followingIds)
             async let fetchedFollowers = fetchUsers(with: followerIds)
 

@@ -20,7 +20,8 @@ struct BucketsApp: App {
     @StateObject var userViewModel = UserViewModel()
     @StateObject var feedViewModel = FeedViewModel()
     @StateObject var postViewModel = PostViewModel()
-    @StateObject var followViewModel = FollowViewModel()
+    // @StateObject var followViewModel = FollowViewModel()
+    @StateObject var friendsViewModel = FriendsViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -42,31 +43,43 @@ struct BucketsApp: App {
                         .environmentObject(userViewModel)
                         .environmentObject(feedViewModel)
                         .environmentObject(postViewModel)
-                        .environmentObject(followViewModel)
+                        // .environmentObject(followViewModel)
+                        .environmentObject(friendsViewModel)
                         .onAppear {
                             Task {
+                                print("[BucketsApp] Starting onAppear loading...")
+
                                 bucketListViewModel.startListeningToItems()
+                                print("[BucketsApp] Started listening to items")
+
                                 guard let firebaseUser = Auth.auth().currentUser else {
                                     print("[BucketsApp] No authenticated user.")
                                     return
                                 }
 
+                                print("[BucketsApp] Firebase user found: \(firebaseUser.uid)")
+
                                 if onboardingViewModel.user == nil {
                                     onboardingViewModel.user = UserModel(
-                                        id: firebaseUser.uid,
+                                        documentId: firebaseUser.uid,
                                         email: firebaseUser.email ?? "unknown",
                                         createdAt: Date(),
                                         profileImageUrl: nil,
                                         name: nil,
                                         username: nil
                                     )
+                                    print("[BucketsApp] Created onboarding user model")
                                 }
 
-                                onboardingViewModel.user?.id = firebaseUser.uid
+                                onboardingViewModel.user?.documentId = firebaseUser.uid
+
                                 await userViewModel.loadCurrentUser()
+                                print("[BucketsApp] Finished loading current user")
+
                                 postViewModel.onboardingViewModel = onboardingViewModel
 
                                 await onboardingViewModel.loadProfileImage()
+                                print("[BucketsApp] Finished loading profile image")
                             }
                         }
                 }

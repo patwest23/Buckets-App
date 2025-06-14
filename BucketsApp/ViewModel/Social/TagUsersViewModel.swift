@@ -83,8 +83,7 @@ class TagUserViewModel: ObservableObject {
             var results = [UserModel]()
             for doc in snap.documents {
                 if let user = try? doc.data(as: UserModel.self),
-                   let userId = user.id,
-                   userId != currentUserId {
+                   user.id != currentUserId {
                     results.append(user)
                 }
             }
@@ -106,7 +105,7 @@ class TagUserViewModel: ObservableObject {
     /// When the user taps on a suggestion, we can replace the partial “@xxx” in the caption
     /// with the full mention, or just keep the mention in text. We also store the userId in `taggedUserIds`.
     func selectSuggestion(_ user: UserModel) {
-        guard let userId = user.id else { return }
+        let userId = user.id
         
         // 1) We add the userId to `taggedUserIds` so we know who was tagged
         if !taggedUserIds.contains(userId) {

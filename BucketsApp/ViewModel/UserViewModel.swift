@@ -82,10 +82,7 @@ class UserViewModel: ObservableObject {
     
     // MARK: - Update User Profile
     func updateUserProfile(_ updatedUser: UserModel) async {
-        guard let userId = updatedUser.id else {
-            print("[UserViewModel] updateUserProfile: Error: updatedUser.id is nil.")
-            return
-        }
+        let userId = updatedUser.id
         
         do {
             try await withCheckedThrowingContinuation {
@@ -168,22 +165,22 @@ class UserViewModel: ObservableObject {
     }
     
     /// Checks if a given username is already taken by any user in the database
-    func isUsernameTaken(_ username: String) async -> Bool {
+    func checkUsernameAvailability(_ username: String) async -> Bool {
         do {
             let snapshot = try await db.collection("users")
                 .whereField("name", isEqualTo: username)
                 .getDocuments()
-            return !snapshot.documents.isEmpty
+            return snapshot.documents.isEmpty
         } catch {
             print("[UserViewModel] Error checking username:", error.localizedDescription)
-            return true // Assume taken on failure
+            return false // Assume not available on failure
         }
     }
     
     /// Sets the username if it's not already taken. Returns true if successful.
-    func setUsernameIfAvailable(_ username: String) async -> Bool {
-        let isTaken = await isUsernameTaken(username)
-        guard isTaken == false else { return false }
+    func updateUsername(_ username: String) async -> Bool {
+        let isAvailable = await checkUsernameAvailability(username)
+        guard isAvailable else { return false }
         await updateUserName(to: username)
         return true
     }
@@ -200,7 +197,7 @@ class UserViewModel: ObservableObject {
     }
     
     var userIsAuthenticated: Bool {
-        user?.id?.isEmpty == false
+        user != nil && !user!.id.isEmpty
     }
 
     // MARK: - Fetch Users by ID List
@@ -261,4 +258,24 @@ class UserViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Create User Document
+    func createUserDocument(userId: String, email: String) async {
+        let docRef = db.collection("users").document(userId)
+        let userData: [String: Any] = [
+            "email": email,
+            "createdAt": FieldValue.serverTimestamp(),
+            "username": "",
+            "name": "",
+            "profileImageUrl": "",
+            "followers": [],
+            "following": []
+        ]
+        
+        do {
+            try await docRef.setData(userData, merge: true)
+            print("[UserViewModel] createUserDocument: Created user doc at /users/\(userId)")
+        } catch {
+            handleError(error, prefix: "createUserDocument")
+        }
+    }
 }

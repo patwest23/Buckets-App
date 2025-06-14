@@ -87,21 +87,21 @@ struct UserSearchView: View {
     }
 }
 
-struct UserSearchView_Previews: PreviewProvider {
-    static var previews: some View {
-        let mockVM = UserSearchViewModel()
-        mockVM.allUsers = [
-            UserModel(
-                id: "user_123",
-                email: "test@example.com",
-                createdAt: Date(),
-                profileImageUrl: nil,
-                name: "Test User",
-                username: "@test",
-                isFollowed: false
-            )
-        ]
-        return UserSearchView(vm: mockVM)
-            .previewDisplayName("Mock Search View")
-    }
-}
+//struct UserSearchView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        let mockVM = UserSearchViewModel()
+//        mockVM.allUsers = [
+//            UserModel(
+//                id: "user_123",
+//                email: "test@example.com",
+//                createdAt: Date(),
+//                profileImageUrl: nil,
+//                name: "Test User",
+//                username: "@test",
+//                isFollowed: false
+//            )
+//        ]
+//        return UserSearchView(vm: mockVM)
+//            .previewDisplayName("Mock Search View")
+//    }
+//}

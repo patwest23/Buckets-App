@@ -85,7 +85,7 @@ struct OnboardingView: View {
                         // MARK: - Google Sign-In Button
                         Button(action: {
                             onboardingViewModel.signInWithGoogle(completion: { success in
-                                if success && onboardingViewModel.username.isEmpty {
+                                if success {
                                     showUsernameSetup = true
                                 }
                             })

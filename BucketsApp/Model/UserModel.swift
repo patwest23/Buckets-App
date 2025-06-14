@@ -8,42 +8,28 @@
 import Foundation
 import FirebaseFirestore
 
-/// Represents a user document in Firestore.
-struct UserModel: Identifiable, Codable, Hashable {
-    
-    /// The Firestore document ID for this user (managed automatically if using Firestore’s Swift APIs).
-    @DocumentID var id: String?
-    
-    /// The user’s email address.
-    var email: String?
-    
-    /// The date/time when this user record was created.
-    var createdAt: Date?
-    
-    /// URL to the user’s profile image (stored in Firebase Storage or elsewhere).
-    var profileImageUrl: String?
-    
-    /// The user’s full display name (e.g., “John Doe”). Defaults to "Guest" if none is provided.
-    var name: String?
-    
-    /// A separate handle (like “@john123”). May be nil if user never set it.
-    var username: String?
-    
-    /// An array of user IDs that this user is following.
-    var following: [String] = []
-    
-    /// An optional array of user IDs who follow this user.
-    var followers: [String] = []
+struct UserModel: Codable, Hashable, Identifiable {
+    // Use this for SwiftUI identity
+    var id: String { documentId ?? "unknown-user-id" }
 
-    /// Lowercased versions of name/username for case-insensitive search.
+    @DocumentID var documentId: String?
+    var wrappedId: String {
+        documentId ?? "unknown-user-id"
+    }
+
+    var email: String?
+    var createdAt: Date?
+    var profileImageUrl: String?
+    var name: String?
+    var username: String?
+    var following: [String] = []
+    var followers: [String] = []
     var username_lower: String?
     var name_lower: String?
-    
-    /// Local-only property to track if user is already followed (not written to Firestore)
     var isFollowed: Bool = false
 
     enum CodingKeys: String, CodingKey {
-        case id
+        case documentId = "id"
         case email
         case createdAt
         case profileImageUrl
@@ -54,10 +40,9 @@ struct UserModel: Identifiable, Codable, Hashable {
         case username_lower
         case name_lower
     }
-    
-    // MARK: - Custom Initializer
+
     init(
-        id: String? = nil,
+        documentId: String? = nil,
         email: String? = nil,
         createdAt: Date? = nil,
         profileImageUrl: String? = nil,
@@ -69,7 +54,7 @@ struct UserModel: Identifiable, Codable, Hashable {
         name_lower: String? = nil,
         isFollowed: Bool = false
     ) {
-        self.id = id
+        self.documentId = documentId
         self.email = email ?? "unknown@example.com"
         self.createdAt = createdAt ?? Date()
         self.profileImageUrl = profileImageUrl
@@ -82,3 +67,4 @@ struct UserModel: Identifiable, Codable, Hashable {
         self.isFollowed = isFollowed
     }
 }
+

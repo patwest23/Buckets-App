@@ -79,7 +79,7 @@ class UserSearchViewModel: ObservableObject {
     // MARK: - Follow
     func followUser(_ user: UserModel) async {
         guard let currentId = currentUserId else { return }
-        guard let userToFollowId = user.id else { return }
+        let userToFollowId = user.id
 
         let currentUserRef = db.collection("users").document(currentId)
         let userToFollowRef = db.collection("users").document(userToFollowId)
@@ -107,7 +107,7 @@ class UserSearchViewModel: ObservableObject {
     // MARK: - Unfollow
     func unfollowUser(_ user: UserModel) async {
         guard let currentId = currentUserId else { return }
-        guard let userToUnfollowId = user.id else { return }
+        let userToUnfollowId = user.id
 
         let currentUserRef = db.collection("users").document(currentId)
         let userToUnfollowRef = db.collection("users").document(userToUnfollowId)
@@ -143,9 +143,8 @@ class UserSearchViewModel: ObservableObject {
             users = users.filter { $0.id != currentId }
 
             for i in users.indices {
-                if let id = users[i].id {
-                    users[i].isFollowed = following.contains(id)
-                }
+                let id = users[i].id
+                users[i].isFollowed = following.contains(id)
             }
 
             await MainActor.run {

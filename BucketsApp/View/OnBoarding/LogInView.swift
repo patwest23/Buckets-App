@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct LogInView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     
     @State private var isLoading = false
     @State private var showWrongPasswordAlert = false
@@ -38,6 +40,9 @@ struct LogInView: View {
                         isLoading = true
                         Task {
                             await viewModel.signIn()
+                            if let user = Auth.auth().currentUser {
+                                await userViewModel.loadCurrentUser()
+                            }
                             isLoading = false
                             
                             // 1) Detect if the error is specifically "wrong password"
@@ -183,5 +188,3 @@ struct LogInView_Previews: PreviewProvider {
     }
 }
 #endif
-
-

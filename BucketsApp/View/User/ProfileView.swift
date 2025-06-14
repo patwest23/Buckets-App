@@ -13,7 +13,7 @@ struct ProfileView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var listViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
-    @EnvironmentObject var followViewModel: FollowViewModel
+//    @EnvironmentObject var followViewModel: FollowViewModel
     
     // ADD THIS: to show the user's own posts
     @EnvironmentObject var postViewModel: PostViewModel
@@ -180,25 +180,19 @@ extension ProfileView {
             
             // 3) Second row: Following / Followers
             HStack(spacing: 16) {
-                NavigationLink {
-                    FollowingView()
-                        .environmentObject(followViewModel)
-                } label: {
-                    statCard(emoji: "👥",
-                             title: "Following",
-                             value: "\(followingCount)",
-                             color: .blue)
-                }
+                // NavigationLink(destination: FollowingView(followViewModel: _followViewModel)) {
+                //     statCard(emoji: "👥",
+                //              title: "Following",
+                //              value: "\(followingCount)",
+                //              color: .blue)
+                // }
 
-                NavigationLink {
-                    FollowerView()
-                        .environmentObject(followViewModel)
-                } label: {
-                    statCard(emoji: "🙋‍♂️",
-                             title: "Followers",
-                             value: "\(followersCount)",
-                             color: .green)
-                }
+                // NavigationLink(destination: FollowerView(followViewModel: _followViewModel)) {
+                //     statCard(emoji: "🙋‍♂️",
+                //              title: "Followers",
+                //              value: "\(followersCount)",
+                //              color: .green)
+                // }
             }
         }
         .padding()
@@ -311,7 +305,7 @@ extension ProfileView {
 //        let mockListVM = ListViewModel()
 //        let mockUserVM = UserViewModel()
 //        let mockPostVM = PostViewModel()
-//        let mockFollowVM = FollowViewModel()
+//        // let mockFollowVM = FollowViewModel()
 //
 //        // Set up a mock user
 //        mockUserVM.user = UserModel(
@@ -336,7 +330,7 @@ extension ProfileView {
 //                    .environmentObject(mockListVM)
 //                    .environmentObject(mockUserVM)
 //                    .environmentObject(mockPostVM)
-//                    .environmentObject(mockFollowVM)
+//                    // .environmentObject(mockFollowVM)
 //            }
 //            .previewDisplayName("ProfileView – Light Mode")
 //
@@ -346,7 +340,7 @@ extension ProfileView {
 //                    .environmentObject(mockListVM)
 //                    .environmentObject(mockUserVM)
 //                    .environmentObject(mockPostVM)
-//                    .environmentObject(mockFollowVM)
+//                    // .environmentObject(mockFollowVM)
 //                    .preferredColorScheme(.dark)
 //            }
 //            .previewDisplayName("ProfileView – Dark Mode")

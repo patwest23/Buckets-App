@@ -14,7 +14,8 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var postViewModel: PostViewModel
-    @EnvironmentObject var followViewModel: FollowViewModel
+    //@EnvironmentObject var followViewModel: FollowViewModel
+    @EnvironmentObject var friendsViewModel: FriendsViewModel // ✅ Add this to ListView
     
     /// NEW: Consume the existing FeedViewModel from environment
     @EnvironmentObject var feedViewModel: FeedViewModel
@@ -36,6 +37,7 @@ struct ListView: View {
     // Control for showing the FeedView
     @State private var showFeed = false
     @State private var showUserSearch = false
+    @State private var showFriends = false
 
     // For preview mode
     init(previewMode: Bool = false) {
@@ -76,7 +78,6 @@ struct ListView: View {
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
                                     .environmentObject(postViewModel)
-                                    .environmentObject(followViewModel)
                             }
                             // Navigate to Feed
                             .navigationDestination(isPresented: $showFeed) {
@@ -169,6 +170,12 @@ struct ListView: View {
                                 Image(systemName: "house.fill")
                             }
                             Spacer()
+                            Button {
+                                showFriends = true
+                            } label: {
+                                Image(systemName: "person.2.fill")
+                            }
+                            Spacer()
                             addButton
                             Spacer()
                             Button {
@@ -179,6 +186,12 @@ struct ListView: View {
                         }
                         .padding(.top, 4)
                     }
+                }
+                // Navigation to FriendsView
+                .navigationDestination(isPresented: $showFriends) {
+                    FriendsView()
+                        .environmentObject(userViewModel)
+                        .environmentObject(friendsViewModel) // ✅ use the existing instance
                 }
                 // Extra space above keyboard
                 .safeAreaInset(edge: .bottom) {

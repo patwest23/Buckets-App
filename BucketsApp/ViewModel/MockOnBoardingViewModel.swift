@@ -19,7 +19,7 @@ class MockOnboardingViewModel: ObservableObject {
     @Published var showErrorAlert: Bool = false
     
     /// Example user object. Defaults to a "mock" user with ID "mockUserId".
-    @Published var user: UserModel? = UserModel(id: "mockUserId", email: "mockuser@example.com")
+    @Published var user: UserModel? = UserModel(documentId: "mockUserId", email: "mockuser@example.com")
     
     // MARK: - Computed Property
     
@@ -34,7 +34,7 @@ class MockOnboardingViewModel: ObservableObject {
     func signIn() {
         if email == "mockuser@example.com" && password == "password" {
             isAuthenticated = true
-            user = UserModel(id: "mockUserId", email: email)
+            user = UserModel(documentId: "mockUserId", email: email)
             errorMessage = nil
         } else {
             simulateError("Invalid email or password.")
@@ -53,7 +53,7 @@ class MockOnboardingViewModel: ObservableObject {
             simulateError("Email and password cannot be empty.")
         } else {
             isAuthenticated = true
-            user = UserModel(id: "mockUserId", email: email)
+            user = UserModel(documentId: "mockUserId", email: email)
             errorMessage = nil
         }
     }
@@ -92,5 +92,3 @@ class MockOnboardingViewModel: ObservableObject {
         showErrorAlert = true
     }
 }
-
-

@@ -23,15 +23,6 @@ final class OnboardingViewModel: ObservableObject {
     @Published var email: String = ""
     @Published var password: String = ""
     
-    /// A username property (optional usage).
-    /// If you no longer need any username in your app, you can remove this, too.
-    @Published var username: String = "" {
-        didSet {
-            if !username.isEmpty && !username.hasPrefix("@") {
-                username = "@" + username
-            }
-        }
-    }
     
     /// Whether the user is currently signed in.
     @Published var isAuthenticated: Bool = false
@@ -39,8 +30,6 @@ final class OnboardingViewModel: ObservableObject {
     /// Holds the user’s profile image data (loaded from or to Firebase Storage).
     @Published var profileImageData: Data?
     
-    /// The user document from Firestore (see `UserModel`).
-    @Published var user: UserModel?
     
     /// Whether to prompt for a username after Google sign-in if missing.
     @Published var shouldPromptUsername: Bool = false
@@ -54,10 +43,6 @@ final class OnboardingViewModel: ObservableObject {
     private let firestore = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
     
-    /// Convenience property for the user doc ID (matching Auth UID).
-    var userId: String? {
-        user?.id ?? Auth.auth().currentUser?.uid
-    }
     
     // MARK: - Initialization
     init() {
@@ -76,7 +61,6 @@ final class OnboardingViewModel: ObservableObject {
                 isAuthenticated = true
                 print("[OnboardingViewModel] Already signed in with UID:", currentUser.uid)
                 
-                await fetchUserDocument(userId: currentUser.uid)
                 await loadProfileImage()
             } else {
                 print("[OnboardingViewModel] No authenticated user found.")
@@ -97,7 +81,7 @@ final class OnboardingViewModel: ObservableObject {
     }
     
     // MARK: - Google Sign-In
-    
+
     func signInWithGoogle(completion: @escaping (Bool) -> Void) {
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             handleError(NSError(
@@ -108,12 +92,11 @@ final class OnboardingViewModel: ObservableObject {
             completion(false)
             return
         }
-        
+
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
-        
+
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootViewController = windowScene.windows.first?.rootViewController
-        else {
+              let rootViewController = windowScene.windows.first?.rootViewController else {
             handleError(NSError(
                 domain: "UIError",
                 code: 0,
@@ -122,27 +105,25 @@ final class OnboardingViewModel: ObservableObject {
             completion(false)
             return
         }
-        
+
         GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [weak self] result, error in
             guard let self = self else { return }
-            
+
             if let error = error {
                 self.handleError(error)
                 completion(false)
                 return
             }
-            
+
             guard let user = result?.user else {
-                // handle error
                 completion(false)
                 return
             }
 
             let idTokenString = user.idToken?.tokenString ?? ""
             let accessTokenString = user.accessToken.tokenString
-            
+
             if idTokenString.isEmpty || accessTokenString.isEmpty {
-                // handle error
                 completion(false)
                 return
             }
@@ -151,14 +132,14 @@ final class OnboardingViewModel: ObservableObject {
                 withIDToken: idTokenString,
                 accessToken: accessTokenString
             )
-            
+
             Auth.auth().signIn(with: credential) { authResult, error in
                 if let error = error {
                     self.handleError(error)
                     completion(false)
                     return
                 }
-                
+
                 guard let authUser = authResult?.user else {
                     self.handleError(NSError(
                         domain: "AuthError",
@@ -168,15 +149,14 @@ final class OnboardingViewModel: ObservableObject {
                     completion(false)
                     return
                 }
-                
+
                 self.isAuthenticated = true
                 self.clearErrorState()
-                
+
                 Task {
                     if let userEmail = authUser.email {
                         let userDocRef = self.firestore.collection("users").document(authUser.uid)
                         do {
-                            // Merge the user's email if doc doesn't exist
                             try await userDocRef.setData(["email": userEmail], merge: true)
                         } catch {
                             self.handleError(error)
@@ -184,16 +164,9 @@ final class OnboardingViewModel: ObservableObject {
                             return
                         }
                     }
-                    
-                    // Fetch user doc (then optionally load more data)
-                    await self.fetchUserDocument(userId: authUser.uid)
-                    // Prompt for username if needed
-                    if self.user?.username?.isEmpty ?? true {
-                        self.shouldPromptUsername = true
-                    }
-                    self.startListeningToUserDocument(userId: authUser.uid)
+
                     await self.loadProfileImage()
-                    
+
                     print("[OnboardingViewModel] Google sign-in success. UID:", authUser.uid)
                     completion(true)
                 }
@@ -219,8 +192,6 @@ final class OnboardingViewModel: ObservableObject {
                 try await userDocRef.setData(["email": actualEmail], merge: true)
             }
             
-            await fetchUserDocument(userId: authResult.user.uid)
-            startListeningToUserDocument(userId: authResult.user.uid)
             await loadProfileImage()
             
         } catch {
@@ -246,7 +217,7 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Create User
     
-    func createUser() async {
+    func createUser(using userViewModel: UserViewModel) async {
         do {
             let authResult = try await Auth.auth().createUser(withEmail: email, password: password)
             isAuthenticated = true
@@ -257,47 +228,13 @@ final class OnboardingViewModel: ObservableObject {
             // Store credentials in Keychain if you want Face ID next time
             storeCredentialsInKeychain()
             
-            await createUserDocument(userId: authResult.user.uid)
-            await fetchUserDocument(userId: authResult.user.uid)
-            startListeningToUserDocument(userId: authResult.user.uid)
+            await userViewModel.createUserDocument(userId: authResult.user.uid, email: authResult.user.email ?? "")
             
         } catch {
             handleError(error)
         }
     }
     
-    // MARK: - Real-Time Listener
-    
-    func startListeningToUserDocument(userId: String) {
-        userDocListener?.remove()
-        
-        let docRef = firestore.collection("users").document(userId)
-        userDocListener = docRef.addSnapshotListener { [weak self] snapshot, error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("[OnboardingViewModel] Error listening to user doc:", error.localizedDescription)
-                self.handleError(error)
-                return
-            }
-            guard let snapshot = snapshot, snapshot.exists else {
-                print("[OnboardingViewModel] User doc not found or removed.")
-                return
-            }
-            
-            do {
-                self.user = try snapshot.data(as: UserModel.self)
-                print("[OnboardingViewModel] Real-time update. user.id =", self.user?.id ?? "nil")
-            } catch {
-                self.handleError(error)
-            }
-        }
-    }
-    
-    func stopListeningToUserDocument() {
-        userDocListener?.remove()
-        userDocListener = nil
-    }
     
     // MARK: - Password Reset
     
@@ -403,58 +340,6 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Firestore Integration
     
-    func createUserDocument(userId: String) async {
-        let userDoc = firestore.collection("users").document(userId)
-        do {
-            let docData: [String: Any] = [
-                "email": email,
-                "createdAt": FieldValue.serverTimestamp(),
-                "username": username,
-                "name": "",
-                "profileImageUrl": "",
-                "followers": [],
-                "following": []
-            ]
-            try await userDoc.setData(docData, merge: true)
-            print("[OnboardingViewModel] User document created at /users/\(userId).")
-        } catch {
-            handleError(error)
-        }
-    }
-    
-    func fetchUserDocument(userId: String) async {
-        let userDoc = firestore.collection("users").document(userId)
-        do {
-            let snapshot = try await userDoc.getDocument()
-            guard snapshot.exists else {
-                print("[OnboardingViewModel] No user document found at /users/\(userId). Signing out.")
-                await signOut()
-                return
-            }
-
-            do {
-                self.user = try snapshot.data(as: UserModel.self)
-                self.user?.id = userId
-                print("[OnboardingViewModel] User doc fetched. user?.id =", self.user?.id ?? "nil")
-
-                if self.user?.id == userId {
-                    print("[OnboardingViewModel] Matches Auth UID:", userId)
-                } else {
-                    print("[OnboardingViewModel] Warning: doc ID mismatch. docID =", self.user?.id ?? "nil",
-                          "AuthUID =", userId)
-                }
-
-            } catch {
-                print("[OnboardingViewModel] Error decoding user doc:", error.localizedDescription)
-                print("[OnboardingViewModel] Raw snapshot data:", snapshot.data() ?? "nil")
-                handleError(error)
-            }
-
-        } catch {
-            print("[OnboardingViewModel] Error fetching/decoding user doc:", error.localizedDescription)
-            handleError(error)
-        }
-    }
     
     // MARK: - Error Handling
     
@@ -473,9 +358,7 @@ final class OnboardingViewModel: ObservableObject {
         print("[OnboardingViewModel] Clearing state...")
         email = ""
         password = ""
-        username = ""
         profileImageData = nil
-        user = nil
         errorMessage = nil
         showErrorAlert = false
         isAuthenticated = false
@@ -483,41 +366,7 @@ final class OnboardingViewModel: ObservableObject {
 }
 
 // MARK: - Username Availability & Update
-extension OnboardingViewModel {
-    // Check if a username is already taken
-    func isUsernameAvailable(_ newUsername: String) async -> Bool {
-        let trimmed = newUsername.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let query = firestore.collection("users").whereField("username", isEqualTo: trimmed)
-        
-        do {
-            let snapshot = try await query.getDocuments()
-            return snapshot.documents.isEmpty
-        } catch {
-            handleError(error)
-            return false
-        }
-    }
-    
-    // Set a new username if available
-    func updateUsername(_ newUsername: String) async {
-        let trimmed = newUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-
-        if await isUsernameAvailable(trimmed) {
-            do {
-                let updateData: [String: Any] = ["username": trimmed]
-                try await firestore.collection("users").document(uid).updateData(updateData)
-                self.username = trimmed
-                self.shouldPromptUsername = false
-                print("[OnboardingViewModel] Username updated to:", trimmed)
-            } catch {
-                handleError(error)
-            }
-        } else {
-            handleError(NSError(domain: "UsernameError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Username is already taken."]))
-        }
-    }
-}
+// Username management is now handled by UserViewModel.
 
 // MARK: - Biometric Login & Keychain
 extension OnboardingViewModel {
