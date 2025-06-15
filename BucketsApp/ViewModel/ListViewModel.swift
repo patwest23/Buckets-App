@@ -63,6 +63,7 @@ class ListViewModel: ObservableObject {
     // MARK: - Firestore
     private let db = Firestore.firestore()
     private var listenerRegistration: ListenerRegistration?
+    private var userListener: ListenerRegistration?
     
     private var userId: String? {
         Auth.auth().currentUser?.uid
@@ -80,6 +81,7 @@ class ListViewModel: ObservableObject {
         print("[ListViewModel] deinit called.")
         listenerRegistration?.remove()
         listenerRegistration = nil
+        userListener?.remove()
         print("[ListViewModel] Stopped listening to items.")
     }
     
@@ -363,5 +365,19 @@ class ListViewModel: ObservableObject {
         } catch {
             print("❌ Failed to sync likes to item:", error.localizedDescription)
         }
+    }
+
+    // MARK: - Real-Time User Document Listener
+    func startListeningToUserDoc(for userId: String) {
+        userListener?.remove()
+        userListener = db.collection("users").document(userId)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("[ListViewModel] Error listening to user doc:", error.localizedDescription)
+                    return
+                }
+                guard let data = snapshot?.data() else { return }
+                print("[ListViewModel] User doc updated:", data)
+            }
     }
 }

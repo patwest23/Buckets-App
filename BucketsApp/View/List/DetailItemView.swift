@@ -17,6 +17,7 @@ struct DetailItemView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var postViewModel: PostViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     @Environment(\.presentationMode) private var presentationMode
 
     @State private var currentItem: ItemModel
@@ -122,7 +123,7 @@ struct DetailItemView: View {
                 }
 
                 if currentItem.userId.isEmpty,
-                   let authUserId = onboardingViewModel.user?.id {
+                   let authUserId = userViewModel.user?.id {
                     currentItem.userId = authUserId
                     if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
                         Task {
@@ -134,11 +135,11 @@ struct DetailItemView: View {
                 imagePickerVM.onImagesLoaded = {
                     Task {
                         let uploadedUrls = await imagePickerVM.uploadImages(
-                            userId: onboardingViewModel.userId ?? "",
+                            userId: userViewModel.user?.id ?? "",
                             itemId: currentItem.id.uuidString
                         )
                         if currentItem.userId.isEmpty,
-                           let uid = onboardingViewModel.user?.id {
+                           let uid = userViewModel.user?.id {
                             currentItem.userId = uid
                         }
                         currentItem.imageUrls = uploadedUrls
@@ -289,7 +290,7 @@ extension DetailItemView {
 struct DetailItemView_Previews: PreviewProvider {
     static var previews: some View {
         // 1) Create mock environment objects
-        let mockOnboardingVM = OnboardingViewModel()
+        let mockUserVM = UserViewModel()
         let mockListVM = ListViewModel()
         let mockPostVM = PostViewModel()
         
@@ -312,13 +313,13 @@ struct DetailItemView_Previews: PreviewProvider {
         // 3) Pass the sample item to DetailItemView in each preview
         return Group {
             DetailItemView(item: sampleItem)
-                .environmentObject(mockOnboardingVM)
+                .environmentObject(mockUserVM)
                 .environmentObject(mockListVM)
                 .environmentObject(mockPostVM)
                 .previewDisplayName("DetailItemView - Light Mode")
 
             DetailItemView(item: sampleItem)
-                .environmentObject(mockOnboardingVM)
+                .environmentObject(mockUserVM)
                 .environmentObject(mockListVM)
                 .environmentObject(mockPostVM)
                 .preferredColorScheme(.dark)

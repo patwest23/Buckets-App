@@ -48,7 +48,6 @@ struct BucketsApp: App {
                         .onAppear {
                             Task {
                                 print("[BucketsApp] Starting onAppear loading...")
-
                                 bucketListViewModel.startListeningToItems()
                                 print("[BucketsApp] Started listening to items")
 
@@ -57,29 +56,9 @@ struct BucketsApp: App {
                                     return
                                 }
 
-                                print("[BucketsApp] Firebase user found: \(firebaseUser.uid)")
-
-                                if onboardingViewModel.user == nil {
-                                    onboardingViewModel.user = UserModel(
-                                        documentId: firebaseUser.uid,
-                                        email: firebaseUser.email ?? "unknown",
-                                        createdAt: Date(),
-                                        profileImageUrl: nil,
-                                        name: nil,
-                                        username: nil
-                                    )
-                                    print("[BucketsApp] Created onboarding user model")
-                                }
-
-                                onboardingViewModel.user?.documentId = firebaseUser.uid
-
-                                await userViewModel.loadCurrentUser()
-                                print("[BucketsApp] Finished loading current user")
-
-                                postViewModel.onboardingViewModel = onboardingViewModel
-
+                                await userViewModel.initializeUserSession(for: firebaseUser.uid, email: firebaseUser.email ?? "unknown")
+                                postViewModel.userViewModel = userViewModel
                                 await onboardingViewModel.loadProfileImage()
-                                print("[BucketsApp] Finished loading profile image")
                             }
                         }
                 }

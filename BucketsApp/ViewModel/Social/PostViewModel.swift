@@ -13,8 +13,8 @@ import FirebaseFirestore
 class PostViewModel: ObservableObject {
     
     // MARK: - Environment Objects
-    /// Optionally injected onboarding view model for username, etc.
-    var onboardingViewModel: OnboardingViewModel?
+    /// Optionally injected user view model for username, etc.
+    var userViewModel: UserViewModel?
     
     // MARK: - Published Properties
     @Published var posts: [PostModel] = []
@@ -120,8 +120,8 @@ class PostViewModel: ObservableObject {
     // MARK: - Post a New Item
     /// Creates and posts a new PostModel using the provided ItemModel.
     func postItem(with item: ItemModel) async {
-        guard let userId = onboardingViewModel?.userId, !userId.isEmpty else {
-            print("[PostViewModel] postItem => userId is missing from onboardingViewModel. Aborting.")
+        guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
+            print("[PostViewModel] postItem => userId is missing from userViewModel. Aborting.")
             return
         }
         print("DEBUG: postItem(with:) called => userId:", userId, "itemID:", item.id.uuidString)
@@ -130,7 +130,7 @@ class PostViewModel: ObservableObject {
 
         let newPost = PostModel(
             authorId: userId,
-            authorUsername: onboardingViewModel?.user?.username,
+            authorUsername: userViewModel?.user?.username,
             itemId: item.id.uuidString,
             type: .completed, // or .added or .photos, depending on logic
             timestamp: Date(),
@@ -178,8 +178,8 @@ class PostViewModel: ObservableObject {
     // MARK: - Add or Update
     func addOrUpdatePost(post: PostModel) async {
         var post = post
-        guard let userId = onboardingViewModel?.userId, !userId.isEmpty else {
-            print("[PostViewModel] addOrUpdatePost => userId is missing from onboardingViewModel. Cannot save post.")
+        guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
+            print("[PostViewModel] addOrUpdatePost => userId is missing from userViewModel. Cannot save post.")
             return
         }
         // Ensure authorId is set

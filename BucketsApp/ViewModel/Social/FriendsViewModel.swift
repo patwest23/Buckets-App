@@ -16,6 +16,7 @@ class FriendsViewModel: ObservableObject {
     @Published var followerUsers: [UserModel] = []
 
     private let db = Firestore.firestore()
+    private var userDocListener: ListenerRegistration?
 
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
@@ -41,6 +42,25 @@ class FriendsViewModel: ObservableObject {
         }
     }
 
+    func startListeningToFriendChanges() {
+        guard let userId = currentUserId else { return }
+
+        userDocListener?.remove()
+
+        userDocListener = db.collection("users").document(userId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                if let error = error {
+                    print("[FriendsViewModel] Listener error:", error.localizedDescription)
+                    return
+                }
+
+                Task {
+                    await self.loadFriendsData()
+                }
+            }
+    }
+
     private func fetchUsers(with ids: [String]) async throws -> [UserModel] {
         var users: [UserModel] = []
 
@@ -52,5 +72,9 @@ class FriendsViewModel: ObservableObject {
         }
 
         return users
+    }
+
+    deinit {
+        userDocListener?.remove()
     }
 }

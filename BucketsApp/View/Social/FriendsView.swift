@@ -39,6 +39,7 @@ struct FriendsView: View {
             .navigationTitle("Friends")
             .task {
                 await viewModel.loadFriendsData()
+                viewModel.startListeningToFriendChanges()
             }
         }
     }

@@ -115,7 +115,7 @@ extension ProfileView {
             }
             
             // Username or placeholder
-            if let handle = onboardingViewModel.user?.username, !handle.isEmpty {
+            if let handle = userViewModel.user?.username, !handle.isEmpty {
                 Text(handle)
                     .font(.title2)
                     .fontWeight(.semibold)

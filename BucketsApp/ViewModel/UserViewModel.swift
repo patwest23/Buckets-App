@@ -138,7 +138,7 @@ class UserViewModel: ObservableObject {
         
         // 4) Update the user doc's "name" field
         let userRef = db.collection("users").document(userId)
-        batch.updateData(["name": newName], forDocument: userRef)
+        batch.updateData(["name": newName, "username": newName], forDocument: userRef)
         
         // 5) Fetch all item docs in `/users/<userId>/items`
         do {
@@ -158,6 +158,7 @@ class UserViewModel: ObservableObject {
             
             // 8) Update local user object
             user?.name = newName
+            user?.username = newName
             
         } catch {
             handleError(error, prefix: "updateUserName")
@@ -193,7 +194,9 @@ class UserViewModel: ObservableObject {
     }
     // MARK: - Computed Properties
     var userId: String? {
-        user?.id
+        let id = user?.id
+        print("[UserViewModel] Accessed userId:", id ?? "nil")
+        return id
     }
     
     var userIsAuthenticated: Bool {
@@ -277,5 +280,13 @@ class UserViewModel: ObservableObject {
         } catch {
             handleError(error, prefix: "createUserDocument")
         }
+    }
+    // MARK: - Initialize User Session
+    @MainActor
+    func initializeUserSession(for uid: String, email: String) async {
+        print("[UserViewModel] Initializing session for \(uid)")
+        await createUserDocument(userId: uid, email: email)
+        await loadCurrentUser()
+        startListeningToUserDoc(for: uid)
     }
 }

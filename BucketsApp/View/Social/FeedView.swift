@@ -54,9 +54,11 @@ struct FeedView: View {
                 showLoading = false
             }
             .task {
-                showLoading = true
-                await feedViewModel.fetchFeedPosts()
-                showLoading = false
+                Task {
+                    showLoading = true
+                    await feedViewModel.fetchFeedPosts()
+                    showLoading = false
+                }
             }
         }
     }

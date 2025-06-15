@@ -13,6 +13,7 @@ import FirebaseAuth
 struct ProfilePostEditView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var postViewModel: PostViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     @Environment(\.presentationMode) private var presentationMode
 
     @State private var post: PostModel
@@ -84,7 +85,7 @@ struct ProfilePostEditView: View {
             imagePickerVM.onImagesLoaded = {
                 Task {
                     let uploadedUrls = await imagePickerVM.uploadImages(
-                        userId: onboardingViewModel.userId ?? "",
+                        userId: userViewModel.user?.id ?? "",
                         itemId: post.itemId
                     )
                     post.itemImageUrls = uploadedUrls
@@ -150,6 +151,6 @@ struct ProfilePostEditView: View {
 
 #Preview {
     ProfilePostEditView(post: .mockData.first!)
-        .environmentObject(OnboardingViewModel())
+        .environmentObject(UserViewModel())
         .environmentObject(PostViewModel())
 }

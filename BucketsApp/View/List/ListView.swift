@@ -63,6 +63,7 @@ struct ListView: View {
                             .task {
                                 loadItems()
                                 startTextFieldListeners()
+                                friendsViewModel.startListeningToFriendChanges()
                             }
                             .navigationBarTitleDisplayMode(.inline)
                             .onDisappear {
@@ -148,7 +149,7 @@ struct ListView: View {
                                 showProfileView = true
                             } label: {
                                 HStack(spacing: 8) {
-                                    if let user = onboardingViewModel.user {
+                                    if let user = userViewModel.user {
                                         Text(user.username ?? "Unknown")
                                             .font(.headline)
                                     } else {
@@ -273,7 +274,7 @@ struct ListView: View {
             }
 
             // Guard clause to ensure userId is not nil or empty
-            guard let userId = onboardingViewModel.userId, !userId.isEmpty else {
+            guard let userId = userViewModel.user?.id, !userId.isEmpty else {
                 print("❌ Cannot create item: userId is nil or empty")
                 return
             }

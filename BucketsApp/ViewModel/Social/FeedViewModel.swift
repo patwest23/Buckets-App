@@ -17,8 +17,10 @@ class FeedViewModel: ObservableObject {
     
     private let db = Firestore.firestore()
     
-    /// Current logged-in user’s UID
-    private var currentUserId: String? {
+    private var postListeners: [ListenerRegistration] = []
+    
+    /// Authenticated user’s UID
+    private var authenticatedUserId: String? {
         Auth.auth().currentUser?.uid
     }
     
@@ -40,8 +42,8 @@ class FeedViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        guard let userId = currentUserId else {
-            print("[FeedViewModel] fetchFeedPosts: No currentUserId (not authenticated).")
+        guard let userId = authenticatedUserId else {
+            print("[FeedViewModel] fetchFeedPosts: No authenticatedUserId (not authenticated).")
             return
         }
         
@@ -94,6 +96,8 @@ class FeedViewModel: ObservableObject {
                     print("[FeedViewModel] Error fetching posts for user \(followedUserId):", error.localizedDescription)
                 }
             }
+            
+            startListeningToPosts(for: allUserIds)
             
             // 3) Sort combined posts by timestamp descending
             let sortedPosts = allPosts.sorted { $0.timestamp > $1.timestamp }
@@ -155,7 +159,7 @@ class FeedViewModel: ObservableObject {
     
     // MARK: - Like a Post
     func toggleLike(post: PostModel) async {
-        guard let currentUID = currentUserId else { return }
+        guard let currentUID = authenticatedUserId else { return }
         guard let postDocId = post.id else { return }
         
         let authorId = post.authorId  // The owner of that post’s doc path
@@ -201,7 +205,7 @@ class FeedViewModel: ObservableObject {
     /// Each comment doc can have fields: `authorId, text, timestamp`.
     
     func addComment(to post: PostModel, text: String) async {
-        guard let currentUID = currentUserId else { return }
+        guard let currentUID = authenticatedUserId else { return }
         guard let postDocId = post.id else { return }
         
         let authorId = post.authorId
@@ -225,6 +229,31 @@ class FeedViewModel: ObservableObject {
         } catch {
             print("[FeedViewModel] addComment error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
+        }
+    }
+    
+    func startListeningToPosts(for userIds: [String]) {
+        // Remove old listeners
+        postListeners.forEach { $0.remove() }
+        postListeners.removeAll()
+
+        for uid in userIds {
+            let listener = db.collection("users")
+                .document(uid)
+                .collection("posts")
+                .addSnapshotListener { [weak self] _, error in
+                    guard let self = self else { return }
+                    if let error = error {
+                        print("[FeedViewModel] Listener error for user \(uid):", error.localizedDescription)
+                        return
+                    }
+
+                    Task {
+                        await self.fetchFeedPosts()
+                    }
+                }
+
+            postListeners.append(listener)
         }
     }
 }
