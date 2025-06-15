@@ -33,6 +33,8 @@ final class OnboardingViewModel: ObservableObject {
     
     /// Whether to prompt for a username after Google sign-in if missing.
     @Published var shouldPromptUsername: Bool = false
+    /// The username input (used after onboarding, if needed).
+    @Published var username: String = ""
     
     /// Error messaging for UI alerts.
     @Published var errorMessage: String?
@@ -224,6 +226,7 @@ final class OnboardingViewModel: ObservableObject {
             clearErrorState()
             
             print("[OnboardingViewModel] createUser success. UID:", authResult.user.uid)
+            shouldPromptUsername = true
             
             // Store credentials in Keychain if you want Face ID next time
             storeCredentialsInKeychain()

@@ -58,7 +58,7 @@ struct BucketsApp: App {
 
                                 await userViewModel.initializeUserSession(for: firebaseUser.uid, email: firebaseUser.email ?? "unknown")
                                 postViewModel.userViewModel = userViewModel
-                                await onboardingViewModel.loadProfileImage()
+                                await userViewModel.loadProfileImage()
                             }
                         }
                 }

@@ -11,11 +11,12 @@ import FirebaseStorage
 
 struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var postViewModel: PostViewModel
     //@EnvironmentObject var followViewModel: FollowViewModel
     @EnvironmentObject var friendsViewModel: FriendsViewModel // ✅ Add this to ListView
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    
     
     /// NEW: Consume the existing FeedViewModel from environment
     @EnvironmentObject var feedViewModel: FeedViewModel
@@ -74,8 +75,7 @@ struct ListView: View {
                             }
                             // Navigate to Profile
                             .navigationDestination(isPresented: $showProfileView) {
-                                ProfileView()
-                                    .environmentObject(onboardingViewModel)
+                                ProfileView(onboardingViewModel: onboardingViewModel)
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
                                     .environmentObject(postViewModel)
@@ -84,7 +84,6 @@ struct ListView: View {
                             .navigationDestination(isPresented: $showFeed) {
                                 /// Use the existing environment object `feedViewModel`
                                 FeedView()
-                                    .environmentObject(onboardingViewModel)
                                     .environmentObject(userViewModel)
                                     .environmentObject(feedViewModel)
                                     .environmentObject(postViewModel)
@@ -100,7 +99,6 @@ struct ListView: View {
                                 if let _ = selectedItem {
                                     DetailItemView(item: item)
                                         .environmentObject(bucketListViewModel)
-                                        .environmentObject(onboardingViewModel)
                                         .environmentObject(postViewModel)
                                 }
                             }
@@ -149,13 +147,10 @@ struct ListView: View {
                                 showProfileView = true
                             } label: {
                                 HStack(spacing: 8) {
-                                    if let user = userViewModel.user {
-                                        Text(user.username ?? "Unknown")
-                                            .font(.headline)
-                                    } else {
-                                        Text("@NoName")
-                                            .font(.headline)
-                                    }
+                                    Text(userViewModel.user?.username?.isEmpty == false
+                                         ? userViewModel.user!.username!
+                                         : "@User")
+                                        .font(.headline)
                                     profileImageView
                                         .frame(width: 35, height: 35)
                                 }
@@ -349,16 +344,20 @@ struct ListView: View {
     // MARK: - Profile Image Helper
     @ViewBuilder
     private var profileImageView: some View {
-        if let data = onboardingViewModel.profileImageData,
-           let uiImage = UIImage(data: data) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFill()
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(Color.accentColor, lineWidth: 2)
-                )
+        if let urlString = userViewModel.user?.profileImageUrl,
+           !urlString.isEmpty,
+           let url = URL(string: urlString) {
+            AsyncImage(url: url) { image in
+                image.resizable()
+            } placeholder: {
+                ProgressView()
+            }
+            .scaledToFill()
+            .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(Color.accentColor, lineWidth: 2)
+            )
         } else {
             Image(systemName: "person.crop.circle.fill")
                 .resizable()
@@ -442,8 +441,13 @@ struct ListView_Previews: PreviewProvider {
             mockListVMWithItems.imageCache["https://picsum.photos/400/400?random=1"] = mockImage
         }
 
-        let mockOnboardingVM = OnboardingViewModel()
         let mockUserVM = UserViewModel()
+        mockUserVM.user = UserModel(
+            documentId: "mockUID",
+            email: "test@example.com",
+            profileImageUrl: "https://picsum.photos/100",
+            username: "@previewUser"
+        )
         let mockFeedVM = FeedViewModel()
         let mockPostVM = PostViewModel()
 
@@ -452,7 +456,6 @@ struct ListView_Previews: PreviewProvider {
             NavigationStack {
                 ListView()
                     .environmentObject(mockListVMEmpty)
-                    .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
                     .environmentObject(mockFeedVM)
                     .environmentObject(mockPostVM)
@@ -463,7 +466,6 @@ struct ListView_Previews: PreviewProvider {
             NavigationStack {
                 ListView(previewMode: true)
                     .environmentObject(mockListVMWithItems)
-                    .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
                     .environmentObject(mockFeedVM)
                     .environmentObject(mockPostVM)

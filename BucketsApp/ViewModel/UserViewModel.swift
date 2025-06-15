@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseStorage
 
 @MainActor
 class UserViewModel: ObservableObject {
@@ -17,6 +18,7 @@ class UserViewModel: ObservableObject {
     @Published var showErrorAlert: Bool = false
     @Published var allUsers: [UserModel] = []
     @Published var followingUsers: [UserModel] = []
+    @Published var profileImageData: Data?
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -169,7 +171,7 @@ class UserViewModel: ObservableObject {
     func checkUsernameAvailability(_ username: String) async -> Bool {
         do {
             let snapshot = try await db.collection("users")
-                .whereField("name", isEqualTo: username)
+                .whereField("username", isEqualTo: username)
                 .getDocuments()
             return snapshot.documents.isEmpty
         } catch {
@@ -184,6 +186,49 @@ class UserViewModel: ObservableObject {
         guard isAvailable else { return false }
         await updateUserName(to: username)
         return true
+    }
+    
+    // MARK: - Profile Image Upload
+    func updateProfileImage(with data: Data) async {
+        guard let userId = user?.id else { return }
+
+        do {
+            let storageRef = Storage.storage().reference()
+                .child("users/\(userId)/profile_images/profile.jpg")
+
+            let _ = try await storageRef.putDataAsync(data, metadata: nil)
+            let downloadURL = try await storageRef.downloadURL()
+
+            // Update Firestore with new profileImageUrl
+            try await db.collection("users").document(userId).setData([
+                "profileImageUrl": downloadURL.absoluteString
+            ], merge: true)
+            print("[UserViewModel] Firestore updated with profileImageUrl: \(downloadURL.absoluteString)")
+
+            // Update local state
+            profileImageData = data
+            user?.profileImageUrl = downloadURL.absoluteString
+            print("[UserViewModel] updateProfileImage: Image uploaded and user doc updated.")
+
+        } catch {
+            handleError(error, prefix: "updateProfileImage")
+        }
+    }
+
+    /// Downloads and caches the current user's profile image.
+    func loadProfileImage() async {
+        guard let userId = user?.id else { return }
+
+        let storageRef = Storage.storage().reference()
+            .child("users/\(userId)/profile_images/profile.jpg")
+
+        do {
+            let data = try await storageRef.data(maxSize: 5 * 1024 * 1024)
+            profileImageData = data
+            print("[UserViewModel] Profile image loaded.")
+        } catch {
+            print("[UserViewModel] Failed to load profile image:", error.localizedDescription)
+        }
     }
     
     // MARK: - Error Handling
@@ -266,12 +311,7 @@ class UserViewModel: ObservableObject {
         let docRef = db.collection("users").document(userId)
         let userData: [String: Any] = [
             "email": email,
-            "createdAt": FieldValue.serverTimestamp(),
-            "username": "",
-            "name": "",
-            "profileImageUrl": "",
-            "followers": [],
-            "following": []
+            "createdAt": FieldValue.serverTimestamp()
         ]
         
         do {
@@ -285,7 +325,14 @@ class UserViewModel: ObservableObject {
     @MainActor
     func initializeUserSession(for uid: String, email: String) async {
         print("[UserViewModel] Initializing session for \(uid)")
-        await createUserDocument(userId: uid, email: email)
+        do {
+            let snapshot = try await db.collection("users").document(uid).getDocument()
+            if !snapshot.exists {
+                await createUserDocument(userId: uid, email: email)
+            }
+        } catch {
+            handleError(error, prefix: "initializeUserSession")
+        }
         await loadCurrentUser()
         startListeningToUserDoc(for: uid)
     }

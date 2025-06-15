@@ -9,7 +9,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct LogInView: View {
-    @EnvironmentObject var viewModel: OnboardingViewModel
+    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     
     @State private var isLoading = false
@@ -21,14 +21,14 @@ struct LogInView: View {
                 Spacer()
                 
                 // MARK: - Email Input
-                TextField("✉️ Email Address", text: $viewModel.email)
+                TextField("✉️ Email Address", text: $onboardingViewModel.email)
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
                 
                 // MARK: - Password Input
-                SecureField("🔑 Password", text: $viewModel.password)
+                SecureField("🔑 Password", text: $onboardingViewModel.password)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
                 
@@ -39,14 +39,14 @@ struct LogInView: View {
                     if validateInput() {
                         isLoading = true
                         Task {
-                            await viewModel.signIn()
+                            await onboardingViewModel.signIn()
                             if let user = Auth.auth().currentUser {
                                 await userViewModel.loadCurrentUser()
                             }
                             isLoading = false
                             
                             // 1) Detect if the error is specifically "wrong password"
-                            if let errMsg = viewModel.errorMessage?.lowercased(),
+                            if let errMsg = onboardingViewModel.errorMessage?.lowercased(),
                                errMsg.contains("password is invalid") || errMsg.contains("wrong-password") {
                                 // Show alert offering to reset the password
                                 showWrongPasswordAlert = true
@@ -68,7 +68,7 @@ struct LogInView: View {
                             .padding()
                             .background(Color(uiColor: .secondarySystemBackground))
                             .foregroundColor(
-                                viewModel.email.isEmpty || viewModel.password.isEmpty
+                                onboardingViewModel.email.isEmpty || onboardingViewModel.password.isEmpty
                                 ? .red
                                 : .primary
                             )
@@ -76,27 +76,27 @@ struct LogInView: View {
                             .shadow(radius: 5)
                     }
                 }
-                .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty || isLoading)
+                .disabled(onboardingViewModel.email.isEmpty || onboardingViewModel.password.isEmpty || isLoading)
                 .padding(.horizontal)
                 .padding(.top, 20)
                 
                 // MARK: - Forgot Password
                 Button("Forgot Password?") {
                     Task {
-                        guard !viewModel.email.isEmpty else {
+                        guard !onboardingViewModel.email.isEmpty else {
                             // Show error or prompt to enter email
-                            viewModel.errorMessage = "Please enter your email above."
-                            viewModel.showErrorAlert = true
+                            onboardingViewModel.errorMessage = "Please enter your email above."
+                            onboardingViewModel.showErrorAlert = true
                             return
                         }
-                        let result = await viewModel.resetPassword(for: viewModel.email)
+                        let result = await onboardingViewModel.resetPassword(for: onboardingViewModel.email)
                         switch result {
                         case .success(let successMsg):
-                            viewModel.errorMessage = successMsg
-                            viewModel.showErrorAlert = true
+                            onboardingViewModel.errorMessage = successMsg
+                            onboardingViewModel.showErrorAlert = true
                         case .failure(let error):
-                            viewModel.errorMessage = error.localizedDescription
-                            viewModel.showErrorAlert = true
+                            onboardingViewModel.errorMessage = error.localizedDescription
+                            onboardingViewModel.showErrorAlert = true
                         }
                     }
                 }
@@ -108,7 +108,7 @@ struct LogInView: View {
                         // This calls OnboardingViewModel.loginWithBiometrics()
                         // which fetches stored credentials from Keychain
                         // and tries to sign in
-                        await viewModel.loginWithBiometrics()
+                        await onboardingViewModel.loginWithBiometrics()
                     }
                 }
                 .padding(.top, 5)
@@ -118,10 +118,10 @@ struct LogInView: View {
             .background(Color(uiColor: .systemBackground))
             
             // MARK: - General Error Alert
-            .alert("Error", isPresented: $viewModel.showErrorAlert) {
+            .alert("Error", isPresented: $onboardingViewModel.showErrorAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown error")
+                Text(onboardingViewModel.errorMessage ?? "Unknown error")
             }
         }
         // Additional .padding() or styling as you see fit
@@ -134,14 +134,14 @@ struct LogInView: View {
         ) {
             Button("Reset Password", role: .destructive) {
                 Task {
-                    let result = await viewModel.resetPassword(for: viewModel.email)
+                    let result = await onboardingViewModel.resetPassword(for: onboardingViewModel.email)
                     switch result {
                     case .success(let successMsg):
-                        viewModel.errorMessage = successMsg
-                        viewModel.showErrorAlert = true
+                        onboardingViewModel.errorMessage = successMsg
+                        onboardingViewModel.showErrorAlert = true
                     case .failure(let err):
-                        viewModel.errorMessage = err.localizedDescription
-                        viewModel.showErrorAlert = true
+                        onboardingViewModel.errorMessage = err.localizedDescription
+                        onboardingViewModel.showErrorAlert = true
                     }
                 }
             }
@@ -153,12 +153,12 @@ struct LogInView: View {
     
     // MARK: - Input Validation
     private func validateInput() -> Bool {
-        guard !viewModel.email.isEmpty, !viewModel.password.isEmpty else {
-            viewModel.errorMessage = "Please fill in all fields."
-            viewModel.showErrorAlert = true
+        guard !onboardingViewModel.email.isEmpty, !onboardingViewModel.password.isEmpty else {
+            onboardingViewModel.errorMessage = "Please fill in all fields."
+            onboardingViewModel.showErrorAlert = true
             return false
         }
-        viewModel.showErrorAlert = false
+        onboardingViewModel.showErrorAlert = false
         return true
     }
 }
@@ -167,20 +167,20 @@ struct LogInView: View {
 #if DEBUG
 struct LogInView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockViewModel = OnboardingViewModel()
+        let mockOnboardingViewModel = OnboardingViewModel()
         
         return Group {
             // Light Mode
             NavigationView {
                 LogInView()
-                    .environmentObject(mockViewModel)
+                    .environmentObject(mockOnboardingViewModel)
             }
             .previewDisplayName("LogInView - Light Mode")
             
             // Dark Mode
             NavigationView {
                 LogInView()
-                    .environmentObject(mockViewModel)
+                    .environmentObject(mockOnboardingViewModel)
                     .preferredColorScheme(.dark)
             }
             .previewDisplayName("LogInView - Dark Mode")

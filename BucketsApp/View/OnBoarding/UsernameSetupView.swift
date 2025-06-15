@@ -39,8 +39,9 @@ struct UsernameSetupView: View {
 
             Button(action: {
                 Task {
-                    await userViewModel.updateUserName(to: username)
-                    if userViewModel.user?.username == username {
+                    let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+                    await userViewModel.updateUserName(to: trimmed)
+                    if userViewModel.user?.username == trimmed {
                         dismiss()
                     }
                 }

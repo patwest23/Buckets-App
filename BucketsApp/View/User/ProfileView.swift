@@ -10,13 +10,14 @@ import PhotosUI
 import FirebaseFirestore
 
 struct ProfileView: View {
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var listViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
 //    @EnvironmentObject var followViewModel: FollowViewModel
     
     // ADD THIS: to show the user's own posts
     @EnvironmentObject var postViewModel: PostViewModel
+    
+    let onboardingViewModel: OnboardingViewModel
     
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
@@ -54,8 +55,7 @@ struct ProfileView: View {
                 // Settings gear icon
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
-                        SettingsView()
-                            .environmentObject(onboardingViewModel)
+                        SettingsView(onboardingViewModel: onboardingViewModel)
                             .environmentObject(userViewModel)
                     } label: {
                         Image(systemName: "gearshape.fill")
@@ -83,7 +83,8 @@ extension ProfileView {
             Button {
                 isPickerPresented = true
             } label: {
-                if let data = onboardingViewModel.profileImageData,
+                if let data = userViewModel.profileImageData,
+                   !data.isEmpty,
                    let uiImage = UIImage(data: data) {
                     Image(uiImage: uiImage)
                         .resizable()
@@ -96,7 +97,7 @@ extension ProfileView {
                         )
                         .shadow(color: cardShadowColor, radius: 6, x: 0, y: 3)
                 } else {
-                    Image(systemName: "person.crop.circle.badge.plus")
+                    Image(systemName: "person.crop.circle.fill")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 150, height: 150)
@@ -115,16 +116,12 @@ extension ProfileView {
             }
             
             // Username or placeholder
-            if let handle = userViewModel.user?.username, !handle.isEmpty {
-                Text(handle)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-            } else {
-                Text("Username")
-                    .font(.title2)
-                    .foregroundColor(.gray)
-            }
+            Text(userViewModel.user?.username?.isEmpty == false
+                 ? userViewModel.user!.username!
+                 : "@User")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
         }
     }
     
@@ -288,7 +285,7 @@ extension ProfileView {
         Task {
             do {
                 if let data = try await newItem.loadTransferable(type: Data.self) {
-                    await onboardingViewModel.updateProfileImage(with: data)
+                    await userViewModel.updateProfileImage(with: data)
                 }
             } catch {
                 print("Error loading image data: \(error)")
@@ -301,10 +298,10 @@ extension ProfileView {
 //#if DEBUG
 //struct ProfileView_Previews: PreviewProvider {
 //    static var previews: some View {
-//        let mockOnboardingVM = OnboardingViewModel()
 //        let mockListVM = ListViewModel()
 //        let mockUserVM = UserViewModel()
 //        let mockPostVM = PostViewModel()
+//        let mockOnboardingVM = OnboardingViewModel()
 //        // let mockFollowVM = FollowViewModel()
 //
 //        // Set up a mock user
@@ -325,8 +322,7 @@ extension ProfileView {
 //
 //        return Group {
 //            NavigationStack {
-//                ProfileView()
-//                    .environmentObject(mockOnboardingVM)
+//                ProfileView(onboardingViewModel: mockOnboardingVM)
 //                    .environmentObject(mockListVM)
 //                    .environmentObject(mockUserVM)
 //                    .environmentObject(mockPostVM)
@@ -335,8 +331,7 @@ extension ProfileView {
 //            .previewDisplayName("ProfileView – Light Mode")
 //
 //            NavigationStack {
-//                ProfileView()
-//                    .environmentObject(mockOnboardingVM)
+//                ProfileView(onboardingViewModel: mockOnboardingVM)
 //                    .environmentObject(mockListVM)
 //                    .environmentObject(mockUserVM)
 //                    .environmentObject(mockPostVM)

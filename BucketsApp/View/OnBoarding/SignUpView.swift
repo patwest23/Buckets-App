@@ -202,18 +202,21 @@ struct SignUpView: View {
     
     /// Actually performs the sign-up in OnboardingViewModel after storing typed username
     private func signUpUser() async {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        viewModel.username = trimmed
+
         await viewModel.createUser(using: userViewModel)
-        if let currentUser = Auth.auth().currentUser {
-            await userViewModel.createUserDocument(userId: currentUser.uid, email: currentUser.email ?? "")
-            await userViewModel.updateUsername(username)
-            await userViewModel.loadCurrentUser()
+
+        guard viewModel.isAuthenticated,
+              let currentUser = Auth.auth().currentUser else {
+            showError(viewModel.errorMessage ?? "Sign up failed.")
+            return
         }
-        
-        if viewModel.isAuthenticated {
-            navigationPath.append(SignUpNavigationDestination.listView)
-        } else if let msg = viewModel.errorMessage {
-            showError(msg)
-        }
+
+        await userViewModel.updateUserName(to: trimmed)
+        await userViewModel.loadCurrentUser()
+
+        navigationPath.append(SignUpNavigationDestination.listView)
     }
 
     private func openTermsAndConditions() {

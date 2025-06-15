@@ -10,7 +10,7 @@ import PhotosUI
 import FirebaseFirestore
 
 struct SettingsView: View {
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    let onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     
     // Each sheet for the account-update screens
@@ -112,13 +112,11 @@ struct SettingsView_Previews: PreviewProvider {
         let mockUserVM = UserViewModel()
         
         NavigationView {
-            SettingsView()
-                .environmentObject(mockOnboardingVM)
+            SettingsView(onboardingViewModel: mockOnboardingVM)
                 .environmentObject(mockUserVM)
         }
         .previewDisplayName("SettingsView Preview")
     }
 }
 #endif
-
 

@@ -15,7 +15,6 @@ struct DetailItemView: View {
     let itemID: UUID
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
-    @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var postViewModel: PostViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     @Environment(\.presentationMode) private var presentationMode
