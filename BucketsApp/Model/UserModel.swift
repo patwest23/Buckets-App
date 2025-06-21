@@ -9,24 +9,20 @@ import Foundation
 import FirebaseFirestore
 
 struct UserModel: Codable, Hashable, Identifiable {
-    // Use this for SwiftUI identity
     var id: String { documentId ?? "unknown-user-id" }
 
     @DocumentID var documentId: String?
-    var wrappedId: String {
-        documentId ?? "unknown-user-id"
-    }
 
     var email: String?
     var createdAt: Date?
     var profileImageUrl: String?
     var name: String?
     var username: String?
-    var following: [String] = []
-    var followers: [String] = []
+    var following: [String]
+    var followers: [String]
     var username_lower: String?
     var name_lower: String?
-    var isFollowed: Bool = false
+    var isFollowed: Bool
 
     enum CodingKeys: String, CodingKey {
         case documentId = "id"
@@ -39,32 +35,43 @@ struct UserModel: Codable, Hashable, Identifiable {
         case followers
         case username_lower
         case name_lower
+        case isFollowed
     }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.documentId = nil // Assigned manually in ViewModel after decoding
+        self.email = try container.decodeIfPresent(String.self, forKey: .email)
+        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        self.profileImageUrl = try container.decodeIfPresent(String.self, forKey: .profileImageUrl)
+        self.name = try container.decodeIfPresent(String.self, forKey: .name)
+        self.username = try container.decodeIfPresent(String.self, forKey: .username)
+        self.following = try container.decodeIfPresent([String].self, forKey: .following) ?? []
+        self.followers = try container.decodeIfPresent([String].self, forKey: .followers) ?? []
+        self.username_lower = try container.decodeIfPresent(String.self, forKey: .username_lower)
+        self.name_lower = try container.decodeIfPresent(String.self, forKey: .name_lower)
+        self.isFollowed = try container.decodeIfPresent(Bool.self, forKey: .isFollowed) ?? false
+    }
+
+    // Preview/test initializer
     init(
         documentId: String? = nil,
         email: String? = nil,
-        createdAt: Date? = nil,
         profileImageUrl: String? = nil,
-        name: String? = "Guest",
-        username: String? = nil,
-        following: [String] = [],
-        followers: [String] = [],
-        username_lower: String? = nil,
-        name_lower: String? = nil,
-        isFollowed: Bool = false
+        name: String? = nil,
+        username: String? = nil
     ) {
         self.documentId = documentId
-        self.email = email ?? "unknown@example.com"
-        self.createdAt = createdAt ?? Date()
+        self.email = email
+        self.createdAt = nil
         self.profileImageUrl = profileImageUrl
         self.name = name
         self.username = username
-        self.following = following
-        self.followers = followers
-        self.username_lower = username_lower
-        self.name_lower = name_lower
-        self.isFollowed = isFollowed
+        self.following = []
+        self.followers = []
+        self.username_lower = nil
+        self.name_lower = nil
+        self.isFollowed = false
     }
 }
-

@@ -100,6 +100,7 @@ struct ListView: View {
                                     DetailItemView(item: item)
                                         .environmentObject(bucketListViewModel)
                                         .environmentObject(postViewModel)
+                                        .environmentObject(userViewModel)
                                 }
                             }
                             // Delete confirmation
@@ -220,8 +221,8 @@ struct ListView: View {
     // MARK: - List of Items
     private var itemListView: some View {
         List {
-            ForEach($bucketListViewModel.items) { $item in
-                rowView(for: $item)
+            ForEach(bucketListViewModel.items.indices, id: \.self) { index in
+                rowView(for: $bucketListViewModel.items[index])
             }
         }
         .listStyle(.plain)
@@ -438,7 +439,7 @@ struct ListView_Previews: PreviewProvider {
         ]
         // Optionally preload the mock image into the image cache for testing display
         if let mockImage = UIImage(systemName: "photo") {
-            mockListVMWithItems.imageCache["https://picsum.photos/400/400?random=1"] = mockImage
+            ImageCache.shared.setImage(mockImage, forKey: "https://picsum.photos/400/400?random=1")
         }
 
         let mockUserVM = UserViewModel()

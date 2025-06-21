@@ -14,6 +14,7 @@ import FirebaseStorage
 class UserViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var user: UserModel?
+    @Published var isUserLoaded: Bool = false
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
     @Published var allUsers: [UserModel] = []
@@ -68,9 +69,12 @@ class UserViewModel: ObservableObject {
             do {
                 let updatedUser = try snapshot.data(as: UserModel.self)
                 self.user = updatedUser
+                self.user?.documentId = userId
                 print("[UserViewModel] user set =>", updatedUser)
                 print("[UserViewModel] Real-time update for /users/\(userId). user.id =", updatedUser.id ?? "nil")
             } catch {
+                print("[UserViewModel] startListeningToUserDoc failed to decode. Snapshot data may be malformed.")
+                print("[UserViewModel] Raw snapshot data:", snapshot.data() ?? "nil")
                 self.handleError(error, prefix: "startListeningToUserDoc")
             }
         }
@@ -105,7 +109,8 @@ class UserViewModel: ObservableObject {
                 }
             }
             
-            self.user = updatedUser
+            // self.user = updatedUser  // Commented out to avoid overriding listener-driven user data
+            
             print("[UserViewModel] updateUserProfile: User doc updated for /users/\(userId). user.id =", updatedUser.id ?? "nil")
             
         } catch {
@@ -195,6 +200,7 @@ class UserViewModel: ObservableObject {
         do {
             let storageRef = Storage.storage().reference()
                 .child("users/\(userId)/profile_images/profile.jpg")
+            print("[UserViewModel] Attempting upload path:", storageRef.fullPath)
 
             let _ = try await storageRef.putDataAsync(data, metadata: nil)
             let downloadURL = try await storageRef.downloadURL()
@@ -220,7 +226,7 @@ class UserViewModel: ObservableObject {
         guard let userId = user?.id else { return }
 
         let storageRef = Storage.storage().reference()
-            .child("users/\(userId)/profile_images/profile.jpg")
+            .child("users/\(userId)/profile_images/\(userId).jpg")
 
         do {
             let data = try await storageRef.data(maxSize: 5 * 1024 * 1024)
@@ -289,8 +295,18 @@ class UserViewModel: ObservableObject {
         do {
             let snapshot = try await db.collection("users").document(userId).getDocument()
             self.user = try snapshot.data(as: UserModel.self)
+            self.user?.documentId = userId
+            self.isUserLoaded = true
+            if let url = self.user?.profileImageUrl, !url.isEmpty {
+                Task {
+                    await self.loadProfileImage()
+                }
+            }
             print("[UserViewModel] loadCurrentUser: Refreshed user document.")
         } catch {
+            print("[UserViewModel] loadCurrentUser failed to decode. Snapshot data may be malformed.")
+            let snapshot = try? await db.collection("users").document(userId).getDocument()
+            print("[UserViewModel] Raw snapshot data:", snapshot?.data() ?? "nil")
             handleError(error, prefix: "loadCurrentUser")
         }
     }
@@ -311,7 +327,12 @@ class UserViewModel: ObservableObject {
         let docRef = db.collection("users").document(userId)
         let userData: [String: Any] = [
             "email": email,
-            "createdAt": FieldValue.serverTimestamp()
+            "createdAt": FieldValue.serverTimestamp(),
+            "username": self.user?.username ?? "",
+            "name": self.user?.name ?? "",
+            "profileImageUrl": self.user?.profileImageUrl ?? "",
+            "followers": [],
+            "following": []
         ]
         
         do {

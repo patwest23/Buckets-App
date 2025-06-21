@@ -58,7 +58,7 @@ class ListViewModel: ObservableObject {
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
     
-    @Published var imageCache: [String : UIImage] = [:]
+    // @Published var imageCache: [String : UIImage] = [:]
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -203,12 +203,12 @@ class ListViewModel: ObservableObject {
             if let idx = items.firstIndex(where: { $0.id == newItem.id }) {
                 print("[ListViewModel] addOrUpdateItem => found index \(idx), items.count=\(items.count)")
                 items[idx] = newItem
-                print("✅ Updated item image URLs:", newItem.allImageUrls)
+                print("✅ Updated item image URLs:", allImageUrls(for: newItem))
             } else if isNewItem {
                 print("[ListViewModel] addOrUpdateItem => appended new item. items.count was", items.count)
                 items.append(newItem)
                 print("[ListViewModel] Now items.count =", items.count)
-                print("✅ Updated item image URLs:", newItem.allImageUrls)
+                print("✅ Updated item image URLs:", allImageUrls(for: newItem))
             }
             // else skip if the item was removed in the meantime
             
@@ -289,9 +289,9 @@ class ListViewModel: ObservableObject {
         self.showDeleteAlert = true
     }
     
-    func getItem(by id: UUID) -> ItemModel? {
-        items.first { $0.id == id }
-    }
+    // func getItem(by id: UUID) -> ItemModel? {
+    //     items.first { $0.id == id }
+    // }
     
     // MARK: - Pre-Fetch Logic
     func prefetchItemImages() async {
@@ -302,14 +302,15 @@ class ListViewModel: ObservableObject {
     
     func prefetchImages(for item: ItemModel) async {
         let now = Date()
-        print("[ListViewModel] Prefetching \(item.allImageUrls.count) image(s) for item:", item.name)
-        print("📦 Prefetching images for \(item.name):", item.allImageUrls)
-        for urlStr in item.allImageUrls {
+        let urls = allImageUrls(for: item)
+        print("[ListViewModel] Prefetching \(urls.count) image(s) for item:", item.name)
+        print("📦 Prefetching images for \(item.name):", urls)
+        for urlStr in urls {
             if let last = lastPrefetchTimestamps[urlStr], now.timeIntervalSince(last) < 5 {
                 continue // skip reloading this image too soon
             }
             lastPrefetchTimestamps[urlStr] = now
-            if imageCache[urlStr] != nil {
+            if ImageCache.shared.image(forKey: urlStr) != nil {
                 continue
             }
             await loadImage(urlStr: urlStr)
@@ -321,7 +322,7 @@ class ListViewModel: ObservableObject {
 
         // First check disk cache
         if let cachedImage = ImageCache.shared.image(forKey: urlStr) {
-            imageCache[urlStr] = cachedImage
+            // imageCache[urlStr] = cachedImage
             print("[ListViewModel] Loaded image from shared cache for \(urlStr)")
             return
         }
@@ -329,7 +330,7 @@ class ListViewModel: ObservableObject {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             if let uiImage = UIImage(data: data) {
-                imageCache[urlStr] = uiImage
+                // imageCache[urlStr] = uiImage
                 ImageCache.shared.setImage(uiImage, forKey: urlStr)
                 print("[ListViewModel] Downloaded and cached image for \(urlStr)")
             }
@@ -340,7 +341,7 @@ class ListViewModel: ObservableObject {
     
     // MARK: - Image Cache Helpers
     func clearImageCache() {
-        imageCache.removeAll()
+        // imageCache.removeAll()
         lastPrefetchTimestamps.removeAll()
         print("[ListViewModel] Cleared image cache and prefetch timestamps.")
     }
@@ -368,16 +369,28 @@ class ListViewModel: ObservableObject {
     }
 
     // MARK: - Real-Time User Document Listener
-    func startListeningToUserDoc(for userId: String) {
-        userListener?.remove()
-        userListener = db.collection("users").document(userId)
-            .addSnapshotListener { snapshot, error in
-                if let error = error {
-                    print("[ListViewModel] Error listening to user doc:", error.localizedDescription)
-                    return
-                }
-                guard let data = snapshot?.data() else { return }
-                print("[ListViewModel] User doc updated:", data)
-            }
+    // func startListeningToUserDoc(for userId: String) {
+    //     userListener?.remove()
+    //     userListener = db.collection("users").document(userId)
+    //         .addSnapshotListener { snapshot, error in
+    //             if let error = error {
+    //                 print("[ListViewModel] Error listening to user doc:", error.localizedDescription)
+    //                 return
+    //             }
+    //             guard let data = snapshot?.data() else { return }
+    //             print("[ListViewModel] User doc updated:", data)
+    //         }
+    // }
+    
+    func allImageUrls(for item: ItemModel) -> [String] {
+        return item.imageUrls
+    }
+
+    // MARK: - Update Only Image URLs
+    /// Updates only the imageUrls of the given item in Firestore.
+    func updateImageUrls(for item: ItemModel, urls: [String]) async {
+        var updatedItem = item
+        updatedItem.imageUrls = urls
+        await addOrUpdateItem(updatedItem)
     }
 }

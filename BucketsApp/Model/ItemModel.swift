@@ -27,6 +27,7 @@ struct Location: Codable, Hashable {
     var address: String?
 }
 
+@dynamicMemberLookup
 struct ItemModel: Codable, Identifiable, Hashable {
     
     // MARK: - Primary Fields
@@ -169,12 +170,13 @@ struct ItemModel: Codable, Identifiable, Hashable {
         dueDate
     }
     
-    var allImageUrls: [String] {
-        imageUrls
-    }
 
     var wasRecentlyLiked: Bool {
         !likedBy.isEmpty
     }
     
+    // Enable @dynamicMemberLookup for key path access
+    subscript<T>(dynamicMember keyPath: KeyPath<ItemModel, T>) -> T {
+        return self[keyPath: keyPath]
+    }
 }

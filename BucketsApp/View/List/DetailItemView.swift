@@ -141,9 +141,10 @@ struct DetailItemView: View {
                            let uid = userViewModel.user?.id {
                             currentItem.userId = uid
                         }
-                        currentItem.imageUrls = uploadedUrls
-                        print("✅ Updated item with image URLs:", currentItem.imageUrls)
-                        await bucketListViewModel.addOrUpdateItem(currentItem)
+                        await bucketListViewModel.updateImageUrls(for: currentItem, urls: uploadedUrls)
+                        if let updated = bucketListViewModel.items.first(where: { $0.id == currentItem.id }) {
+                            currentItem = updated
+                        }
                     }
                 }
             }

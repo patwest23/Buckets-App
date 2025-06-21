@@ -137,7 +137,7 @@ class PostViewModel: ObservableObject {
             caption: caption,
             taggedUserIds: taggedUserIds,
             likedBy: [],
-            itemImageUrls: item.allImageUrls
+            itemImageUrls: item.imageUrls
         )
 
         print("[PostViewModel] new post fields:", newPost)

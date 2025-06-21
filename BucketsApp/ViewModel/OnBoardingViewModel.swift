@@ -62,8 +62,7 @@ final class OnboardingViewModel: ObservableObject {
             if let currentUser = Auth.auth().currentUser {
                 isAuthenticated = true
                 print("[OnboardingViewModel] Already signed in with UID:", currentUser.uid)
-                
-                await loadProfileImage()
+                // Profile image loading is now handled by UserViewModel.
             } else {
                 print("[OnboardingViewModel] No authenticated user found.")
                 isAuthenticated = false
@@ -232,6 +231,7 @@ final class OnboardingViewModel: ObservableObject {
             storeCredentialsInKeychain()
             
             await userViewModel.createUserDocument(userId: authResult.user.uid, email: authResult.user.email ?? "")
+            await userViewModel.updateUserName(to: self.username)
             
         } catch {
             handleError(error)
@@ -303,25 +303,9 @@ final class OnboardingViewModel: ObservableObject {
     // MARK: - Profile Image
     
     func updateProfileImage(with data: Data?) async {
-        profileImageData = data
-        guard let currentUser = Auth.auth().currentUser, let data = data else { return }
-        
-        let storageRef = storage.reference()
-            .child("users/\(currentUser.uid)/profile_images/\(currentUser.uid).jpg")
-        do {
-            try await storageRef.putDataAsync(data)
-            let downloadURL = try await storageRef.downloadURL()
-            
-            let updates: [String: String] = ["profileImageUrl": downloadURL.absoluteString]
-            try await firestore
-                .collection("users")
-                .document(currentUser.uid)
-                .updateData(updates)
-            
-            print("[OnboardingViewModel] Profile image uploaded + Firestore updated.")
-        } catch {
-            handleError(error)
-        }
+        // print("[OnboardingViewModel] Deprecated: updateProfileImage is now handled by UserViewModel.")
+        print("[OnboardingViewModel] Deprecated: updateProfileImage is now handled by UserViewModel.")
+        // Functionality moved to UserViewModel.
     }
     
     func loadProfileImage() async {

@@ -65,6 +65,7 @@ struct ProfileView: View {
             .task {
                 await postViewModel.loadPosts()
                 await userViewModel.loadCurrentUser()
+                await userViewModel.loadProfileImage()
             }
             .navigationDestination(isPresented: .constant(false)) {
                 EmptyView()

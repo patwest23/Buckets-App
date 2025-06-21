@@ -51,7 +51,7 @@ struct FullScreenCarouselView: View {
             // 1) Main TabView of images
             TabView {
                 ForEach(imageUrls, id: \.self) { urlStr in
-                    if let uiImage = listViewModel.imageCache[urlStr] {
+                    if let uiImage = ImageCache.shared.image(forKey: urlStr) {
                         // Zoomable image
                         PinchZoomImage(
                             image: Image(uiImage: uiImage)
@@ -149,9 +149,9 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
         
         // Provide some placeholder UIImage for each URL key
         if let sfSymbol = UIImage(systemName: "photo") {
-            mockListVM.imageCache["https://example.com/image1"] = sfSymbol
-            mockListVM.imageCache["https://example.com/image2"] = sfSymbol
-            mockListVM.imageCache["https://example.com/image3"] = sfSymbol
+            ImageCache.shared.setImage(sfSymbol, forKey: "https://example.com/image1")
+            ImageCache.shared.setImage(sfSymbol, forKey: "https://example.com/image2")
+            ImageCache.shared.setImage(sfSymbol, forKey: "https://example.com/image3")
         }
         
         // 2) Provide an array of 3 URLs that match the keys in imageCache

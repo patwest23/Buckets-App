@@ -61,42 +61,25 @@ struct ItemRowView: View {
                 // MARK: - Info Row (removed for MVP)
 
                 // MARK: - Carousel Images (if completed + has images)
-                if item.completed, !item.allImageUrls.isEmpty {
-                    TabView {
-                        ForEach(item.allImageUrls, id: \.self) { urlStr in
-                            if let uiImage = bucketListViewModel.imageCache[urlStr] {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: imageHeight)
-                                    .clipped()
-                                    .onTapGesture {
-                                        showFullScreenGallery = true
-                                    }
-                            } else {
-                                ZStack {
-                                    Rectangle()
-                                        .fill(Color.gray.opacity(0.1))
+                if item.completed {
+                    let urls = bucketListViewModel.allImageUrls(for: item)
+
+                    if !urls.isEmpty {
+                        TabView {
+                            ForEach(urls, id: \.self) { urlStr in
+                                if let image = ImageCache.shared.image(forKey: urlStr) {
+                                    carouselImageView(for: image)
+                                } else {
                                     ProgressView()
+                                        .frame(height: imageHeight)
+                                        .frame(maxWidth: .infinity)
                                 }
-                                .frame(height: imageHeight)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                         }
-                    }
-                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                    .frame(height: imageHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.top, 8)
-                    .fullScreenCover(isPresented: $showFullScreenGallery) {
-                        FullScreenCarouselView(
-                            imageUrls: item.allImageUrls,
-                            itemName: item.name,
-                            location: item.location?.address,
-                            dateCompleted: item.dueDate
-                        )
-                        .environmentObject(bucketListViewModel)
+                        .tabViewStyle(.page)
+                        .frame(height: imageHeight)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.top, 4)
                     }
                 }
 
@@ -168,11 +151,24 @@ struct ItemRowView: View {
                 hasAutoFocused = true
             }
         }
-        .onChange(of: item.allImageUrls) {
+        .onChange(of: bucketListViewModel.allImageUrls(for: item)) {
             Task {
                 await bucketListViewModel.prefetchImages(for: item)
             }
         }
+    }
+
+    @ViewBuilder
+    private func carouselImageView(for uiImage: UIImage) -> some View {
+        Image(uiImage: uiImage)
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity)
+            .frame(height: imageHeight)
+            .clipped()
+            .onTapGesture {
+                showFullScreenGallery = true
+            }
     }
 
     // MARK: - Helpers
@@ -250,7 +246,7 @@ struct ItemRowView_Previews: PreviewProvider {
         let mockListVM = ListViewModel()
         
         for url in sampleItem.imageUrls {
-            mockListVM.imageCache[url] = UIImage(systemName: "photo")!
+            ImageCache.shared.setImage(UIImage(systemName: "photo")!, forKey: url)
         }
 
         return Group {

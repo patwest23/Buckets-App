@@ -58,6 +58,8 @@ struct BucketsApp: App {
 
                                 await userViewModel.initializeUserSession(for: firebaseUser.uid, email: firebaseUser.email ?? "unknown")
                                 postViewModel.userViewModel = userViewModel
+
+                                try? await Task.sleep(nanoseconds: 300_000_000) // wait 0.3 seconds
                                 await userViewModel.loadProfileImage()
                             }
                         }
