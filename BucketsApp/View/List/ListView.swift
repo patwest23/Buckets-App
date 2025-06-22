@@ -90,8 +90,9 @@ struct ListView: View {
                             }
                             // Navigate to the User Search View
                             .navigationDestination(isPresented: $showUserSearch) {
-                                UserSearchView(vm: UserSearchViewModel())
+                                FriendsView()
                                     .environmentObject(userViewModel)
+                                    .environmentObject(friendsViewModel)
                             }
                             // Navigate to Detail => PASS A COPY of the item
                             .navigationDestination(item: $selectedItem) { item in
