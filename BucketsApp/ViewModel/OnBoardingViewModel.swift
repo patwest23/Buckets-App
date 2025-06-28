@@ -225,7 +225,6 @@ final class OnboardingViewModel: ObservableObject {
             clearErrorState()
             
             print("[OnboardingViewModel] createUser success. UID:", authResult.user.uid)
-            shouldPromptUsername = true
             
             // Store credentials in Keychain if you want Face ID next time
             storeCredentialsInKeychain()

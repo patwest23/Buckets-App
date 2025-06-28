@@ -18,14 +18,13 @@ struct UserModel: Codable, Hashable, Identifiable {
     var profileImageUrl: String?
     var name: String?
     var username: String?
-    var following: [String]
-    var followers: [String]
+    var following: [String] = []
+    var followers: [String] = []
     var username_lower: String?
     var name_lower: String?
     var isFollowed: Bool
 
     enum CodingKeys: String, CodingKey {
-        case documentId = "id"
         case email
         case createdAt
         case profileImageUrl

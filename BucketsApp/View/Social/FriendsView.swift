@@ -14,59 +14,73 @@ struct FriendsView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                List {
-                    Section(header: Text("Explore")) {
-                        let filtered = viewModel.allUsers.sorted {
-                            sortUsers($0, $1, with: searchText)
-                        }.filter {
-                            userMatchesSearch($0, searchText)
+                if viewModel.followingUsers.isEmpty &&
+                   viewModel.followerUsers.isEmpty &&
+                   viewModel.allUsers.isEmpty {
+                    ProgressView("Loading users...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        Section(header: Text("Explore")) {
+                            let excludedIds = Set(
+                                viewModel.followingUsers.map(\.documentId) +
+                                viewModel.followerUsers.map(\.documentId) +
+                                [viewModel.currentUserId].compactMap { $0 }
+                            )
+                            let filtered = viewModel.allUsers
+                                .filter { user in
+                                    !excludedIds.contains(user.documentId)
+                                }
+                                .sorted { sortUsers($0, $1, with: searchText) }
+                                .filter { userMatchesSearch($0, searchText) }
+                                .prefix(5)
+
+                            if filtered.isEmpty {
+                                Text("No users to explore.")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                ForEach(filtered, id: \.documentId) { user in
+                                    userRow(for: user)
+                                }
+                            }
                         }
 
-                        if filtered.isEmpty {
-                            Text("No users to explore.")
-                                .foregroundColor(.secondary)
-                        } else {
-                            ForEach(filtered) { user in
-                                userRow(for: user)
+                        Section(header: Text("Following")) {
+                            let filtered = viewModel.followingUsers.sorted {
+                                sortUsers($0, $1, with: searchText)
+                            }.filter {
+                                userMatchesSearch($0, searchText)
+                            }
+
+                            if filtered.isEmpty {
+                                Text("You're not following anyone yet.")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                ForEach(filtered) { user in
+                                    userRow(for: user)
+                                }
+                            }
+                        }
+
+                        Section(header: Text("Followers")) {
+                            let filtered = viewModel.followerUsers.sorted {
+                                sortUsers($0, $1, with: searchText)
+                            }.filter {
+                                userMatchesSearch($0, searchText)
+                            }
+
+                            if filtered.isEmpty {
+                                Text("You don't have any followers yet.")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                ForEach(filtered) { user in
+                                    userRow(for: user)
+                                }
                             }
                         }
                     }
-
-                    Section(header: Text("Following")) {
-                        let filtered = viewModel.followingUsers.sorted {
-                            sortUsers($0, $1, with: searchText)
-                        }.filter {
-                            userMatchesSearch($0, searchText)
-                        }
-
-                        if filtered.isEmpty {
-                            Text("You're not following anyone yet.")
-                                .foregroundColor(.secondary)
-                        } else {
-                            ForEach(filtered) { user in
-                                userRow(for: user)
-                            }
-                        }
-                    }
-
-                    Section(header: Text("Followers")) {
-                        let filtered = viewModel.followerUsers.sorted {
-                            sortUsers($0, $1, with: searchText)
-                        }.filter {
-                            userMatchesSearch($0, searchText)
-                        }
-
-                        if filtered.isEmpty {
-                            Text("You don't have any followers yet.")
-                                .foregroundColor(.secondary)
-                        } else {
-                            ForEach(filtered) { user in
-                                userRow(for: user)
-                            }
-                        }
-                    }
+                    .listStyle(.insetGrouped)
                 }
-                .listStyle(.insetGrouped)
             }
             .navigationTitle("Friends")
             .task {
@@ -83,7 +97,7 @@ struct FriendsView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
-        .searchable(text: $searchText)
+        .searchable(text: $searchText, prompt: "Search users")
     }
     
     @ViewBuilder

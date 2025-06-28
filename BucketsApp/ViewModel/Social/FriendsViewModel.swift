@@ -32,8 +32,11 @@ class FriendsViewModel: ObservableObject {
 
         do {
             let userDoc = try await db.collection("users").document(userId).getDocument()
-            let followingIds = userDoc.data()?["following"] as? [String] ?? []
-            let followerIds = userDoc.data()?["followers"] as? [String] ?? []
+            let data: [String: Any] = await MainActor.run {
+                userDoc.data() ?? [:]
+            }
+            let followingIds = data["following"] as? [String] ?? []
+            let followerIds = data["followers"] as? [String] ?? []
 
             async let fetchedFollowing = fetchUsers(with: followingIds)
             async let fetchedFollowers = fetchUsers(with: followerIds)
@@ -91,15 +94,58 @@ class FriendsViewModel: ObservableObject {
     }
     
     func loadAllUsers() async {
-        guard let currentUserId = currentUserId else { return }
+        print("[FriendsViewModel] ⚙️ loadAllUsers started")
+
+        await loadFriendsData()
+
+        guard let currentUserId = currentUserId else {
+            print("[FriendsViewModel] ❌ currentUserId is nil")
+            return
+        }
 
         do {
             let snapshot = try await db.collection("users").getDocuments()
-            let users = snapshot.documents.compactMap { try? $0.data(as: UserModel.self) }
-            let filteredUsers = users.filter { $0.documentId != currentUserId }
-            self.allUsers = Array(filteredUsers.prefix(10))
+            let users = snapshot.documents.compactMap { doc in
+                var user = try? doc.data(as: UserModel.self)
+                user?.documentId = doc.documentID
+
+                if user?.username == nil || user?.documentId == nil {
+                    print("[FriendsViewModel] ⚠️ Skipped user with bad data: \(doc.data())")
+                }
+
+                return user
+            }
+            print("[FriendsViewModel] 🔄 Total users fetched: \(users.count)")
+
+            let excludedIds: Set<String> = Set(
+                [currentUserId]
+            )
+            print("[FriendsViewModel] 🚫 Excluding IDs: \(excludedIds)")
+
+            let filteredUsers = users.filter { user in
+                guard let id = user.documentId else { return false }
+                if excludedIds.contains(id) {
+                    return false
+                }
+                if followingUsers.contains(where: { $0.id == user.id }) {
+                    return false
+                }
+                if followerUsers.contains(where: { $0.id == user.id }) {
+                    return false
+                }
+                return true
+            }
+            let finalUsers = Array(filteredUsers.prefix(10))
+
+            print("[FriendsViewModel] ✅ Explore users count: \(finalUsers.count)")
+            finalUsers.forEach { user in
+                let username = user.username ?? "nil"
+                print("[FriendsViewModel] 👤 \(username) - \(String(describing: user.documentId))")
+            }
+
+            self.allUsers = finalUsers
         } catch {
-            print("[FriendsViewModel] Failed to load all users: \(error.localizedDescription)")
+            print("[FriendsViewModel] ❌ Failed to load all users: \(error.localizedDescription)")
         }
     }
     
@@ -114,8 +160,13 @@ class FriendsViewModel: ObservableObject {
             let currentRef = db.collection("users").document(currentUserId)
             let targetRef = db.collection("users").document(user.id)
 
-            try await currentRef.updateData(["following": FieldValue.arrayUnion([user.id])])
-            try await targetRef.updateData(["followers": FieldValue.arrayUnion([currentUserId])])
+            let followingUpdate: [String: Any] = ["following": FieldValue.arrayUnion([user.id])]
+            let followersUpdate: [String: Any] = ["followers": FieldValue.arrayUnion([currentUserId])]
+            try await currentRef.updateData(followingUpdate)
+            try await targetRef.updateData(followersUpdate)
+
+            await loadFriendsData()
+            await loadAllUsers()
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to follow user: \(error.localizedDescription)"
@@ -130,8 +181,13 @@ class FriendsViewModel: ObservableObject {
             let currentRef = db.collection("users").document(currentUserId)
             let targetRef = db.collection("users").document(user.id)
 
-            try await currentRef.updateData(["following": FieldValue.arrayRemove([user.id])])
-            try await targetRef.updateData(["followers": FieldValue.arrayRemove([currentUserId])])
+            let followingUpdate: [String: Any] = ["following": FieldValue.arrayRemove([user.id])]
+            let followersUpdate: [String: Any] = ["followers": FieldValue.arrayRemove([currentUserId])]
+            try await currentRef.updateData(followingUpdate)
+            try await targetRef.updateData(followersUpdate)
+
+            await loadFriendsData()
+            await loadAllUsers()
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to unfollow user: \(error.localizedDescription)"

@@ -168,18 +168,12 @@ struct ListView: View {
                                 Image(systemName: "house.fill")
                             }
                             Spacer()
+                            addButton
+                            Spacer()
                             Button {
                                 showFriends = true
                             } label: {
                                 Image(systemName: "person.2.fill")
-                            }
-                            Spacer()
-                            addButton
-                            Spacer()
-                            Button {
-                                showUserSearch = true
-                            } label: {
-                                Image(systemName: "magnifyingglass")
                             }
                         }
                         .padding(.top, 4)
@@ -461,6 +455,8 @@ struct ListView_Previews: PreviewProvider {
                     .environmentObject(mockUserVM)
                     .environmentObject(mockFeedVM)
                     .environmentObject(mockPostVM)
+                    .environmentObject(FriendsViewModel.mock)
+                    .environmentObject(OnboardingViewModel())
             }
             .previewDisplayName("ListView - Empty")
 
@@ -471,6 +467,8 @@ struct ListView_Previews: PreviewProvider {
                     .environmentObject(mockUserVM)
                     .environmentObject(mockFeedVM)
                     .environmentObject(mockPostVM)
+                    .environmentObject(FriendsViewModel.mock)
+                    .environmentObject(OnboardingViewModel())
             }
             .previewDisplayName("ListView - With Items (3 real images)")
         }
