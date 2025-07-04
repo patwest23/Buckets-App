@@ -46,6 +46,9 @@ struct ListView: View {
             _isLoading = State(initialValue: false)
         }
     }
+
+    // Show refresh confirmation overlay
+    @State private var showRefreshConfirmation = false
     
     private enum ViewStyle: String {
         case list, detailed, completed, incomplete
@@ -55,78 +58,101 @@ struct ListView: View {
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
-                ZStack {
-                    Color(uiColor: .systemBackground)
-                        .ignoresSafeArea()
+                ZStack(alignment: .top) {
+                    ZStack {
+                        Color(uiColor: .systemBackground)
+                            .ignoresSafeArea()
 
-                    ScrollViewReader { proxy in
-                        contentView
-                            .task {
-                                loadItems()
-                                startTextFieldListeners()
-                                friendsViewModel.startListeningToFriendChanges()
-                            }
-                            .navigationBarTitleDisplayMode(.inline)
-                            .onDisappear {
-                                newlyCreatedItemID = nil
-                                UIApplication.shared.endEditing()
-                                isAnyTextFieldActive = false
-                                stopTextFieldListeners()
-                            }
-                            // Navigate to Profile
-                            .navigationDestination(isPresented: $showProfileView) {
-                                ProfileView(onboardingViewModel: onboardingViewModel)
-                                    .environmentObject(userViewModel)
-                                    .environmentObject(bucketListViewModel)
-                                    .environmentObject(postViewModel)
-                            }
-                            // Navigate to Feed
-                            .navigationDestination(isPresented: $showFeed) {
-                                /// Use the existing environment object `feedViewModel`
-                                FeedView()
-                                    .environmentObject(userViewModel)
-                                    .environmentObject(feedViewModel)
-                                    .environmentObject(postViewModel)
-                            }
-                            // Navigate to the User Search View
-                            .navigationDestination(isPresented: $showUserSearch) {
-                                FriendsView()
-                                    .environmentObject(userViewModel)
-                                    .environmentObject(friendsViewModel)
-                            }
-                            // Navigate to Detail => PASS A COPY of the item
-                            .navigationDestination(item: $selectedItem) { item in
-                                // Only show DetailItemView after tapping chevron (not always)
-                                if let _ = selectedItem {
-                                    DetailItemView(item: item)
-                                        .environmentObject(bucketListViewModel)
-                                        .environmentObject(postViewModel)
-                                        .environmentObject(userViewModel)
-                                }
-                            }
-                            // Delete confirmation
-                            .alert(
-                                "Are you sure you want to delete this item?",
-                                isPresented: $bucketListViewModel.showDeleteAlert
-                            ) {
-                                Button("Delete", role: .destructive) {
-                                    if let toDelete = itemToDelete {
-                                        deleteItem(toDelete)
+                        ScrollViewReader { proxy in
+                            contentView
+                                .refreshable {
+                                    await loadItems()
+                                    await postViewModel.syncAllItemLikes(to: bucketListViewModel)
+                                    showRefreshConfirmation = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                        showRefreshConfirmation = false
                                     }
                                 }
-                                Button("Cancel", role: .cancel) {}
-                            } message: {
-                                if let toDelete = itemToDelete {
-                                    Text("Delete “\(toDelete.name)” from your list?")
+                                .task {
+                                    await loadItems()
+                                    try? await Task.sleep(nanoseconds: 300_000_000) // Wait 0.3s to ensure list is loaded
+                                    await postViewModel.syncAllItemLikes(to: bucketListViewModel)
+                                    startTextFieldListeners()
+                                    friendsViewModel.startListeningToFriendChanges()
                                 }
-                            }
-                            // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
-                            .onChange(of: scrollToId, { oldVal, newVal in
-                                guard let newVal = newVal else { return }
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    proxy.scrollTo(newVal, anchor: .bottom)
+                                .navigationBarTitleDisplayMode(.inline)
+                                .onDisappear {
+                                    newlyCreatedItemID = nil
+                                    UIApplication.shared.endEditing()
+                                    isAnyTextFieldActive = false
+                                    stopTextFieldListeners()
                                 }
-                            })
+                                // Navigate to Profile
+                                .navigationDestination(isPresented: $showProfileView) {
+                                    ProfileView(onboardingViewModel: onboardingViewModel)
+                                        .environmentObject(userViewModel)
+                                        .environmentObject(bucketListViewModel)
+                                        .environmentObject(postViewModel)
+                                }
+                                // Navigate to Feed
+                                .navigationDestination(isPresented: $showFeed) {
+                                    /// Use the existing environment object `feedViewModel`
+                                    FeedView()
+                                        .environmentObject(userViewModel)
+                                        .environmentObject(feedViewModel)
+                                        .environmentObject(postViewModel)
+                                }
+                                // Navigate to the User Search View
+                                .navigationDestination(isPresented: $showUserSearch) {
+                                    FriendsView()
+                                        .environmentObject(userViewModel)
+                                        .environmentObject(friendsViewModel)
+                                }
+                                // Navigate to Detail => PASS A COPY of the item
+                                .navigationDestination(item: $selectedItem) { item in
+                                    // Only show DetailItemView after tapping chevron (not always)
+                                    if let _ = selectedItem {
+                                        DetailItemView(item: item)
+                                            .environmentObject(bucketListViewModel)
+                                            .environmentObject(postViewModel)
+                                            .environmentObject(userViewModel)
+                                    }
+                                }
+                                // Delete confirmation
+                                .alert(
+                                    "Are you sure you want to delete this item?",
+                                    isPresented: $bucketListViewModel.showDeleteAlert
+                                ) {
+                                    Button("Delete", role: .destructive) {
+                                        if let toDelete = itemToDelete {
+                                            deleteItem(toDelete)
+                                        }
+                                    }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    if let toDelete = itemToDelete {
+                                        Text("Delete “\(toDelete.name)” from your list?")
+                                    }
+                                }
+                                // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
+                                .onChange(of: scrollToId, { oldVal, newVal in
+                                    guard let newVal = newVal else { return }
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        proxy.scrollTo(newVal, anchor: .bottom)
+                                    }
+                                })
+                        }
+                    }
+
+                    if showRefreshConfirmation {
+                        Text("✅ Refreshed")
+                            .font(.caption)
+                            .padding(8)
+                            .background(Capsule().fill(Color.green.opacity(0.85)))
+                            .foregroundColor(.white)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .animation(.easeInOut(duration: 0.3), value: showRefreshConfirmation)
+                            .padding(.top, 10)
                     }
                 }
                 // Move toolbar here: apply to ZStack instead of inside ScrollViewReader/contentView
@@ -191,8 +217,12 @@ struct ListView: View {
                         .frame(height: 70)
                         .allowsHitTesting(false)
                 }
-
-
+                // Add onAppear to ZStack to refresh likes in background
+                .onAppear {
+                    Task {
+                        await postViewModel.syncAllItemLikes(to: bucketListViewModel)
+                    }
+                }
             } else {
                 Text("Please use iOS 17 or later.")
                     .font(.headline)
@@ -325,16 +355,14 @@ struct ListView: View {
     
     
     // MARK: - Load
-    private func loadItems() {
-        Task {
-            isLoading = true
-            await bucketListViewModel.loadItems()
+    private func loadItems() async {
+        isLoading = true
+        await bucketListViewModel.loadItems()
 
-            // 🚨 Delay to ensure items are ready for navigation
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+        // 🚨 Delay to ensure items are ready for navigation
+        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
 
-            isLoading = false
-        }
+        isLoading = false
     }
     
     // MARK: - Profile Image Helper

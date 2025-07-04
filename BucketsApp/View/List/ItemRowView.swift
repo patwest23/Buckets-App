@@ -84,8 +84,8 @@ struct ItemRowView: View {
                 }
 
                 // MARK: - Likes Row (if posted and liked)
-                if item.completed, let likeCount = item.likeCount, likeCount > 0 {
-                    Text("❤️ \(likeCount)")
+                if item.completed, !item.likedBy.isEmpty {
+                    Text("❤️ \(item.likedBy.count)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 2)
@@ -109,35 +109,29 @@ struct ItemRowView: View {
             .contentShape(Rectangle())
 
             // MARK: - Overlay Icons
-            HStack(spacing: -10) {
-                if item.hasPostedCompletion || item.hasPostedAddEvent || item.hasPostedPhotos {
-                    Image(systemName: "megaphone.fill")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                        .padding(6)
-                        .background(Circle().fill(Color.white))
-                        .shadow(radius: 1)
-                }
+            if item.wasShared || item.likedBy.count > 0 {
+                // print("📌 Displaying icon row for itemId=\(item.id) | wasShared=\(item.wasShared), likeCount=\(item.likeCount ?? 0), likeCountDisplay=\(String(describing: item.likeCountDisplay)), summary=\(item.debugLikeSummary)")
+                HStack(spacing: -10) {
+                    if item.wasShared {
+                        Image(systemName: "megaphone.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .padding(6)
+                            .background(Circle().fill(Color.white))
+                            .shadow(radius: 1)
+                    }
 
-                if let likeCount = item.likeCount, likeCount > 0 {
-                    Image(systemName: "heart.fill")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .padding(6)
-                        .background(Circle().fill(Color.white))
-                        .shadow(radius: 1)
+                    if item.likedBy.count > 0 {
+                        Image(systemName: "heart.fill")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(6)
+                            .background(Circle().fill(Color.white))
+                            .shadow(radius: 1)
+                    }
                 }
-                if item.wasRecentlyLiked {
-                    Image(systemName: "bell.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(6)
-                        .background(Circle().fill(Color.white))
-                        .shadow(radius: 1)
-                }
-                // Add more icons here if needed
+                .offset(x: 10, y: -10)
             }
-            .offset(x: 10, y: -10)
         }
         .onAppear {
             Task {
@@ -190,7 +184,10 @@ struct ItemRowView: View {
 
     private func bindingForName() -> Binding<String> {
         Binding<String>(
-            get: { item.name },
+            get: {
+                print("📌 ItemRowView likeCount for \(item.name): \(item.likedBy.count ?? 0), likedBy: \(item.likedBy.count ?? 0)")
+                return item.name
+            },
             set: { newValue in
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 var edited = item
@@ -236,7 +233,6 @@ struct ItemRowView_Previews: PreviewProvider {
                 "https://via.placeholder.com/401",
                 "https://via.placeholder.com/402"
             ],
-            likeCount: 42,
             caption: "This was the most unforgettable day ever!",
             hasPostedAddEvent: true,
             hasPostedCompletion: true,

@@ -61,6 +61,7 @@ struct BucketsApp: App {
 
                                 try? await Task.sleep(nanoseconds: 300_000_000) // wait 0.3 seconds
                                 await userViewModel.loadProfileImage()
+                                await postViewModel.syncAllItemLikes(to: bucketListViewModel)
                             }
                         }
                 }

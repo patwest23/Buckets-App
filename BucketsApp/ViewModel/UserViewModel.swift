@@ -14,6 +14,7 @@ import FirebaseStorage
 class UserViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var user: UserModel?
+    @Published var bucketListViewModel = ListViewModel()
     @Published var isUserLoaded: Bool = false
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false

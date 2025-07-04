@@ -36,6 +36,9 @@ struct FeedView: View {
                                         }
                                     }
                                 )
+                                .task {
+                                    print("🔍 FeedRowView - postId=\(post.id), likeCount=\(post.likedBy.count)")
+                                }
 
                                 // MARK: - Timestamp
                                 Text(timeAgoString(for: post.timestamp))

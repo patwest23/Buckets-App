@@ -31,6 +31,8 @@ struct DetailItemView: View {
     @State private var showShareAlert: Bool = false
     @State private var lastShareEvent: PostType? = nil
 
+    @State private var showReshareUpdateAlert = false
+
     init(item: ItemModel) {
         self.itemID = item.id
         _currentItem = State(initialValue: item)
@@ -58,6 +60,10 @@ struct DetailItemView: View {
                             currentItem.name = newValue
                             Task {
                                 await bucketListViewModel.addOrUpdateItem(currentItem)
+                                await postViewModel.syncPostWithItem(currentItem)
+                                if currentItem.wasShared {
+                                    showReshareUpdateAlert = true
+                                }
                             }
                         }
                     ))
@@ -173,8 +179,22 @@ struct DetailItemView: View {
         })
         // Confirmation alert after posting
         .alert("✅ Shared to Feed!", isPresented: $showFeedConfirmation) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {
+                presentationMode.wrappedValue.dismiss()
+            }
         }
+        .alert("Re-share this update?", isPresented: $showReshareUpdateAlert, actions: {
+            Button("Re-share to Feed") {
+                postViewModel.selectedItemID = currentItem.id.uuidString
+                Task {
+                    await postViewModel.postItem(with: currentItem)
+                    showFeedConfirmation = true
+                }
+            }
+            Button("Not Now", role: .cancel) {}
+        }, message: {
+            Text("You've already shared this item. Want to re-share the update in your feed?")
+        })
         
     }
 
@@ -211,6 +231,10 @@ struct DetailItemView: View {
             currentItem.dueDate = nil
         }
         await bucketListViewModel.addOrUpdateItem(currentItem)
+        await postViewModel.syncPostWithItem(currentItem)
+        if currentItem.wasShared {
+            showReshareUpdateAlert = true
+        }
     }
 }
 

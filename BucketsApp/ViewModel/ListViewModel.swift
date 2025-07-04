@@ -194,6 +194,7 @@ class ListViewModel: ObservableObject {
             .collection("items").document(item.id.uuidString)
         
         do {
+            print("[ListViewModel] Preparing to write item: \(newItem.id), wasShared: \(newItem.wasShared), postId: \(String(describing: newItem.postId))")
             let encoded = try Firestore.Encoder().encode(newItem)
             print("📝 Writing to Firestore:", encoded)
             try await docRef.setData(encoded, merge: true)
@@ -347,9 +348,12 @@ class ListViewModel: ObservableObject {
     }
 
     // MARK: - Sync Likes Helper
-    /// Syncs the likedBy array from a post to the corresponding item document in Firestore.
+    /// Syncs the likedBy array from a post to the corresponding item document in Firestore,
+    /// and updates the in-memory item in `items` so SwiftUI can reflect it.
     func syncItemLikes(for itemId: UUID, from postLikedBy: [String]) async {
         guard let userId = userId else { return }
+
+        print("🔄 [ListViewModel] Starting syncItemLikes for itemId: \(itemId)")
 
         let docRef = db
             .collection("users")
@@ -361,10 +365,22 @@ class ListViewModel: ObservableObject {
             let update: [String: Any] = await MainActor.run {
                 ["likedBy": postLikedBy]
             }
+
             try await docRef.updateData(update)
             print("❤️ Synced likes to item \(itemId)")
+
+            // Update in-memory model so SwiftUI can reflect it
+            if let index = self.items.firstIndex(where: { $0.id == itemId }) {
+                var updated = self.items[index]
+                updated.likedBy = postLikedBy
+                updated.wasShared = true
+                self.items[index] = updated
+                print("🧠 Updated item \(itemId) likedBy count: \(postLikedBy.count), wasShared: true")
+                print("✅ [ListViewModel] Finished syncItemLikes for itemId: \(itemId)")
+            }
+
         } catch {
-            print("❌ Failed to sync likes to item:", error.localizedDescription)
+            print("❌ [ListViewModel] syncItemLikes failed for itemId: \(itemId) with error: \(error.localizedDescription)")
         }
     }
 

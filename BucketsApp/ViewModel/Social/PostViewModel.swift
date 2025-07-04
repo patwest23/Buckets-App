@@ -128,7 +128,7 @@ class PostViewModel: ObservableObject {
 
         isPosting = true
 
-        let newPost = PostModel(
+        var newPost = PostModel(
             authorId: userId,
             authorUsername: userViewModel?.user?.username,
             itemId: item.id.uuidString,
@@ -141,8 +141,18 @@ class PostViewModel: ObservableObject {
         )
 
         print("[PostViewModel] new post fields:", newPost)
-        await addOrUpdatePost(post: newPost)
+        guard let savedPost = await addOrUpdatePost(post: newPost),
+              let postId = savedPost.id else {
+            print("[PostViewModel] ❌ postItem => Failed to save or retrieve post ID.")
+            return
+        }
         print("[PostViewModel] postItem(with:) => Finished writing post to Firestore.")
+
+        var updatedItem = item
+        updatedItem.wasShared = true
+        updatedItem.postId = postId
+        print("[PostViewModel] 🧩 Updating item after share: wasShared=\(updatedItem.wasShared), postId=\(postId)")
+        await userViewModel?.bucketListViewModel.addOrUpdateItem(updatedItem)
 
         // Reset UI
         isPosting = false
@@ -176,11 +186,11 @@ class PostViewModel: ObservableObject {
     }
     
     // MARK: - Add or Update
-    func addOrUpdatePost(post: PostModel) async {
+    func addOrUpdatePost(post: PostModel) async -> PostModel? {
         var post = post
         guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
             print("[PostViewModel] addOrUpdatePost => userId is missing from userViewModel. Cannot save post.")
-            return
+            return nil
         }
         // Ensure authorId is set
         if post.authorId.isEmpty {
@@ -209,8 +219,49 @@ class PostViewModel: ObservableObject {
             } else {
                 posts.append(post)
             }
+            return post
         } catch {
             print("[PostViewModel] addOrUpdatePost => Error:", error.localizedDescription)
+            self.errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+    
+    // MARK: - Sync Post with Item
+    /// Updates the existing post document (if any) with the latest content from the associated item.
+    func syncPostWithItem(_ item: ItemModel) async {
+        guard let postId = item.postId else {
+            print("[PostViewModel] syncPostWithItem: No postId on item. Skipping sync.")
+            return
+        }
+        guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
+            print("[PostViewModel] syncPostWithItem: Missing userId.")
+            return
+        }
+
+        let docRef = db
+            .collection("users")
+            .document(userId)
+            .collection("posts")
+            .document(postId)
+
+        do {
+            let snapshot = try await docRef.getDocument()
+            guard snapshot.exists else {
+                print("[PostViewModel] syncPostWithItem: No existing post found.")
+                return
+            }
+
+            var existingPost = try snapshot.data(as: PostModel.self)
+            existingPost.caption = caption // Optional: could be updated from UI or kept same
+            existingPost.itemImageUrls = item.imageUrls
+            existingPost.itemId = item.id.uuidString
+
+            let encoded = try Firestore.Encoder().encode(existingPost)
+            try await docRef.setData(encoded, merge: true)
+            print("[PostViewModel] syncPostWithItem: ✅ Updated post with new item data.")
+        } catch {
+            print("[PostViewModel] syncPostWithItem: 🛑 Error updating post:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
         }
     }
@@ -273,5 +324,49 @@ class PostViewModel: ObservableObject {
             print("[PostViewModel] fetchItem: 🛑 Error loading item for \(post.itemId) by user \(userId):", error.localizedDescription)
             return nil
         }
+    }
+}
+
+// MARK: - Batch Sync Likes from Posts to Items
+extension PostViewModel {
+    /// Syncs likedBy data from each shared post back to the corresponding ItemModel.
+    func syncAllItemLikes(to listViewModel: ListViewModel) async {
+        print("[PostViewModel] 🔄 Starting syncAllItemLikes with \(listViewModel.items.count) items...")
+        guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
+            print("[PostViewModel] syncAllItemLikes: Missing userId.")
+            return
+        }
+
+        for item in listViewModel.items where item.wasShared {
+            guard let postId = item.postId else { continue }
+            
+            print("[PostViewModel] ⏳ Syncing likes for postId: \(postId)")
+            let postRef = db
+                .collection("users")
+                .document(userId)
+                .collection("posts")
+                .document(postId)
+
+            do {
+                let snapshot = try await postRef.getDocument()
+                guard snapshot.exists else {
+                    print("[PostViewModel] syncAllItemLikes: No post found for \(postId).")
+                    continue
+                }
+
+                let post = try snapshot.data(as: PostModel.self)
+                print("[PostViewModel] ✅ Loaded post for item \(item.id). LikedBy count: \(post.likedBy.count)")
+                await listViewModel.syncItemLikes(for: item.id, from: post.likedBy)
+                // Ensure wasShared is updated locally for the UI to reflect shared status
+                if let index = listViewModel.items.firstIndex(where: { $0.id == item.id }) {
+                    listViewModel.items[index].wasShared = true
+                    print("[PostViewModel] 🧠 Updated item index \(index) with wasShared: true")
+                }
+            } catch {
+                print("[PostViewModel] ❌ Error syncing likes for postId \(postId):", error.localizedDescription)
+            }
+        }
+
+        print("[PostViewModel] syncAllItemLikes: ✅ Completed syncing likes for all shared items.")
     }
 }

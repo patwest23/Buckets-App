@@ -106,6 +106,7 @@ class FeedViewModel: ObservableObject {
             // 4) Assign to published property
             print("[FeedViewModel] Assigning sorted posts to self.posts...")
             self.posts = sortedPosts
+            // Note: Caller should invoke `syncLikesToItems(in:)` separately if needed.
             print("[FeedViewModel] Assigned posts count:", self.posts.count)
             print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
             print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
@@ -185,6 +186,8 @@ class FeedViewModel: ObservableObject {
             }
             try await postRef.updateData(update)
             
+            print("[FeedViewModel] toggleLike: \(currentUID) => \(newLikedBy.count) likes total for post \(postDocId)")
+            
             // Update local feed array for immediate UI feedback
             if let idx = posts.firstIndex(where: { $0.id == postDocId }) {
                 var updatedPost = posts[idx]
@@ -256,6 +259,18 @@ class FeedViewModel: ObservableObject {
             postListeners.append(listener)
         }
     }
+    
+    func syncLikesToItems(in listViewModel: ListViewModel) {
+        print("[FeedViewModel] 🔁 Syncing like counts into ItemModel...")
+        for post in posts {
+            guard let postId = post.id else { continue }
+            if let index = listViewModel.items.firstIndex(where: { $0.postId == postId }) {
+                let likeCount = post.likedBy.count
+                print("[FeedViewModel] 🧠 Updating item at index \(index) with likeCount =", likeCount)
+                listViewModel.items[index] = listViewModel.items[index].updatingLikeCount(to: likeCount)
+            }
+        }
+    }
 }
 
 class MockFeedViewModel: FeedViewModel {
@@ -284,5 +299,14 @@ class MockFeedViewModel: FeedViewModel {
         }
         posts[idx] = updated
         print("[MockFeedViewModel] toggleLike - updated post \(updated.id ?? "nil") likes to: \(updated.likedBy.count)")
+    }
+}
+
+// Inside ItemModel, add the following method at the bottom of its definition:
+extension ItemModel {
+    func updatingLikeCount(to count: Int) -> ItemModel {
+        var updated = self
+        updated.likedBy = Array(repeating: "placeholderUserId", count: count)
+        return updated
     }
 }

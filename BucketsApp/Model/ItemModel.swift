@@ -49,13 +49,16 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var likedBy: [String] = []
     
     // MARK: - Embedded Post Metadata
-    var likeCount: Int? = nil
     var caption: String? = nil
 
     // MARK: - Post Status Flags
     var hasPostedAddEvent: Bool = false
     var hasPostedCompletion: Bool = false
     var hasPostedPhotos: Bool = false
+
+    // MARK: - Post Linkage
+    var postId: String? = nil
+    var wasShared: Bool = false
 
     // MARK: - Initializer
     init(
@@ -75,11 +78,12 @@ struct ItemModel: Codable, Identifiable, Hashable {
         creationDate: Date = Date(),
         imageUrls: [String] = [],
         likedBy: [String] = [],
-        likeCount: Int? = nil,
         caption: String? = nil,
         hasPostedAddEvent: Bool = false,
         hasPostedCompletion: Bool = false,
-        hasPostedPhotos: Bool = false
+        hasPostedPhotos: Bool = false,
+        postId: String? = nil,
+        wasShared: Bool = false
     ) {
         self.id = id
         self.userId = userId
@@ -97,11 +101,12 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.creationDate = creationDate
         self.imageUrls = imageUrls
         self.likedBy = likedBy
-        self.likeCount = likeCount
         self.caption = caption
         self.hasPostedAddEvent = hasPostedAddEvent
         self.hasPostedCompletion = hasPostedCompletion
         self.hasPostedPhotos = hasPostedPhotos
+        self.postId = postId
+        self.wasShared = wasShared
     }
 
     // MARK: - Custom Decoding to support legacy imageUrl fields
@@ -122,11 +127,12 @@ struct ItemModel: Codable, Identifiable, Hashable {
         case creationDate
         case imageUrls
         case likedBy
-        case likeCount
         case caption
         case hasPostedAddEvent
         case hasPostedCompletion
         case hasPostedPhotos
+        case postId
+        case wasShared
     }
     
     init(from decoder: Decoder) throws {
@@ -146,11 +152,12 @@ struct ItemModel: Codable, Identifiable, Hashable {
         completed = try container.decode(Bool.self, forKey: .completed)
         orderIndex = try container.decode(Int.self, forKey: .orderIndex)
         creationDate = try container.decode(Date.self, forKey: .creationDate)
-        likeCount = try container.decodeIfPresent(Int.self, forKey: .likeCount)
         caption = try container.decodeIfPresent(String.self, forKey: .caption)
         hasPostedAddEvent = try container.decode(Bool.self, forKey: .hasPostedAddEvent)
         hasPostedCompletion = try container.decode(Bool.self, forKey: .hasPostedCompletion)
         hasPostedPhotos = try container.decode(Bool.self, forKey: .hasPostedPhotos)
+        postId = try container.decodeIfPresent(String.self, forKey: .postId)
+        wasShared = try container.decodeIfPresent(Bool.self, forKey: .wasShared) ?? false
         
         imageUrls = try container.decodeIfPresent([String].self, forKey: .imageUrls) ?? []
         likedBy = try container.decodeIfPresent([String].self, forKey: .likedBy) ?? []
@@ -173,6 +180,18 @@ struct ItemModel: Codable, Identifiable, Hashable {
 
     var wasRecentlyLiked: Bool {
         !likedBy.isEmpty
+    }
+
+    var likeCount: Int {
+        return likedBy.count
+    }
+
+    var likeCountDisplay: Int {
+        return likeCount
+    }
+
+    var debugLikeSummary: String {
+        return "❤️ \(likeCountDisplay) likes (\(likedBy.count) users)"
     }
     
     // Enable @dynamicMemberLookup for key path access

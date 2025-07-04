@@ -38,9 +38,6 @@ struct ProfileView: View {
                     
                     // MARK: - Stats Dashboard
                     statsDashboard
-                    
-                    // MARK: - User’s Posts
-                    postsSection
                 }
                 .padding(.horizontal)
                 .padding(.top, 16)
@@ -223,59 +220,6 @@ extension ProfileView {
                 .fill(Color(UIColor.secondarySystemGroupedBackground))
                 .shadow(color: cardShadowColor, radius: cardShadowRadius, x: 0, y: 2)
         )
-    }
-    
-    // MARK: - Posts Section / Activity Log
-    private var postsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Activity Log")
-                .font(.headline)
-                .padding(.horizontal)
-
-            if postViewModel.posts.isEmpty {
-                Text("No posts yet!")
-                    .foregroundColor(.secondary)
-                    .italic()
-                    .padding(.horizontal)
-            } else {
-                ForEach(postViewModel.posts.sorted(by: { $0.timestamp > $1.timestamp })) { post in
-                    ProfilePostRowView(post: post, injectedItem: postViewModel.injectedItems[post.itemId])
-                        .environmentObject(postViewModel)
-                }
-            }
-        }
-        .padding(.top, 8)
-    }
-    
-    // MARK: - Activity Log Helpers
-    private func activityLabel(for post: PostModel) -> String {
-        switch post.type {
-        case .added: return "Added item"
-        case .completed: return "✅ Completed item"
-        case .photos: return "📸 Shared photos"
-        }
-    }
-
-    private func icon(for type: PostType) -> String {
-        switch type {
-        case .added: return "plus.circle.fill"
-        case .completed: return "checkmark.seal.fill"
-        case .photos: return "photo.fill.on.rectangle.fill"
-        }
-    }
-
-    private func color(for type: PostType) -> Color {
-        switch type {
-        case .added: return .blue
-        case .completed: return .green
-        case .photos: return .purple
-        }
-    }
-
-    private func timeAgoString(for date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: Date())
     }
     
     // MARK: - Single Stat Card

@@ -106,6 +106,7 @@ struct FeedRowView: View {
             let fetchedItem = await postViewModel.fetchItem(for: post)
             if let fetchedItem {
                 print("[FeedRowView] ✅ Successfully fetched item: \(fetchedItem.name)")
+                print("[FeedRowView] Like count = \(post.likedBy.count)")
                 item = fetchedItem
             } else {
                 print("[FeedRowView] ❌ Failed to fetch item for postId: \(post.id ?? "nil")")
