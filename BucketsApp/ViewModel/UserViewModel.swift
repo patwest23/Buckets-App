@@ -226,7 +226,7 @@ class UserViewModel: ObservableObject {
         guard let userId = user?.id else { return }
 
         let storageRef = Storage.storage().reference()
-            .child("users/\(userId)/profile_images/\(userId).jpg")
+            .child("users/\(userId)/profile_images/profile.jpg")
 
         do {
             let data = try await storageRef.data(maxSize: 5 * 1024 * 1024)

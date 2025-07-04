@@ -97,8 +97,31 @@ extension ProfileView {
                                 .stroke(Color.accentColor, lineWidth: 4)
                         )
                         .shadow(color: cardShadowColor, radius: 6, x: 0, y: 3)
+                } else if let urlString = userViewModel.user?.profileImageUrl,
+                          let url = URL(string: urlString) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                        case .success(let image):
+                            image.resizable()
+                        case .failure:
+                            Image(systemName: "person.fill")
+                                .resizable()
+                                .foregroundColor(.gray)
+                        @unknown default:
+                            Image(systemName: "person.fill")
+                                .resizable()
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .scaledToFill()
+                    .frame(width: 150, height: 150)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.accentColor, lineWidth: 4))
+                    .shadow(color: cardShadowColor, radius: 6, x: 0, y: 3)
                 } else {
-                    Image(systemName: "person.crop.circle.fill")
+                    Image(systemName: "person.fill")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 150, height: 150)

@@ -21,20 +21,21 @@ struct FriendsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
+                        let excludedIds = Set(
+                            viewModel.followingUsers.map(\.documentId) +
+                            viewModel.followerUsers.map(\.documentId) +
+                            [viewModel.currentUserId].compactMap { $0 }
+                        )
+                        let filtered = viewModel.allUsers
+                            .filter { user in !excludedIds.contains(user.documentId) }
+                            .sorted { sortUsers($0, $1, with: searchText) }
+                            .filter { userMatchesSearch($0, searchText) }
+                            .prefix(5)
+                        let exploreIds = Set(filtered.map(\.documentId))
+                        let followingIds = Set(viewModel.followingUsers.map(\.documentId))
+                        
+                        // --- Explore Section
                         Section(header: Text("Explore")) {
-                            let excludedIds = Set(
-                                viewModel.followingUsers.map(\.documentId) +
-                                viewModel.followerUsers.map(\.documentId) +
-                                [viewModel.currentUserId].compactMap { $0 }
-                            )
-                            let filtered = viewModel.allUsers
-                                .filter { user in
-                                    !excludedIds.contains(user.documentId)
-                                }
-                                .sorted { sortUsers($0, $1, with: searchText) }
-                                .filter { userMatchesSearch($0, searchText) }
-                                .prefix(5)
-
                             if filtered.isEmpty {
                                 Text("No users to explore.")
                                     .foregroundColor(.secondary)
@@ -45,35 +46,38 @@ struct FriendsView: View {
                             }
                         }
 
+                        // --- Following Section
                         Section(header: Text("Following")) {
-                            let filtered = viewModel.followingUsers.sorted {
-                                sortUsers($0, $1, with: searchText)
-                            }.filter {
-                                userMatchesSearch($0, searchText)
-                            }
+                            let followingFiltered = viewModel.followingUsers
+                                .filter { !exploreIds.contains($0.documentId) }
+                                .sorted { sortUsers($0, $1, with: searchText) }
+                                .filter { userMatchesSearch($0, searchText) }
 
-                            if filtered.isEmpty {
+                            if followingFiltered.isEmpty {
                                 Text("You're not following anyone yet.")
                                     .foregroundColor(.secondary)
                             } else {
-                                ForEach(filtered) { user in
+                                ForEach(followingFiltered) { user in
                                     userRow(for: user)
                                 }
                             }
                         }
 
+                        // --- Followers Section
                         Section(header: Text("Followers")) {
-                            let filtered = viewModel.followerUsers.sorted {
-                                sortUsers($0, $1, with: searchText)
-                            }.filter {
-                                userMatchesSearch($0, searchText)
-                            }
+                            let followersFiltered = viewModel.followerUsers
+                                .filter {
+                                    !exploreIds.contains($0.documentId) &&
+                                    !followingIds.contains($0.documentId)
+                                }
+                                .sorted { sortUsers($0, $1, with: searchText) }
+                                .filter { userMatchesSearch($0, searchText) }
 
-                            if filtered.isEmpty {
+                            if followersFiltered.isEmpty {
                                 Text("You don't have any followers yet.")
                                     .foregroundColor(.secondary)
                             } else {
-                                ForEach(filtered) { user in
+                                ForEach(followersFiltered) { user in
                                     userRow(for: user)
                                 }
                             }
@@ -87,6 +91,37 @@ struct FriendsView: View {
                 await viewModel.loadFriendsData()
                 await viewModel.loadAllUsers()
                 viewModel.startListeningToFriendChanges()
+
+                // --- Debug print statements for section counts
+                // Recompute filtered/exploreIds/followingFiltered/followersFiltered for debug
+                let excludedIds = Set(
+                    viewModel.followingUsers.map(\.documentId) +
+                    viewModel.followerUsers.map(\.documentId) +
+                    [viewModel.currentUserId].compactMap { $0 }
+                )
+                let filtered = viewModel.allUsers
+                    .filter { user in
+                        !excludedIds.contains(user.documentId)
+                    }
+                    .sorted { sortUsers($0, $1, with: searchText) }
+                    .filter { userMatchesSearch($0, searchText) }
+                    .prefix(5)
+                let exploreIds = Set(filtered.map(\.documentId))
+                let followingFiltered = viewModel.followingUsers
+                    .filter { !exploreIds.contains($0.documentId) }
+                    .sorted { sortUsers($0, $1, with: searchText) }
+                    .filter { userMatchesSearch($0, searchText) }
+                let followingIds = Set(viewModel.followingUsers.map(\.documentId))
+                let followersFiltered = viewModel.followerUsers
+                    .filter {
+                        !exploreIds.contains($0.documentId) &&
+                        !followingIds.contains($0.documentId)
+                    }
+                    .sorted { sortUsers($0, $1, with: searchText) }
+                    .filter { userMatchesSearch($0, searchText) }
+                print("[FriendsView] Explore count: \(filtered.count)")
+                print("[FriendsView] Following count: \(followingFiltered.count)")
+                print("[FriendsView] Followers count: \(followersFiltered.count)")
             }
             .alert("Error", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },

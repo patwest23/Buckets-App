@@ -36,11 +36,11 @@ struct ProfilePostRowView: View {
                             Label("Delete Post", systemImage: "trash")
                         }
 
-                        Button {
-                            isEditSheetPresented = true
-                        } label: {
-                            Label("Edit Post", systemImage: "pencil")
-                        }
+//                        Button {
+//                            isEditSheetPresented = true
+//                        } label: {
+//                            Label("Edit Post", systemImage: "pencil")
+//                        }
                     } label: {
                         Image(systemName: "ellipsis")
                             .foregroundColor(.primary)
@@ -107,10 +107,10 @@ struct ProfilePostRowView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(UIColor.secondarySystemGroupedBackground))
         )
-        .sheet(isPresented: $isEditSheetPresented) {
-            ProfilePostEditView(post: post)
-                .environmentObject(postViewModel)
-        }
+//        .sheet(isPresented: $isEditSheetPresented) {
+//            ProfilePostEditView(post: post)
+//                .environmentObject(postViewModel)
+//        }
         .task {
             if let injectedItem = injectedItem {
                 self.item = injectedItem

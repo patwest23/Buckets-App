@@ -343,10 +343,19 @@ struct ListView: View {
         if let urlString = userViewModel.user?.profileImageUrl,
            !urlString.isEmpty,
            let url = URL(string: urlString) {
-            AsyncImage(url: url) { image in
-                image.resizable()
-            } placeholder: {
-                ProgressView()
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    ProgressView()
+                case .success(let image):
+                    image.resizable()
+                case .failure:
+                    Image(systemName: "person.fill")
+                        .resizable()
+                @unknown default:
+                    Image(systemName: "person.fill")
+                        .resizable()
+                }
             }
             .scaledToFill()
             .clipShape(Circle())
@@ -355,7 +364,7 @@ struct ListView: View {
                     .stroke(Color.accentColor, lineWidth: 2)
             )
         } else {
-            Image(systemName: "person.crop.circle.fill")
+            Image(systemName: "person.fill")
                 .resizable()
                 .scaledToFill()
                 .clipShape(Circle())

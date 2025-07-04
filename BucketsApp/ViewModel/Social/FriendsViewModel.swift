@@ -43,8 +43,20 @@ class FriendsViewModel: ObservableObject {
 
             let (following, followers) = try await (fetchedFollowing, fetchedFollowers)
 
-            self.followingUsers = following
-            self.followerUsers = followers
+            self.followingUsers = Dictionary(grouping: following, by: \.documentId)
+                .compactMapValues { $0.first }
+                .values
+                .sorted { ($0.username ?? "") < ($1.username ?? "") }
+
+            self.followerUsers = Dictionary(grouping: followers, by: \.documentId)
+                .compactMapValues { $0.first }
+                .values
+                .sorted { ($0.username ?? "") < ($1.username ?? "") }
+
+            print("[FriendsViewModel] ✅ Following loaded count: \(following.count)")
+            print("[FriendsViewModel] ✅ Followers loaded count: \(followers.count)")
+            print("[FriendsViewModel] Following IDs: \(self.followingUsers.map { $0.id })")
+            print("[FriendsViewModel] Follower IDs: \(self.followerUsers.map { $0.id })")
         } catch {
             print("[FriendsViewModel] Error loading friends data: \(error.localizedDescription)")
         }
@@ -74,7 +86,8 @@ class FriendsViewModel: ObservableObject {
 
         for id in ids {
             let doc = try await db.collection("users").document(id).getDocument()
-            if let user = try? doc.data(as: UserModel.self) {
+            if var user = try? doc.data(as: UserModel.self) {
+                user.documentId = doc.documentID
                 users.append(user)
             }
         }
@@ -127,10 +140,11 @@ class FriendsViewModel: ObservableObject {
                 if excludedIds.contains(id) {
                     return false
                 }
-                if followingUsers.contains(where: { $0.id == user.id }) {
-                    return false
-                }
-                if followerUsers.contains(where: { $0.id == user.id }) {
+                // Ensure uniqueness across sections
+                let alreadyFollowing = followingUsers.contains(where: { $0.id == user.id })
+                let alreadyFollower = followerUsers.contains(where: { $0.id == user.id })
+                if alreadyFollowing || alreadyFollower {
+                    print("[FriendsViewModel] 🔁 Skipping user already followed or following: \(user.username ?? "nil") - \(user.id)")
                     return false
                 }
                 return true
@@ -142,7 +156,7 @@ class FriendsViewModel: ObservableObject {
                 let username = user.username ?? "nil"
                 print("[FriendsViewModel] 👤 \(username) - \(String(describing: user.documentId))")
             }
-
+            print("[FriendsViewModel] Explore IDs: \(finalUsers.map { $0.id })")
             self.allUsers = finalUsers
         } catch {
             print("[FriendsViewModel] ❌ Failed to load all users: \(error.localizedDescription)")
