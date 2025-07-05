@@ -30,6 +30,7 @@ struct FeedView: View {
                                 // MARK: - Feed Card
                                 FeedRowView(
                                     post: post,
+                                    item: nil,
                                     onLike: {
                                         Task {
                                             await feedViewModel.toggleLike(post: post)
@@ -56,11 +57,13 @@ struct FeedView: View {
                 await feedViewModel.fetchFeedPosts()
                 showLoading = false
             }
-            .task {
-                Task {
-                    showLoading = true
-                    await feedViewModel.fetchFeedPosts()
-                    showLoading = false
+            .onAppear {
+                if feedViewModel.posts.isEmpty {
+                    Task {
+                        showLoading = true
+                        await feedViewModel.fetchFeedPosts()
+                        showLoading = false
+                    }
                 }
             }
         }

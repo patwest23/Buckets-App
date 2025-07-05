@@ -10,9 +10,10 @@ import SwiftUI
 struct FeedRowView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var postViewModel: PostViewModel
-    @State private var item: ItemModel?
+    @EnvironmentObject var userViewModel: UserViewModel
     
     let post: PostModel
+    let item: ItemModel? // NEW: injected from parent
     
     /// Callback for "like"
     let onLike: () -> Void
@@ -29,87 +30,62 @@ struct FeedRowView: View {
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
+
+    // No longer need computed property for currentUserId
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let item = item {
-                // 1) Top row: optional checkmark + item name
-                HStack(spacing: 4) {
-                    if item.completed {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.accentColor)
-                    }
-                    Text("\(post.authorUsername ?? "@\(post.authorId)") \(item.name)")
-                        .font(.headline)
-                        .foregroundColor(dynamicTextColor)
-                    Spacer()
-                }
-
-                // 2) Image carousel (or fallback)
-                if item.imageUrls.isEmpty == false {
-                    TabView {
-                        ForEach(item.imageUrls, id: \.self) { urlStr in
-                            FeedRowImageView(urlStr: urlStr)
-                                .frame(height: 300)
-                                .clipped()
-                        }
-                    }
-                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                    .frame(height: 300)
-                } else {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 300)
-                        .overlay(
-                            Text("No images")
-                                .foregroundColor(.gray)
-                        )
-                }
-
-                // 3) Username + Caption
-                if let caption = post.caption, !caption.isEmpty {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(post.authorUsername ?? "@\(post.authorId)")
-                            .fontWeight(.semibold)
-                        Text(caption)
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            // List item name
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.accentColor)
+                Text(item?.name ?? "Untitled Post")
+                    .font(.headline)
+                    .bold()
                     .foregroundColor(dynamicTextColor)
-                    .padding(.vertical, 8)
-                }
-
-                // 4) Like row
-                HStack(spacing: 16) {
-                    Button(action: onLike) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "heart")
-                            Text("Like (\(post.likedBy.count))")
-                        }
-                    }
-                    .foregroundColor(dynamicTextColor)
-
-                    Spacer()
-                }
-                .padding(.top, 4)
-            } else {
-                VStack(spacing: 8) {
-                    ProgressView()
-                    Text("Loading item for post...")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                .frame(height: 350)
-                .frame(maxWidth: .infinity)
             }
-        }
-        .task {
-            print("[FeedRowView] Fetching item for postId: \(post.id ?? "nil") from user \(post.authorId) for itemId: \(post.itemId)")
-            let fetchedItem = await postViewModel.fetchItem(for: post)
-            if let fetchedItem {
-                print("[FeedRowView] ✅ Successfully fetched item: \(fetchedItem.name)")
-                print("[FeedRowView] Like count = \(post.likedBy.count)")
-                item = fetchedItem
+
+            // Image carousel
+            if !post.itemImageUrls.isEmpty {
+                TabView {
+                    ForEach(post.itemImageUrls, id: \.self) { urlStr in
+                        FeedRowImageView(urlStr: urlStr)
+                            .frame(height: 300)
+                            .clipped()
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+                .frame(height: 300)
             } else {
-                print("[FeedRowView] ❌ Failed to fetch item for postId: \(post.id ?? "nil")")
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.2))
+                    .frame(height: 300)
+                    .overlay(
+                        Text("No images")
+                            .foregroundColor(.gray)
+                    )
+            }
+
+            // Like row with tappable heart and count
+            HStack(spacing: 8) {
+                Button(action: onLike) {
+                    Image(systemName: post.likedBy.contains(userViewModel.user?.id ?? "") ? "heart.fill" : "heart")
+                        .foregroundColor(post.likedBy.contains(userViewModel.user?.id ?? "") ? .red : dynamicTextColor)
+                }
+                Text("\(post.likedBy.count)")
+                    .foregroundColor(dynamicTextColor)
+                Spacer()
+            }
+
+            // Username and optional caption
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(post.authorUsername ?? "@\(post.authorId)")
+                    .fontWeight(.bold)
+                    .foregroundColor(dynamicTextColor)
+                if let caption = post.caption, !caption.isEmpty {
+                    Text(caption)
+                        .foregroundColor(dynamicTextColor)
+                }
             }
         }
     }
@@ -165,15 +141,20 @@ struct FeedRowView_Previews: PreviewProvider {
             ]
         )
         
+        let mockUserVM = UserViewModel()
+        mockUserVM.user = UserModel(documentId: "user123", email: "test@example.com", username: "@patrick")
+        
         return Group {
             NavigationStack {
                 FeedRowView(
                     post: samplePost,
+                    item: nil,
                     onLike: {
                         print("[Preview] Liked post \(samplePost.id ?? "nil")")
                     }
                 )
                 .environmentObject(postVM)
+                .environmentObject(mockUserVM)
             }
             .previewDisplayName("FeedRowView - MVP Completed Item w/ Multiple Images")
             
@@ -195,11 +176,13 @@ struct FeedRowView_Previews: PreviewProvider {
                 
                 FeedRowView(
                     post: noImagesPost,
+                    item: nil,
                     onLike: {
                         print("[Preview] Liked post \(noImagesPost.id ?? "nil")")
                     }
                 )
                 .environmentObject(postVM)
+                .environmentObject(mockUserVM)
             }
             .previewDisplayName("FeedRowView - MVP Incomplete Item, No Images")
         }

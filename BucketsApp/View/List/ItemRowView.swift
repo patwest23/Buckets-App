@@ -15,6 +15,7 @@ struct ItemRowView: View {
     let onNavigateToDetail: (() -> Void)?
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     @FocusState private var isTextFieldFocused: Bool
     @State private var hasAutoFocused = false
     @State private var showFullScreenGallery = false
@@ -26,78 +27,15 @@ struct ItemRowView: View {
     private let imageHeight: CGFloat = 240
 
     var body: some View {
+        let likeCount = item.likedBy.count
+        let isShared = item.wasShared
+
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
-                // MARK: - Top Row
-                HStack(spacing: 8) {
-                    Button(action: toggleCompleted) {
-                        Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                            .imageScale(.large)
-                            .foregroundColor(item.completed ? .accentColor : .gray)
-                    }
-                    .buttonStyle(.borderless)
-
-                    TextField(
-                        "",
-                        text: bindingForName(),
-                        onCommit: handleOnSubmit
-                    )
-                    .font(.subheadline)
-                    .foregroundColor(.primary)
-                    .focused($isTextFieldFocused)
-
-                    Spacer()
-
-                    Button {
-                        onNavigateToDetail?()
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .imageScale(.medium)
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                }
-
-                // MARK: - Info Row (removed for MVP)
-
-                // MARK: - Carousel Images (if completed + has images)
-                if item.completed {
-                    let urls = bucketListViewModel.allImageUrls(for: item)
-
-                    if !urls.isEmpty {
-                        TabView {
-                            ForEach(urls, id: \.self) { urlStr in
-                                if let image = ImageCache.shared.image(forKey: urlStr) {
-                                    carouselImageView(for: image)
-                                } else {
-                                    ProgressView()
-                                        .frame(height: imageHeight)
-                                        .frame(maxWidth: .infinity)
-                                }
-                            }
-                        }
-                        .tabViewStyle(.page)
-                        .frame(height: imageHeight)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.top, 4)
-                    }
-                }
-
-                // MARK: - Likes Row (if posted and liked)
-                if item.completed, !item.likedBy.isEmpty {
-                    Text("❤️ \(item.likedBy.count)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 2)
-                }
-
-                // MARK: - Caption Row (if posted with caption)
-                if item.completed, let caption = item.caption, !caption.isEmpty {
-                    Text(caption)
-                        .font(.caption)
-                        .foregroundColor(.primary)
-                        .padding(.top, 2)
-                }
+                topRow
+                carouselView
+                iconsRow
+                captionRow
             }
             .padding(cardPadding)
             .background(
@@ -107,31 +45,6 @@ struct ItemRowView: View {
             )
             // Removed blue outline overlay when selected
             .contentShape(Rectangle())
-
-            // MARK: - Overlay Icons
-            if item.wasShared || item.likedBy.count > 0 {
-                // print("📌 Displaying icon row for itemId=\(item.id) | wasShared=\(item.wasShared), likeCount=\(item.likeCount ?? 0), likeCountDisplay=\(String(describing: item.likeCountDisplay)), summary=\(item.debugLikeSummary)")
-                HStack(spacing: -10) {
-                    if item.wasShared {
-                        Image(systemName: "megaphone.fill")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                            .padding(6)
-                            .background(Circle().fill(Color.white))
-                            .shadow(radius: 1)
-                    }
-
-                    if item.likedBy.count > 0 {
-                        Image(systemName: "heart.fill")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding(6)
-                            .background(Circle().fill(Color.white))
-                            .shadow(radius: 1)
-                    }
-                }
-                .offset(x: 10, y: -10)
-            }
         }
         .onAppear {
             Task {
@@ -148,6 +61,104 @@ struct ItemRowView: View {
         .onChange(of: bucketListViewModel.allImageUrls(for: item)) {
             Task {
                 await bucketListViewModel.prefetchImages(for: item)
+            }
+        }
+    }
+
+    private var topRow: some View {
+        HStack(spacing: 8) {
+            Button(action: toggleCompleted) {
+                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
+                    .imageScale(.large)
+                    .foregroundColor(item.completed ? .accentColor : .gray)
+            }
+            .buttonStyle(.borderless)
+
+            TextField("", text: bindingForName(), onCommit: handleOnSubmit)
+                .font(.subheadline)
+                .foregroundColor(.primary)
+                .focused($isTextFieldFocused)
+
+            Spacer()
+
+            Button {
+                onNavigateToDetail?()
+            } label: {
+                Image(systemName: "chevron.right")
+                    .imageScale(.medium)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private var carouselView: some View {
+        Group {
+            if item.completed {
+                let urls = bucketListViewModel.allImageUrls(for: item)
+                if !urls.isEmpty {
+                    TabView {
+                        ForEach(urls, id: \.self) { urlStr in
+                            if let image = ImageCache.shared.image(forKey: urlStr) {
+                                carouselImageView(for: image)
+                            } else {
+                                ProgressView()
+                                    .frame(height: imageHeight)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                    .tabViewStyle(.page)
+                    .frame(height: imageHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+
+    private var iconsRow: some View {
+        Group {
+            if item.completed {
+                HStack(spacing: 12) {
+                    if item.wasShared {
+                        Image(systemName: "megaphone.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+
+                    if item.likedBy.count > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "heart.fill")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            Text("\(item.likedBy.count)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding(.top, 2)
+            }
+        }
+    }
+
+    private var captionRow: some View {
+        Group {
+            if item.completed {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(userViewModel.user?.username?.isEmpty == false
+                         ? userViewModel.user!.username!
+                         : "@User")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    if let caption = item.caption, !caption.isEmpty {
+                        Text(caption)
+                            .font(.caption)
+                    }
+                }
+                .foregroundColor(.primary)
+                .padding(.top, 2)
             }
         }
     }
@@ -185,7 +196,7 @@ struct ItemRowView: View {
     private func bindingForName() -> Binding<String> {
         Binding<String>(
             get: {
-                print("📌 ItemRowView likeCount for \(item.name): \(item.likedBy.count ?? 0), likedBy: \(item.likedBy.count ?? 0)")
+                print("📌 ItemRowView likeCount for \(item.name): \(item.likedBy.count), likedBy: \(item.likedBy.count)")
                 return item.name
             },
             set: { newValue in
@@ -233,13 +244,16 @@ struct ItemRowView_Previews: PreviewProvider {
                 "https://via.placeholder.com/401",
                 "https://via.placeholder.com/402"
             ],
+            likedBy: ["user1", "user2"],
             caption: "This was the most unforgettable day ever!",
             hasPostedAddEvent: true,
             hasPostedCompletion: true,
-            hasPostedPhotos: true
+            hasPostedPhotos: true,
+            wasShared: true
         )
         
         let mockListVM = ListViewModel()
+        mockListVM.userCache["testUser"] = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
         
         for url in sampleItem.imageUrls {
             ImageCache.shared.setImage(UIImage(systemName: "photo")!, forKey: url)

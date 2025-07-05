@@ -62,6 +62,10 @@ struct BucketsApp: App {
                                 try? await Task.sleep(nanoseconds: 300_000_000) // wait 0.3 seconds
                                 await userViewModel.loadProfileImage()
                                 await postViewModel.syncAllItemLikes(to: bucketListViewModel)
+                                if feedViewModel.posts.isEmpty {
+                                    await feedViewModel.fetchFeedPosts()
+                                }
+                                bucketListViewModel.syncPostLikes(from: feedViewModel.posts)
                             }
                         }
                 }

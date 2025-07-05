@@ -24,6 +24,8 @@ class FeedViewModel: ObservableObject {
         Auth.auth().currentUser?.uid
     }
     
+    private var itemNameCache: [String: String] = [:]
+    
     init() {
         // You can call fetchFeedPosts() here or in the FeedView’s .onAppear.
         print("[FeedViewModel] init.")
@@ -87,7 +89,8 @@ class FeedViewModel: ObservableObject {
                             print("[FeedViewModel] Warning: Malformed post detected, skipping:", doc.documentID)
                             continue
                         }
-                        print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", post.itemImageUrls)
+                        let itemName: String = itemNameCache[post.itemId] ?? "Untitled Post"
+                        print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", itemName)
                         userPosts.append(post)
                     }
                     allPosts.append(contentsOf: userPosts)
@@ -106,6 +109,21 @@ class FeedViewModel: ObservableObject {
             // 4) Assign to published property
             print("[FeedViewModel] Assigning sorted posts to self.posts...")
             self.posts = sortedPosts
+            
+            let uniqueItemIds = Set(allPosts.map { $0.itemId }).filter { itemNameCache[$0] == nil }
+
+            for itemId in uniqueItemIds {
+                let itemRef = db.collection("users").document(userId).collection("items").document(itemId)
+                itemRef.getDocument { [weak self] snapshot, error in
+                    guard let self = self else { return }
+                    if let doc = snapshot, doc.exists, let data = doc.data(), let name = data["name"] as? String {
+                        DispatchQueue.main.async {
+                            self.itemNameCache[itemId] = name
+                        }
+                    }
+                }
+            }
+            
             // Note: Caller should invoke `syncLikesToItems(in:)` separately if needed.
             print("[FeedViewModel] Assigned posts count:", self.posts.count)
             print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
@@ -134,6 +152,8 @@ class FeedViewModel: ObservableObject {
         
         let typeRaw = data["type"] as? String ?? "added"
         let type = PostType(rawValue: typeRaw) ?? .added
+        
+        let itemName: String = itemNameCache[itemId] ?? "Untitled Post"
         
         let post = PostModel(
             id: documentID,
@@ -271,6 +291,11 @@ class FeedViewModel: ObservableObject {
             }
         }
     }
+    
+    func getItemName(for itemId: String) -> String {
+        return itemNameCache[itemId] ?? "Untitled Post"
+    }
+
 }
 
 class MockFeedViewModel: FeedViewModel {

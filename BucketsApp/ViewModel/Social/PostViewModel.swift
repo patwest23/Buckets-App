@@ -124,13 +124,17 @@ class PostViewModel: ObservableObject {
             print("[PostViewModel] postItem => userId is missing from userViewModel. Aborting.")
             return
         }
+        guard let username = userViewModel?.user?.username, !username.isEmpty else {
+            print("[PostViewModel] postItem => Missing username!")
+            return
+        }
         print("DEBUG: postItem(with:) called => userId:", userId, "itemID:", item.id.uuidString)
 
         isPosting = true
 
         var newPost = PostModel(
             authorId: userId,
-            authorUsername: userViewModel?.user?.username,
+            authorUsername: username,
             itemId: item.id.uuidString,
             type: .completed, // or .added or .photos, depending on logic
             timestamp: Date(),
@@ -153,6 +157,8 @@ class PostViewModel: ObservableObject {
         updatedItem.postId = postId
         print("[PostViewModel] 🧩 Updating item after share: wasShared=\(updatedItem.wasShared), postId=\(postId)")
         await userViewModel?.bucketListViewModel.addOrUpdateItem(updatedItem)
+
+        // TODO: Optionally notify FeedViewModel to refresh
 
         // Reset UI
         isPosting = false
@@ -325,6 +331,43 @@ class PostViewModel: ObservableObject {
             return nil
         }
     }
+    
+    // MARK: - Toggle Like
+    func toggleLike(for postId: String, by userId: String) async {
+        guard !postId.isEmpty else {
+            print("[PostViewModel] toggleLike: postId is empty")
+            return
+        }
+
+        let postAuthorId = posts.first(where: { $0.id == postId })?.authorId ?? userViewModel?.user?.id ?? ""
+        let docRef = db.collection("users").document(postAuthorId).collection("posts").document(postId)
+
+        do {
+            let snapshot = try await docRef.getDocument()
+            guard snapshot.exists else {
+                print("[PostViewModel] toggleLike: No post found.")
+                return
+            }
+
+            var post = try snapshot.data(as: PostModel.self)
+
+            if post.likedBy.contains(userId) {
+                post.likedBy.removeAll { $0 == userId }
+            } else {
+                post.likedBy.append(userId)
+            }
+
+            try await docRef.setData(from: post, merge: true)
+            print("[PostViewModel] toggleLike: Updated likedBy => \(post.likedBy.count) likes.")
+
+            if let index = posts.firstIndex(where: { $0.id == postId }) {
+                posts[index] = post
+            }
+
+        } catch {
+            print("[PostViewModel] toggleLike error:", error.localizedDescription)
+        }
+    }
 }
 
 // MARK: - Batch Sync Likes from Posts to Items
@@ -368,5 +411,8 @@ extension PostViewModel {
         }
 
         print("[PostViewModel] syncAllItemLikes: ✅ Completed syncing likes for all shared items.")
+
+        let likeSummary = listViewModel.items.map { "\($0.name): \($0.likeCount)" }.joined(separator: ", ")
+        print("🔁 [PostViewModel] Final likeCounts => \(likeSummary)")
     }
 }

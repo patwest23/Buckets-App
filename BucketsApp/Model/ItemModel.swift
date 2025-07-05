@@ -29,7 +29,7 @@ struct Location: Codable, Hashable {
 
 @dynamicMemberLookup
 struct ItemModel: Codable, Identifiable, Hashable {
-    
+    @DocumentID var documentId: String?
     // MARK: - Primary Fields
     var id: UUID
     var userId: String

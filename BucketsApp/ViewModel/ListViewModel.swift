@@ -57,6 +57,7 @@ class ListViewModel: ObservableObject {
     }
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
+    @Published var userCache: [String: UserModel] = [:]
     
     // @Published var imageCache: [String : UIImage] = [:]
     
@@ -289,6 +290,11 @@ class ListViewModel: ObservableObject {
         self.itemToDelete = item
         self.showDeleteAlert = true
     }
+
+    // MARK: - User Cache Helpers
+    func getUser(for userId: String) -> UserModel? {
+        return userCache[userId]
+    }
     
     // func getItem(by id: UUID) -> ItemModel? {
     //     items.first { $0.id == id }
@@ -397,7 +403,7 @@ class ListViewModel: ObservableObject {
     //             print("[ListViewModel] User doc updated:", data)
     //         }
     // }
-    
+
     func allImageUrls(for item: ItemModel) -> [String] {
         return item.imageUrls
     }
@@ -408,5 +414,21 @@ class ListViewModel: ObservableObject {
         var updatedItem = item
         updatedItem.imageUrls = urls
         await addOrUpdateItem(updatedItem)
+    }
+
+    // MARK: - Sync Likes from Posts
+    /// Updates local ItemModel instances with like counts from PostModel objects
+    func syncPostLikes(from posts: [PostModel]) {
+        print("[ListViewModel] 🔁 Syncing post likes into item list...")
+
+        for post in posts {
+            guard let postId = post.id else { continue }
+
+            if let index = self.items.firstIndex(where: { $0.postId == postId }) {
+                let likeCount = post.likedBy.count
+                print("[ListViewModel] ✅ Updating item \(items[index].name) with \(likeCount) likes")
+                self.items[index].likedBy = post.likedBy
+            }
+        }
     }
 }
