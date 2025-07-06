@@ -275,6 +275,7 @@ struct ItemRowView_Previews: PreviewProvider {
                 onNavigateToDetail: { print("Navigate to Detail View") }
             )
             .environmentObject(mockListVM)
+            .environmentObject(UserViewModel())
             .environmentObject(OnboardingViewModel())
             .previewLayout(.sizeThatFits)
             .padding()
@@ -288,6 +289,7 @@ struct ItemRowView_Previews: PreviewProvider {
                 onNavigateToDetail: { print("Navigate to Detail View") }
             )
             .environmentObject(mockListVM)
+            .environmentObject(UserViewModel())
             .environmentObject(OnboardingViewModel())
             .previewLayout(.sizeThatFits)
             .padding()

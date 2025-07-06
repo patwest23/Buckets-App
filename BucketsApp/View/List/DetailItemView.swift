@@ -341,12 +341,14 @@ struct DetailItemView_Previews: PreviewProvider {
                 .environmentObject(mockUserVM)
                 .environmentObject(mockListVM)
                 .environmentObject(mockPostVM)
+                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
                 .previewDisplayName("DetailItemView - Light Mode")
 
             DetailItemView(item: sampleItem)
                 .environmentObject(mockUserVM)
                 .environmentObject(mockListVM)
                 .environmentObject(mockPostVM)
+                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
                 .preferredColorScheme(.dark)
                 .previewDisplayName("DetailItemView - Dark Mode")
         }

@@ -100,6 +100,8 @@ struct ListView: View {
                                         .environmentObject(userViewModel)
                                         .environmentObject(feedViewModel)
                                         .environmentObject(postViewModel)
+                                        .environmentObject(bucketListViewModel)
+                                        .environmentObject(syncCoordinator)
                                 }
                                 // Navigate to the User Search View
                                 .navigationDestination(isPresented: $showUserSearch) {

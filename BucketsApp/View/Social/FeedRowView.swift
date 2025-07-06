@@ -179,6 +179,7 @@ struct FeedRowView_Previews: PreviewProvider {
                 )
                 .environmentObject(postVM)
                 .environmentObject(mockUserVM)
+                .environmentObject(ListViewModel())
             }
             .previewDisplayName("FeedRowView - MVP Completed Item w/ Multiple Images")
             
@@ -207,6 +208,7 @@ struct FeedRowView_Previews: PreviewProvider {
                 )
                 .environmentObject(postVM)
                 .environmentObject(mockUserVM)
+                .environmentObject(ListViewModel())
             }
             .previewDisplayName("FeedRowView - MVP Incomplete Item, No Images")
         }
