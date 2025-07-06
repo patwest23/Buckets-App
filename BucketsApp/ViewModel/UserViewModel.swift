@@ -14,7 +14,6 @@ import FirebaseStorage
 class UserViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var user: UserModel?
-    @Published var bucketListViewModel = ListViewModel()
     @Published var isUserLoaded: Bool = false
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
@@ -326,12 +325,15 @@ class UserViewModel: ObservableObject {
     // MARK: - Create User Document
     func createUserDocument(userId: String, email: String) async {
         let docRef = db.collection("users").document(userId)
+        let username = self.user?.username ?? "@unknown"
+        let name = self.user?.name ?? "unknown"
+        let profileImageUrl = self.user?.profileImageUrl ?? ""
         let userData: [String: Any] = [
             "email": email,
             "createdAt": FieldValue.serverTimestamp(),
-            "username": self.user?.username ?? "",
-            "name": self.user?.name ?? "",
-            "profileImageUrl": self.user?.profileImageUrl ?? "",
+            "username": username,
+            "name": name,
+            "profileImageUrl": profileImageUrl,
             "followers": [],
             "following": []
         ]
@@ -342,6 +344,13 @@ class UserViewModel: ObservableObject {
         } catch {
             handleError(error, prefix: "createUserDocument")
         }
+    }
+
+    // MARK: - Author Snapshot Helper
+    /// Returns a tuple (username, profileUrl) for the current user, or nil if user is not set.
+    func getAuthorSnapshot() -> (username: String, profileUrl: String)? {
+        guard let user = user else { return nil }
+        return (username: user.username ?? "@unknown", profileUrl: user.profileImageUrl ?? "")
     }
     // MARK: - Initialize User Session
     @MainActor

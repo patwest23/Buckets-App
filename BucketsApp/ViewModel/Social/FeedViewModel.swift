@@ -110,10 +110,16 @@ class FeedViewModel: ObservableObject {
             print("[FeedViewModel] Assigning sorted posts to self.posts...")
             self.posts = sortedPosts
             
-            let uniqueItemIds = Set(allPosts.map { $0.itemId }).filter { itemNameCache[$0] == nil }
+            // Build a mapping from itemId to authorId for all posts
+            var itemIdToAuthorId: [String: String] = [:]
+            for post in allPosts {
+                if itemNameCache[post.itemId] == nil, !post.itemId.isEmpty {
+                    itemIdToAuthorId[post.itemId] = post.authorId
+                }
+            }
 
-            for itemId in uniqueItemIds {
-                let itemRef = db.collection("users").document(userId).collection("items").document(itemId)
+            for (itemId, authorId) in itemIdToAuthorId {
+                let itemRef = db.collection("users").document(authorId).collection("items").document(itemId)
                 itemRef.getDocument { [weak self] snapshot, error in
                     guard let self = self else { return }
                     if let doc = snapshot, doc.exists, let data = doc.data(), let name = data["name"] as? String {
@@ -124,7 +130,6 @@ class FeedViewModel: ObservableObject {
                 }
             }
             
-            // Note: Caller should invoke `syncLikesToItems(in:)` separately if needed.
             print("[FeedViewModel] Assigned posts count:", self.posts.count)
             print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
             print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
@@ -159,14 +164,16 @@ class FeedViewModel: ObservableObject {
             id: documentID,
             authorId: authorId,
             authorUsername: data["authorUsername"] as? String,
+            authorProfileImageUrl: data["authorProfileImageUrl"] as? String,
             itemId: itemId,
+            itemImageUrls: itemImageUrls,
+            itemName: data["itemName"] as? String,
             type: type,
             timestamp: timestamp,
             caption: caption,
             taggedUserIds: taggedUserIds,
             visibility: visibility,
-            likedBy: likedBy,
-            itemImageUrls: itemImageUrls
+            likedBy: likedBy
         )
         if post.id == nil || post.itemId.isEmpty {
             print("[FeedViewModel] buildPostModel returned malformed post for docID:", documentID)
@@ -277,18 +284,6 @@ class FeedViewModel: ObservableObject {
                 }
 
             postListeners.append(listener)
-        }
-    }
-    
-    func syncLikesToItems(in listViewModel: ListViewModel) {
-        print("[FeedViewModel] 🔁 Syncing like counts into ItemModel...")
-        for post in posts {
-            guard let postId = post.id else { continue }
-            if let index = listViewModel.items.firstIndex(where: { $0.postId == postId }) {
-                let likeCount = post.likedBy.count
-                print("[FeedViewModel] 🧠 Updating item at index \(index) with likeCount =", likeCount)
-                listViewModel.items[index] = listViewModel.items[index].updatingLikeCount(to: likeCount)
-            }
         }
     }
     

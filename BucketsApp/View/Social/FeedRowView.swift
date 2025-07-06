@@ -39,7 +39,7 @@ struct FeedRowView: View {
             HStack {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.accentColor)
-                Text(item?.name ?? "Untitled Post")
+                Text(item?.name ?? post.itemName ?? "Untitled Post")
                     .font(.headline)
                     .bold()
                     .foregroundColor(dynamicTextColor)
@@ -68,17 +68,41 @@ struct FeedRowView: View {
 
             // Like row with tappable heart and count
             HStack(spacing: 8) {
-                Button(action: onLike) {
+                Button(action: {
+                    Task {
+                        await postViewModel.toggleLike(for: post.id ?? "", by: userViewModel.user?.id ?? "")
+                    }
+                }) {
                     Image(systemName: post.likedBy.contains(userViewModel.user?.id ?? "") ? "heart.fill" : "heart")
                         .foregroundColor(post.likedBy.contains(userViewModel.user?.id ?? "") ? .red : dynamicTextColor)
                 }
                 Text("\(post.likedBy.count)")
                     .foregroundColor(dynamicTextColor)
+                if let completed = completedDateString {
+                    Label(completed, systemImage: "checkmark.seal")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
                 Spacer()
             }
 
-            // Username and optional caption
+            // Username, optional profile image, and optional caption
             HStack(alignment: .firstTextBaseline, spacing: 4) {
+                if let profileUrl = post.authorProfileImageUrl, let url = URL(string: profileUrl) {
+                    AsyncImage(url: url) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else if phase.error != nil {
+                            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                                .resizable().scaledToFit()
+                                .foregroundColor(.gray)
+                        } else {
+                            ProgressView()
+                        }
+                    }
+                    .frame(width: 24, height: 24)
+                    .clipShape(Circle())
+                }
                 Text(post.authorUsername ?? "@\(post.authorId)")
                     .fontWeight(.bold)
                     .foregroundColor(dynamicTextColor)
@@ -129,16 +153,16 @@ struct FeedRowView_Previews: PreviewProvider {
             authorId: "userABC",
             authorUsername: "@patrick",
             itemId: "item_101",
+            itemImageUrls: [
+                "https://picsum.photos/400/400?random=1",
+                "https://picsum.photos/400/400?random=2"
+            ],
             type: .completed,
             timestamp: Date(),
             caption: "Had an amazing trip to Tokyo!",
             taggedUserIds: ["userXYZ"],
             visibility: nil,
-            likedBy: ["user123", "user456"],
-            itemImageUrls: [
-                "https://picsum.photos/400/400?random=1",
-                "https://picsum.photos/400/400?random=2"
-            ]
+            likedBy: ["user123", "user456"]
         )
         
         let mockUserVM = UserViewModel()
@@ -165,13 +189,13 @@ struct FeedRowView_Previews: PreviewProvider {
                     authorId: "userXYZ",
                     authorUsername: "@samantha",
                     itemId: "item_202",
+                    itemImageUrls: [],
                     type: .added,
                     timestamp: Date(),
                     caption: "No photos yet, but can't wait!",
                     taggedUserIds: [],
                     visibility: nil,
-                    likedBy: [],
-                    itemImageUrls: []
+                    likedBy: []
                 )
                 
                 FeedRowView(

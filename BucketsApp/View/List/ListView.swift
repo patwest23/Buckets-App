@@ -16,10 +16,9 @@ struct ListView: View {
     //@EnvironmentObject var followViewModel: FollowViewModel
     @EnvironmentObject var friendsViewModel: FriendsViewModel // ✅ Add this to ListView
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
-    
-    
     /// NEW: Consume the existing FeedViewModel from environment
     @EnvironmentObject var feedViewModel: FeedViewModel
+    @EnvironmentObject var syncCoordinator: SyncCoordinator
     // Loading / detail
     @State private var isLoading = true
     @State private var showProfileView = false
@@ -67,7 +66,7 @@ struct ListView: View {
                             contentView
                                 .refreshable {
                                     await loadItems()
-                                    await postViewModel.syncAllItemLikes(to: bucketListViewModel)
+                                    await syncCoordinator.refreshFeedAndSyncLikes()
                                     showRefreshConfirmation = true
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                                         showRefreshConfirmation = false
@@ -76,7 +75,7 @@ struct ListView: View {
                                 .task {
                                     await loadItems()
                                     try? await Task.sleep(nanoseconds: 300_000_000) // Wait 0.3s to ensure list is loaded
-                                    await postViewModel.syncAllItemLikes(to: bucketListViewModel)
+                                    await syncCoordinator.refreshFeedAndSyncLikes()
                                     startTextFieldListeners()
                                     friendsViewModel.startListeningToFriendChanges()
                                 }
@@ -217,12 +216,7 @@ struct ListView: View {
                         .frame(height: 70)
                         .allowsHitTesting(false)
                 }
-                // Add onAppear to ZStack to refresh likes in background
-                .onAppear {
-                    Task {
-                        await postViewModel.syncAllItemLikes(to: bucketListViewModel)
-                    }
-                }
+                // Remove duplicate sync call from .onAppear
             } else {
                 Text("Please use iOS 17 or later.")
                     .font(.headline)

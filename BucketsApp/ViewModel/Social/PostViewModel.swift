@@ -48,7 +48,8 @@ class PostViewModel: ObservableObject {
     }
     
     // MARK: - One-Time Fetch
-    func loadPosts() async {
+    /// Loads posts for the current user. Optionally syncs likes to the given ListViewModel.
+    func loadPosts(listViewModel: ListViewModel? = nil) async {
         guard let userId = userId else {
             print("[PostViewModel] loadPosts: userId is nil (not authenticated).")
             return
@@ -66,7 +67,9 @@ class PostViewModel: ObservableObject {
             }
             self.posts = fetchedPosts
             print("[PostViewModel] loadPosts: Fetched \(posts.count) posts for userId: \(userId)")
-            
+            if let listViewModel = listViewModel {
+                await syncAllItemLikes(to: listViewModel)
+            }
         } catch {
             print("[PostViewModel] loadPosts error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
@@ -74,7 +77,8 @@ class PostViewModel: ObservableObject {
     }
     
     // MARK: - Real-Time Listener
-    func startListeningToPosts() {
+    /// Starts listening to posts in real-time. Optionally syncs likes to the given ListViewModel after updates.
+    func startListeningToPosts(listViewModel: ListViewModel? = nil) {
         guard let userId = userId else {
             print("[PostViewModel] startListeningToPosts: userId is nil (not authenticated).")
             return
@@ -103,7 +107,11 @@ class PostViewModel: ObservableObject {
                 }
                 self.posts = fetchedPosts
                 print("[PostViewModel] startListeningToPosts: Received \(self.posts.count) posts.")
-                
+                if let listViewModel = listViewModel {
+                    Task {
+                        await self.syncAllItemLikes(to: listViewModel)
+                    }
+                }
             } catch {
                 print("[PostViewModel] Decoding error:", error.localizedDescription)
                 self.errorMessage = error.localizedDescription
@@ -115,56 +123,6 @@ class PostViewModel: ObservableObject {
         listenerRegistration?.remove()
         listenerRegistration = nil
         print("[PostViewModel] Stopped listening to posts.")
-    }
-    
-    // MARK: - Post a New Item
-    /// Creates and posts a new PostModel using the provided ItemModel.
-    func postItem(with item: ItemModel) async {
-        guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
-            print("[PostViewModel] postItem => userId is missing from userViewModel. Aborting.")
-            return
-        }
-        guard let username = userViewModel?.user?.username, !username.isEmpty else {
-            print("[PostViewModel] postItem => Missing username!")
-            return
-        }
-        print("DEBUG: postItem(with:) called => userId:", userId, "itemID:", item.id.uuidString)
-
-        isPosting = true
-
-        var newPost = PostModel(
-            authorId: userId,
-            authorUsername: username,
-            itemId: item.id.uuidString,
-            type: .completed, // or .added or .photos, depending on logic
-            timestamp: Date(),
-            caption: caption,
-            taggedUserIds: taggedUserIds,
-            likedBy: [],
-            itemImageUrls: item.imageUrls
-        )
-
-        print("[PostViewModel] new post fields:", newPost)
-        guard let savedPost = await addOrUpdatePost(post: newPost),
-              let postId = savedPost.id else {
-            print("[PostViewModel] ❌ postItem => Failed to save or retrieve post ID.")
-            return
-        }
-        print("[PostViewModel] postItem(with:) => Finished writing post to Firestore.")
-
-        var updatedItem = item
-        updatedItem.wasShared = true
-        updatedItem.postId = postId
-        print("[PostViewModel] 🧩 Updating item after share: wasShared=\(updatedItem.wasShared), postId=\(postId)")
-        await userViewModel?.bucketListViewModel.addOrUpdateItem(updatedItem)
-
-        // TODO: Optionally notify FeedViewModel to refresh
-
-        // Reset UI
-        isPosting = false
-        caption = ""
-        taggedUserIds = []
-        selectedItemID = nil
     }
     
     // MARK: - Fetch the Item from Firestore

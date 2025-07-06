@@ -19,6 +19,7 @@ class FriendsViewModel: ObservableObject {
     @Published var searchResults: [UserModel] = []
     @Published var allUsers: [UserModel] = []
     @Published var errorMessage: String?
+    @Published var isLoading: Bool = false
 
     private let db = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
@@ -28,6 +29,8 @@ class FriendsViewModel: ObservableObject {
     }
 
     func loadFriendsData() async {
+        isLoading = true
+        defer { isLoading = false }
         guard let userId = currentUserId else { return }
 
         do {
@@ -58,6 +61,7 @@ class FriendsViewModel: ObservableObject {
             print("[FriendsViewModel] Following IDs: \(self.followingUsers.map { $0.id })")
             print("[FriendsViewModel] Follower IDs: \(self.followerUsers.map { $0.id })")
         } catch {
+            self.errorMessage = error.localizedDescription
             print("[FriendsViewModel] Error loading friends data: \(error.localizedDescription)")
         }
     }
@@ -107,6 +111,8 @@ class FriendsViewModel: ObservableObject {
     }
     
     func loadAllUsers() async {
+        isLoading = true
+        defer { isLoading = false }
         print("[FriendsViewModel] ⚙️ loadAllUsers started")
 
         await loadFriendsData()
@@ -159,6 +165,7 @@ class FriendsViewModel: ObservableObject {
             print("[FriendsViewModel] Explore IDs: \(finalUsers.map { $0.id })")
             self.allUsers = finalUsers
         } catch {
+            self.errorMessage = error.localizedDescription
             print("[FriendsViewModel] ❌ Failed to load all users: \(error.localizedDescription)")
         }
     }

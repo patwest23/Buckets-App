@@ -17,6 +17,7 @@ struct DetailItemView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var postViewModel: PostViewModel
     @EnvironmentObject var userViewModel: UserViewModel
+    @EnvironmentObject var syncCoordinator: SyncCoordinator
     @Environment(\.presentationMode) private var presentationMode
 
     @State private var currentItem: ItemModel
@@ -84,7 +85,7 @@ struct DetailItemView: View {
 
                 // Share button
                 if currentItem.completed && !currentItem.imageUrls.isEmpty {
-                    Button("📣 Share to Feed") {
+                    Button("\(currentItem.wasShared ? "♻️ Repost to Feed" : "📣 Share to Feed")") {
                         lastShareEvent = .completed
                         showShareAlert = true
                     }
@@ -168,7 +169,7 @@ struct DetailItemView: View {
                 Task {
                     // Ensure item is saved (with image URLs) before posting to feed
                     await bucketListViewModel.addOrUpdateItem(currentItem)
-                    await postViewModel.postItem(with: currentItem)
+                    await syncCoordinator.post(item: currentItem)
                     // Show confirmation after posting
                     showFeedConfirmation = true
                 }
@@ -187,7 +188,7 @@ struct DetailItemView: View {
             Button("Re-share to Feed") {
                 postViewModel.selectedItemID = currentItem.id.uuidString
                 Task {
-                    await postViewModel.postItem(with: currentItem)
+                    await syncCoordinator.post(item: currentItem)
                     showFeedConfirmation = true
                 }
             }

@@ -137,6 +137,13 @@ struct ItemRowView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+
+                    // Checkmark badge with formatted dueDate
+                    if item.completed {
+                        Label(formatDate(item.dueDate ?? Date()), systemImage: "checkmark.seal")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
                 }
                 .padding(.top, 2)
             }

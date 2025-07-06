@@ -62,7 +62,7 @@ class ListViewModel: ObservableObject {
     // @Published var imageCache: [String : UIImage] = [:]
     
     // MARK: - Firestore
-    private let db = Firestore.firestore()
+    private lazy var db = Firestore.firestore()
     private var listenerRegistration: ListenerRegistration?
     private var userListener: ListenerRegistration?
     
@@ -166,41 +166,71 @@ class ListViewModel: ObservableObject {
     
     
     // MARK: - Add or Update
-    func addOrUpdateItem(_ item: ItemModel) async {
+    /// Add or update an item in Firestore. If updating an item that was previously shared (posted), prompt user to update or repost.
+    /// Note: For reposting logic, this function expects access to a PostViewModel. UI must handle the user prompt.
+    func addOrUpdateItem(_ item: ItemModel, postViewModel: PostViewModel? = nil) async {
         guard let userId = userId else {
             print("[ListViewModel] addOrUpdateItem: userId is nil. Cannot save item.")
             return
         }
-        
+
         let isNewItem = !items.contains { $0.id == item.id }
-        
+
         // If new => set next orderIndex
         var newItem = item
         if isNewItem {
             let currentMaxOrder = items.map { $0.orderIndex }.max() ?? -1
             newItem.orderIndex = currentMaxOrder + 1
         }
-        
+
         if newItem.userId.isEmpty {
             newItem.userId = userId
         }
-        
+
         if newItem.userId.isEmpty {
             print("❌ [ListViewModel] Cannot save: userId is still empty.")
             return
         }
-        
+
+        // Handle repost/update logic for shared items
+        if !isNewItem, newItem.wasShared, let existingPostId = newItem.postId {
+            // Prompt user for action: update or repost
+            let action = await promptUserForPostAction()
+            if action == .repost, let postViewModel = postViewModel {
+                // Delete the old post
+                if let postToDelete = postViewModel.posts.first(where: { $0.id == existingPostId }) {
+                    await postViewModel.deletePost(postToDelete)
+                }
+                // Clear postId and wasShared before saving updated item
+                newItem.postId = nil
+                newItem.wasShared = false
+                // Save item update first (remove postId/wasShared)
+                let docRef = db
+                    .collection("users").document(userId)
+                    .collection("items").document(newItem.id.uuidString)
+                do {
+                    let encoded = try Firestore.Encoder().encode(newItem)
+                    try await docRef.setData(encoded, merge: true)
+                } catch {
+                    print("[ListViewModel] addOrUpdateItem => Error during repost save: \(error.localizedDescription)")
+                }
+                // End of repost logic (posting now handled by SyncCoordinator)
+                return
+            }
+            // If .update, fall through to normal update logic below
+        }
+
         let docRef = db
             .collection("users").document(userId)
             .collection("items").document(item.id.uuidString)
-        
+
         do {
             print("[ListViewModel] Preparing to write item: \(newItem.id), wasShared: \(newItem.wasShared), postId: \(String(describing: newItem.postId))")
             let encoded = try Firestore.Encoder().encode(newItem)
             print("📝 Writing to Firestore:", encoded)
             try await docRef.setData(encoded, merge: true)
             print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
-            
+
             // Update local array with debug prints
             if let idx = items.firstIndex(where: { $0.id == newItem.id }) {
                 print("[ListViewModel] addOrUpdateItem => found index \(idx), items.count=\(items.count)")
@@ -213,10 +243,15 @@ class ListViewModel: ObservableObject {
                 print("✅ Updated item image URLs:", allImageUrls(for: newItem))
             }
             // else skip if the item was removed in the meantime
-            
+
+            // --- Sync post if this item is linked to a post
+            if let postId = newItem.postId, let postViewModel = postViewModel {
+                await postViewModel.syncPostWithItem(newItem)
+            }
+
             sortItems()
             Task { await prefetchImages(for: newItem) }
-            
+
         } catch {
             print("[ListViewModel] addOrUpdateItem => Error: \(error.localizedDescription)")
         }
@@ -416,19 +451,19 @@ class ListViewModel: ObservableObject {
         await addOrUpdateItem(updatedItem)
     }
 
-    // MARK: - Sync Likes from Posts
-    /// Updates local ItemModel instances with like counts from PostModel objects
-    func syncPostLikes(from posts: [PostModel]) {
-        print("[ListViewModel] 🔁 Syncing post likes into item list...")
-
-        for post in posts {
-            guard let postId = post.id else { continue }
-
-            if let index = self.items.firstIndex(where: { $0.postId == postId }) {
-                let likeCount = post.likedBy.count
-                print("[ListViewModel] ✅ Updating item \(items[index].name) with \(likeCount) likes")
-                self.items[index].likedBy = post.likedBy
-            }
-        }
-    }
 }
+
+    // MARK: - Post Action Choice for Shared Items
+    /// Enum for user post action selection when updating a shared item
+    enum PostActionChoice {
+        case update
+        case repost
+    }
+
+    /// Placeholder for user prompt. UI must implement this prompt and call addOrUpdateItem accordingly.
+    /// - Returns: PostActionChoice (.update or .repost)
+    func promptUserForPostAction() async -> PostActionChoice {
+        // In actual app, this will be replaced by a UI confirmation dialog.
+        // For now, default to .repost for demonstration.
+        return .repost
+    }

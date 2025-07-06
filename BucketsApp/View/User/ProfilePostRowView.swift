@@ -170,16 +170,16 @@ struct ProfilePostRowView_Previews: PreviewProvider {
             authorId: "mockUser",
             authorUsername: "@preview",
             itemId: UUID().uuidString,
+            itemImageUrls: [
+                "https://picsum.photos/400/400?random=10",
+                "https://picsum.photos/400/400?random=11"
+            ],
             type: .completed,
             timestamp: Date(),
             caption: "Just crossed this off my list!",
             taggedUserIds: [],
             visibility: nil,
-            likedBy: ["mockUser", "otherUser"],
-            itemImageUrls: [
-                "https://picsum.photos/400/400?random=10",
-                "https://picsum.photos/400/400?random=11"
-            ]
+            likedBy: ["mockUser", "otherUser"]
         )
 
         let mockItem = ItemModel(

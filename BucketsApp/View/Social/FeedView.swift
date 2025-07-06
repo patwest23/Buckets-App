@@ -9,6 +9,10 @@ import SwiftUI
 
 struct FeedView: View {
     @EnvironmentObject var feedViewModel: FeedViewModel
+    @EnvironmentObject var postViewModel: PostViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
+    @EnvironmentObject var bucketListViewModel: ListViewModel
+    @EnvironmentObject var syncCoordinator: SyncCoordinator
     @State private var showLoading = false
 
     var body: some View {
@@ -26,14 +30,15 @@ struct FeedView: View {
                             .padding()
                     } else {
                         ForEach(feedViewModel.posts) { post in
+                            let matchedItem = bucketListViewModel.items.first { $0.postId == post.id }
                             VStack(alignment: .leading, spacing: 4) {
                                 // MARK: - Feed Card
                                 FeedRowView(
                                     post: post,
-                                    item: nil,
+                                    item: matchedItem,
                                     onLike: {
                                         Task {
-                                            await feedViewModel.toggleLike(post: post)
+                                            await postViewModel.toggleLike(for: post.id ?? "", by: userViewModel.user?.id ?? "")
                                         }
                                     }
                                 )
@@ -54,14 +59,14 @@ struct FeedView: View {
             }
             .refreshable {
                 showLoading = true
-                await feedViewModel.fetchFeedPosts()
+                await syncCoordinator.refreshFeedAndSyncLikes()
                 showLoading = false
             }
             .onAppear {
                 if feedViewModel.posts.isEmpty {
                     Task {
                         showLoading = true
-                        await feedViewModel.fetchFeedPosts()
+                        await syncCoordinator.refreshFeedAndSyncLikes()
                         showLoading = false
                     }
                 }
@@ -85,8 +90,10 @@ struct FeedView_Previews: PreviewProvider {
         
         // Mock view model with sample posts
         let mockVM = MockFeedViewModel(posts: samplePosts)
+        let listVM = ListViewModel()
+        let userVM = UserViewModel()
+        let sync = SyncCoordinator(postViewModel: PostViewModel(), listViewModel: listVM, feedViewModel: mockVM)
         
-        // Inject the mock VM
         VStack {
             Text("🛠 DEBUG MODE")
                 .font(.caption)
@@ -94,6 +101,9 @@ struct FeedView_Previews: PreviewProvider {
             FeedView()
                 .environmentObject(mockVM)
                 .environmentObject(PostViewModel())
+                .environmentObject(userVM)
+                .environmentObject(listVM)
+                .environmentObject(sync)
         }
     }
 }
