@@ -43,7 +43,7 @@ struct FeedView: View {
                                     }
                                 )
                                 .task {
-                                    print("🔍 FeedRowView - postId=\(post.id), likeCount=\(post.likedBy.count)")
+                                    print("🔍 FeedRowView - postId=\(post.id ?? "nil"), likeCount=\(post.likedBy.count)")
                                 }
 
                                 // MARK: - Timestamp

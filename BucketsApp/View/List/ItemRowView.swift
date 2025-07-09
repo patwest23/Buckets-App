@@ -27,8 +27,6 @@ struct ItemRowView: View {
     private let imageHeight: CGFloat = 240
 
     var body: some View {
-        let likeCount = item.likedBy.count
-        let isShared = item.wasShared
 
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {

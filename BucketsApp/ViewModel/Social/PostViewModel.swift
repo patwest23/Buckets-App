@@ -315,7 +315,7 @@ class PostViewModel: ObservableObject {
                 post.likedBy.append(userId)
             }
 
-            try await docRef.setData(from: post, merge: true)
+            try docRef.setData(from: post, merge: true)
             print("[PostViewModel] toggleLike: Updated likedBy => \(post.likedBy.count) likes.")
 
             if let index = posts.firstIndex(where: { $0.id == postId }) {

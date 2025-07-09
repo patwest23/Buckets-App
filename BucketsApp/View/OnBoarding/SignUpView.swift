@@ -208,7 +208,7 @@ struct SignUpView: View {
         await viewModel.createUser(using: userViewModel)
 
         guard viewModel.isAuthenticated,
-              let currentUser = Auth.auth().currentUser else {
+              Auth.auth().currentUser != nil else {
             showError(viewModel.errorMessage ?? "Sign up failed.")
             return
         }

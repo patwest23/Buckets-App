@@ -193,10 +193,10 @@ class ListViewModel: ObservableObject {
         }
 
         // Handle repost/update logic for shared items
-        if !isNewItem, newItem.wasShared, let existingPostId = newItem.postId {
+        if !isNewItem, newItem.wasShared, newItem.postId != nil {
             // Prompt user for action: update or repost
             let action = await promptUserForPostAction()
-            if action == .repost, let postViewModel = postViewModel {
+            if action == .repost, let postViewModel = postViewModel, let existingPostId = newItem.postId {
                 // Delete the old post
                 if let postToDelete = postViewModel.posts.first(where: { $0.id == existingPostId }) {
                     await postViewModel.deletePost(postToDelete)
@@ -244,10 +244,10 @@ class ListViewModel: ObservableObject {
             }
             // else skip if the item was removed in the meantime
 
-            // --- Sync post if this item is linked to a post
-            if let postId = newItem.postId, let postViewModel = postViewModel {
-                await postViewModel.syncPostWithItem(newItem)
-            }
+        // --- Sync post if this item is linked to a post
+        if newItem.postId != nil, let postViewModel = postViewModel {
+            await postViewModel.syncPostWithItem(newItem)
+        }
 
             sortItems()
             Task { await prefetchImages(for: newItem) }
@@ -363,7 +363,7 @@ class ListViewModel: ObservableObject {
         guard let url = URL(string: urlStr) else { return }
 
         // First check disk cache
-        if let cachedImage = ImageCache.shared.image(forKey: urlStr) {
+        if ImageCache.shared.image(forKey: urlStr) != nil {
             // imageCache[urlStr] = cachedImage
             print("[ListViewModel] Loaded image from shared cache for \(urlStr)")
             return

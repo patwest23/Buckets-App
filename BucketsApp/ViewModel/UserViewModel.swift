@@ -71,7 +71,7 @@ class UserViewModel: ObservableObject {
                 self.user = updatedUser
                 self.user?.documentId = userId
                 print("[UserViewModel] user set =>", updatedUser)
-                print("[UserViewModel] Real-time update for /users/\(userId). user.id =", updatedUser.id ?? "nil")
+                print("[UserViewModel] Real-time update for /users/\(userId). user.id =", updatedUser.id)
             } catch {
                 print("[UserViewModel] startListeningToUserDoc failed to decode. Snapshot data may be malformed.")
                 print("[UserViewModel] Raw snapshot data:", snapshot.data() ?? "nil")
@@ -111,7 +111,7 @@ class UserViewModel: ObservableObject {
             
             // self.user = updatedUser  // Commented out to avoid overriding listener-driven user data
             
-            print("[UserViewModel] updateUserProfile: User doc updated for /users/\(userId). user.id =", updatedUser.id ?? "nil")
+            print("[UserViewModel] updateUserProfile: User doc updated for /users/\(userId). user.id =", updatedUser.id)
             
         } catch {
             handleError(error, prefix: "updateUserProfile")

@@ -196,21 +196,16 @@ extension ProfileView {
                 }
             }
             
-            // 3) Second row: Following / Followers
+            // 3) Second row: Friends (Following + Followers)
             HStack(spacing: 16) {
-                // NavigationLink(destination: FollowingView(followViewModel: _followViewModel)) {
-                //     statCard(emoji: "👥",
-                //              title: "Following",
-                //              value: "\(followingCount)",
-                //              color: .blue)
-                // }
-
-                // NavigationLink(destination: FollowerView(followViewModel: _followViewModel)) {
-                //     statCard(emoji: "🙋‍♂️",
-                //              title: "Followers",
-                //              value: "\(followersCount)",
-                //              color: .green)
-                // }
+                NavigationLink(destination: FriendsView()) {
+                    statCard(
+                        emoji: "👫",
+                        title: "Friends",
+                        value: "\(followingCount + followersCount)",
+                        color: .blue
+                    )
+                }
             }
         }
         .padding()

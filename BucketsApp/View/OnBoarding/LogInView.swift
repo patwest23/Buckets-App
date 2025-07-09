@@ -40,7 +40,7 @@ struct LogInView: View {
                         isLoading = true
                         Task {
                             await onboardingViewModel.signIn()
-                            if let user = Auth.auth().currentUser {
+                            if Auth.auth().currentUser != nil {
                                 await userViewModel.loadCurrentUser()
                             }
                             isLoading = false

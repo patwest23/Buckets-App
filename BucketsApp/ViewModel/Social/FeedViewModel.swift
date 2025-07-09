@@ -120,13 +120,13 @@ class FeedViewModel: ObservableObject {
 
             for (itemId, authorId) in itemIdToAuthorId {
                 let itemRef = db.collection("users").document(authorId).collection("items").document(itemId)
-                itemRef.getDocument { [weak self] snapshot, error in
-                    guard let self = self else { return }
-                    if let doc = snapshot, doc.exists, let data = doc.data(), let name = data["name"] as? String {
-                        DispatchQueue.main.async {
-                            self.itemNameCache[itemId] = name
-                        }
+                do {
+                    let snapshot = try await itemRef.getDocument()
+                    if let data = snapshot.data(), let name = data["name"] as? String {
+                        self.itemNameCache[itemId] = name
                     }
+                } catch {
+                    print("[FeedViewModel] Failed to fetch item \(itemId):", error.localizedDescription)
                 }
             }
             
@@ -157,8 +157,6 @@ class FeedViewModel: ObservableObject {
         
         let typeRaw = data["type"] as? String ?? "added"
         let type = PostType(rawValue: typeRaw) ?? .added
-        
-        let itemName: String = itemNameCache[itemId] ?? "Untitled Post"
         
         let post = PostModel(
             id: documentID,
