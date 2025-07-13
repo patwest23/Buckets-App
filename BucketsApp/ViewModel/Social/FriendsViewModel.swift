@@ -184,6 +184,37 @@ class FriendsViewModel: ObservableObject {
     func isUserFollowed(_ user: UserModel) -> Bool {
         return followingUsers.contains(where: { $0.id == user.id })
     }
+    
+    var exploreUsers: [UserModel] {
+        let followingIds = Set(followingUsers.map { $0.id })
+        let followerIds = Set(followerUsers.map { $0.id })
+        let lowercasedQuery = searchText.lowercased()
+
+        return allUsers.filter { user in
+            !followingIds.contains(user.id) &&
+            !followerIds.contains(user.id) &&
+            (
+                user.name?.lowercased().contains(lowercasedQuery) == true ||
+                user.username?.lowercased().contains(lowercasedQuery) == true
+            )
+        }
+    }
+    
+    var filteredFollowing: [UserModel] {
+        let query = searchText.lowercased()
+        return followingUsers.filter {
+            $0.name?.lowercased().contains(query) == true ||
+            $0.username?.lowercased().contains(query) == true
+        }
+    }
+
+    var filteredFollowers: [UserModel] {
+        let query = searchText.lowercased()
+        return followerUsers.filter {
+            $0.name?.lowercased().contains(query) == true ||
+            $0.username?.lowercased().contains(query) == true
+        }
+    }
 
     func startAllListeners() {
         startListeningToFriendChanges()
@@ -252,24 +283,4 @@ extension FriendsViewModel {
     }
 }
 
-extension FriendsViewModel {
-    var exploreUsers: [UserModel] {
-        let followingIds = Set(followingUsers.map { $0.id })
-        let followerIds = Set(followerUsers.map { $0.id })
-
-        return allUsers.filter { user in
-            !followingIds.contains(user.id) &&
-            !followerIds.contains(user.id)
-        }
-    }
-
-    var filteredSearchResults: [UserModel] {
-        let lowercasedQuery = searchText.lowercased()
-        return exploreUsers.filter { user in
-            let name = user.name?.lowercased() ?? ""
-            let username = user.username?.lowercased() ?? ""
-            return name.contains(lowercasedQuery) || username.contains(lowercasedQuery)
-        }
-    }
-}
 

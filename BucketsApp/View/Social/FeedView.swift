@@ -83,28 +83,28 @@ struct FeedView: View {
     }
 }
 
-// MARK: - Preview
-struct FeedView_Previews: PreviewProvider {
-    static var previews: some View {
-        // Sample posts for preview
-        let samplePosts = PostModel.mockData
-        
-        // Mock view model with sample posts
-        let mockVM = MockFeedViewModel(posts: samplePosts)
-        let listVM = ListViewModel()
-        let userVM = UserViewModel()
-        let sync = SyncCoordinator(postViewModel: PostViewModel(), listViewModel: listVM, feedViewModel: mockVM)
-        
-        VStack {
-            Text("🛠 DEBUG MODE")
-                .font(.caption)
-                .foregroundColor(.gray)
-            FeedView()
-                .environmentObject(mockVM)
-                .environmentObject(PostViewModel())
-                .environmentObject(userVM)
-                .environmentObject(listVM)
-                .environmentObject(sync)
-        }
-    }
-}
+//// MARK: - Preview
+//struct FeedView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        // Sample posts for preview
+//        let samplePosts = PostModel.mockData
+//        
+//        // Mock view model with sample posts
+//        let mockVM = MockFeedViewModel(posts: samplePosts)
+//        let listVM = ListViewModel()
+//        let userVM = UserViewModel()
+//        let sync = SyncCoordinator(postViewModel: PostViewModel(), listViewModel: listVM, feedViewModel: mockVM)
+//        
+//        VStack {
+//            Text("🛠 DEBUG MODE")
+//                .font(.caption)
+//                .foregroundColor(.gray)
+//            FeedView()
+//                .environmentObject(mockVM)
+//                .environmentObject(PostViewModel())
+//                .environmentObject(userVM)
+//                .environmentObject(listVM)
+//                .environmentObject(sync)
+//        }
+//    }
+//}

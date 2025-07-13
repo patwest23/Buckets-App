@@ -99,7 +99,7 @@ struct BucketsApp: App {
                                 feedViewModel.startListeningToPosts(for: [userId])
                                 postViewModel.userViewModel = userViewModel
                         DispatchQueue.main.async {
-                            syncCoordinator.startAllListeners()
+                            syncCoordinator.startAllListeners(userId: userId)
                         }
 
                                 try? await Task.sleep(nanoseconds: 300_000_000) // wait 0.3 seconds

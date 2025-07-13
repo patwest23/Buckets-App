@@ -108,6 +108,8 @@ struct ListView: View {
                                     FriendsView()
                                         .environmentObject(userViewModel)
                                         .environmentObject(friendsViewModel)
+                                        .environmentObject(syncCoordinator) // ✅ Add this line
+
                                 }
                                 // Navigate to Detail => PASS A COPY of the item
                                 .navigationDestination(item: $selectedItem) { item in
@@ -117,6 +119,7 @@ struct ListView: View {
                                             .environmentObject(bucketListViewModel)
                                             .environmentObject(postViewModel)
                                             .environmentObject(userViewModel)
+                                            .environmentObject(syncCoordinator) // ✅ Add this line
                                     }
                                 }
                                 // Delete confirmation

@@ -20,10 +20,13 @@ struct FriendsView: View {
                     ProgressView("Loading users...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
+                    let explore = viewModel.exploreUsers
+                    let following = viewModel.filteredFollowing
+                    let followers = viewModel.filteredFollowers
+
                     List {
                         // --- Explore Section
                         Section(header: Text("Explore")) {
-                            let explore = viewModel.exploreUsers(searchText)
                             if explore.isEmpty {
                                 Text("No users to explore.")
                                     .foregroundColor(.secondary)
@@ -36,7 +39,6 @@ struct FriendsView: View {
 
                         // --- Following Section
                         Section(header: Text("Following")) {
-                            let following = viewModel.filteredFollowing(searchText)
                             if following.isEmpty {
                                 Text("You're not following anyone yet.")
                                     .foregroundColor(.secondary)
@@ -49,7 +51,6 @@ struct FriendsView: View {
 
                         // --- Followers Section
                         Section(header: Text("Followers")) {
-                            let followers = viewModel.filteredFollowers(searchText)
                             if followers.isEmpty {
                                 Text("You don't have any followers yet.")
                                     .foregroundColor(.secondary)

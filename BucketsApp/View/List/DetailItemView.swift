@@ -70,8 +70,6 @@ struct DetailItemView: View {
         let completed = editingItem.completed
         let wasShared = editingItem.wasShared
         let imageUrls = editingItem.imageUrls
-        let itemId = editingItem.id
-        let userId = editingItem.userId
 
         return AnyView(
             ScrollView {
@@ -192,24 +190,22 @@ struct DetailItemView: View {
                     // Set selected item ID before posting
                     postViewModel.selectedItemID = editingItem.id.uuidString
                     Task {
-                        do {
-                            print("[DetailItemView] addOrUpdateItem starting")
-                            await bucketListViewModel.addOrUpdateItem(editingItem)
-                            print("[DetailItemView] addOrUpdateItem completed")
+                        print("[DetailItemView] addOrUpdateItem starting")
+                        await bucketListViewModel.addOrUpdateItem(editingItem)
+                        print("[DetailItemView] addOrUpdateItem completed")
 
-                            print("[DetailItemView] syncCoordinator.post starting")
-                            try await syncCoordinator.post(item: editingItem)
-                            print("[DetailItemView] syncCoordinator.post completed")
+                        print("[DetailItemView] syncCoordinator.post starting")
+                        await syncCoordinator.post(item: editingItem)
+                        print("[DetailItemView] syncCoordinator.post completed")
 
-                            print("[DetailItemView] Posted item id: \(editingItem.id), name: \(editingItem.name), wasShared: \(editingItem.wasShared)")
-                            postViewModel.didSharePost = true
-                            try? await Task.sleep(nanoseconds: 500_000_000)
-                            await MainActor.run {
-                                print("[DetailItemView] Setting showFeedConfirmation = true")
-                                showFeedConfirmation = true
-                            }
-                        } catch {
-                            print("[DetailItemView] ERROR during post: \(error)")
+                        print("[DetailItemView] Posted item id: \(editingItem.id), name: \(editingItem.name), wasShared: \(editingItem.wasShared)")
+                        postViewModel.didSharePost = true
+
+//                        await Task.sleep(nanoseconds: 500_000_000)
+
+                        await MainActor.run {
+                            print("[DetailItemView] Setting showFeedConfirmation = true")
+                            showFeedConfirmation = true
                         }
                     }
                 }
@@ -352,47 +348,47 @@ extension DetailItemView {
 }
 
 
-#if DEBUG
-struct DetailItemView_Previews: PreviewProvider {
-    static var previews: some View {
-        // 1) Create mock environment objects
-        let mockUserVM = UserViewModel()
-        let mockListVM = ListViewModel()
-        let mockPostVM = PostViewModel()
-        
-        // 2) Create a sample ItemModel with placeholder images using the new imageUrls array
-        let sampleItem = ItemModel(
-            userId: "previewUser",
-            name: "Sample Bucket List Item",
-            description: "Short description for preview...",
-            dueDate: Date().addingTimeInterval(86400 * 3), // 3 days in the future
-            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
-            completed: true,
-            creationDate: Date().addingTimeInterval(-86400), // 1 day ago
-            imageUrls: [
-                "https://via.placeholder.com/300",
-                "https://via.placeholder.com/300",
-                "https://via.placeholder.com/300"
-            ]
-        )
-        
-        // 3) Pass the sample item to DetailItemView in each preview
-        return Group {
-            DetailItemView(item: sampleItem)
-                .environmentObject(mockUserVM)
-                .environmentObject(mockListVM)
-                .environmentObject(mockPostVM)
-                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
-                .previewDisplayName("DetailItemView - Light Mode")
-
-            DetailItemView(item: sampleItem)
-                .environmentObject(mockUserVM)
-                .environmentObject(mockListVM)
-                .environmentObject(mockPostVM)
-                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
-                .preferredColorScheme(.dark)
-                .previewDisplayName("DetailItemView - Dark Mode")
-        }
-    }
-}
-#endif
+//#if DEBUG
+//struct DetailItemView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        // 1) Create mock environment objects
+//        let mockUserVM = UserViewModel()
+//        let mockListVM = ListViewModel()
+//        let mockPostVM = PostViewModel()
+//        
+//        // 2) Create a sample ItemModel with placeholder images using the new imageUrls array
+//        let sampleItem = ItemModel(
+//            userId: "previewUser",
+//            name: "Sample Bucket List Item",
+//            description: "Short description for preview...",
+//            dueDate: Date().addingTimeInterval(86400 * 3), // 3 days in the future
+//            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
+//            completed: true,
+//            creationDate: Date().addingTimeInterval(-86400), // 1 day ago
+//            imageUrls: [
+//                "https://via.placeholder.com/300",
+//                "https://via.placeholder.com/300",
+//                "https://via.placeholder.com/300"
+//            ]
+//        )
+//        
+//        // 3) Pass the sample item to DetailItemView in each preview
+//        return Group {
+//            DetailItemView(item: sampleItem)
+//                .environmentObject(mockUserVM)
+//                .environmentObject(mockListVM)
+//                .environmentObject(mockPostVM)
+//                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
+//                .previewDisplayName("DetailItemView - Light Mode")
+//
+//            DetailItemView(item: sampleItem)
+//                .environmentObject(mockUserVM)
+//                .environmentObject(mockListVM)
+//                .environmentObject(mockPostVM)
+//                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
+//                .preferredColorScheme(.dark)
+//                .previewDisplayName("DetailItemView - Dark Mode")
+//        }
+//    }
+//}
+//#endif

@@ -98,6 +98,23 @@ class ListViewModel: ObservableObject {
         clearImageCache()
     }
     
+    func fetchUserIfNeeded(for userId: String) async {
+        guard userCache[userId] == nil else { return }
+
+        do {
+            let doc = try await db.collection("users").document(userId).getDocument()
+            if var user = try? doc.data(as: UserModel.self) {
+                user.documentId = doc.documentID
+                await MainActor.run {
+                    self.userCache[userId] = user
+                    print("[ListViewModel] Cached user \(user.username ?? "") for ID: \(userId)")
+                }
+            }
+        } catch {
+            print("[ListViewModel] Failed to fetch user \(userId):", error.localizedDescription)
+        }
+    }
+    
     // MARK: - One-Time Fetch
     func loadItems() async {
         guard let userId = userId else {
@@ -158,6 +175,11 @@ class ListViewModel: ObservableObject {
                 print("[ListViewModel] startListeningToItems: Received \(self.items.count) items")
                 self.sortItems()
                 
+                Task {
+                    for item in fetched {
+                        await self.fetchUserIfNeeded(for: item.userId)
+                    }
+                }
                 Task {
                     await self.prefetchItemImages()
                 }
