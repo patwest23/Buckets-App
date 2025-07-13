@@ -24,6 +24,7 @@ class PostViewModel: ObservableObject {
     @Published var taggedUserIds: [String] = []
     @Published var selectedItemID: String?
     @Published var injectedItems: [String: ItemModel] = [:]
+    @Published var didSharePost: Bool = false
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -151,6 +152,7 @@ class PostViewModel: ObservableObject {
     
     // MARK: - Add or Update
     func addOrUpdatePost(post: PostModel) async -> PostModel? {
+        self.didSharePost = false
         var post = post
         guard let userId = userViewModel?.user?.id, !userId.isEmpty else {
             print("[PostViewModel] addOrUpdatePost => userId is missing from userViewModel. Cannot save post.")
@@ -160,7 +162,7 @@ class PostViewModel: ObservableObject {
         if post.authorId.isEmpty {
             post.authorId = userId
         }
-        if post.id == nil {
+        if post.id == nil || post.id?.isEmpty == true {
             post.id = UUID().uuidString
         }
         let postDocId = post.id!
@@ -183,6 +185,10 @@ class PostViewModel: ObservableObject {
             } else {
                 posts.append(post)
             }
+            if post.id != nil {
+                // Update the list item externally after post is saved
+            }
+            self.didSharePost = true
             return post
         } catch {
             print("[PostViewModel] addOrUpdatePost => Error:", error.localizedDescription)
@@ -283,6 +289,7 @@ class PostViewModel: ObservableObject {
 
             let item = try snapshot.data(as: ItemModel.self)
             print("[PostViewModel] fetchItem: ✅ Loaded item: \(item.name) from user: \(userId)")
+            self.injectedItems[post.itemId] = item
             return item
         } catch {
             print("[PostViewModel] fetchItem: 🛑 Error loading item for \(post.itemId) by user \(userId):", error.localizedDescription)

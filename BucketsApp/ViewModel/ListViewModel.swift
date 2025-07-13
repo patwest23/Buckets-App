@@ -12,6 +12,10 @@ import FirebaseAuth
 import FirebaseFirestore
 import UIKit
 
+// IMPORTANT: All mutations to the `items` array are handled by the Firestore snapshot listener.
+// Direct array mutations (add, update, remove) should not be performed elsewhere.
+// This avoids race conditions and ensures the UI always matches Firestore state.
+
 // MARK: - Shared ImageCache
 final class ImageCache {
     static let shared = ImageCache()
@@ -231,18 +235,7 @@ class ListViewModel: ObservableObject {
             try await docRef.setData(encoded, merge: true)
             print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
 
-            // Update local array with debug prints
-            if let idx = items.firstIndex(where: { $0.id == newItem.id }) {
-                print("[ListViewModel] addOrUpdateItem => found index \(idx), items.count=\(items.count)")
-                items[idx] = newItem
-                print("✅ Updated item image URLs:", allImageUrls(for: newItem))
-            } else if isNewItem {
-                print("[ListViewModel] addOrUpdateItem => appended new item. items.count was", items.count)
-                items.append(newItem)
-                print("[ListViewModel] Now items.count =", items.count)
-                print("✅ Updated item image URLs:", allImageUrls(for: newItem))
-            }
-            // else skip if the item was removed in the meantime
+            // Do not update self.items here. The Firestore snapshot listener will update items.
 
         // --- Sync post if this item is linked to a post
         if newItem.postId != nil, let postViewModel = postViewModel {
@@ -272,7 +265,7 @@ class ListViewModel: ObservableObject {
                 .document(item.id.uuidString)
             
             try await docRef.delete()
-            items.removeAll { $0.id == item.id }
+            // Do not remove from self.items here. The Firestore snapshot listener will update items.
             print("[ListViewModel] deleteItem: Deleted item \(item.id) from /users/\(userId)/items")
         } catch {
             print("[ListViewModel] deleteItem error:", error.localizedDescription)
@@ -293,6 +286,7 @@ class ListViewModel: ObservableObject {
             let item = items[index]
             await deleteItem(item)
         }
+        // Do not remove from self.items here. The Firestore snapshot listener will update items.
     }
     
     // MARK: - Sorting

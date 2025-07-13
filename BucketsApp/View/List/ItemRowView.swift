@@ -45,6 +45,7 @@ struct ItemRowView: View {
             .contentShape(Rectangle())
         }
         .onAppear {
+            print("[ItemRowView] onAppear: \(item.name) (id: \(item.id)) wasShared: \(item.wasShared)")
             Task {
                 await bucketListViewModel.prefetchImages(for: item)
             }
@@ -152,9 +153,7 @@ struct ItemRowView: View {
         Group {
             if item.completed {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(userViewModel.user?.username?.isEmpty == false
-                         ? userViewModel.user!.username!
-                         : "@User")
+                    Text(bucketListViewModel.userCache[item.userId]?.username ?? "@\(item.userId.prefix(6))")
                         .font(.caption)
                         .fontWeight(.semibold)
                     if let caption = item.caption, !caption.isEmpty {

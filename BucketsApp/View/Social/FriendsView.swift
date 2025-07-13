@@ -21,26 +21,14 @@ struct FriendsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
-                        let excludedIds = Set(
-                            viewModel.followingUsers.map(\.documentId) +
-                            viewModel.followerUsers.map(\.documentId) +
-                            [viewModel.currentUserId].compactMap { $0 }
-                        )
-                        let filtered = viewModel.allUsers
-                            .filter { user in !excludedIds.contains(user.documentId) }
-                            .sorted { sortUsers($0, $1, with: searchText) }
-                            .filter { userMatchesSearch($0, searchText) }
-                            .prefix(5)
-                        let exploreIds = Set(filtered.map(\.documentId))
-                        let followingIds = Set(viewModel.followingUsers.map(\.documentId))
-                        
                         // --- Explore Section
                         Section(header: Text("Explore")) {
-                            if filtered.isEmpty {
+                            let explore = viewModel.exploreUsers(searchText)
+                            if explore.isEmpty {
                                 Text("No users to explore.")
                                     .foregroundColor(.secondary)
                             } else {
-                                ForEach(filtered, id: \.documentId) { user in
+                                ForEach(explore, id: \.documentId) { user in
                                     userRow(for: user)
                                 }
                             }
@@ -48,16 +36,12 @@ struct FriendsView: View {
 
                         // --- Following Section
                         Section(header: Text("Following")) {
-                            let followingFiltered = viewModel.followingUsers
-                                .filter { !exploreIds.contains($0.documentId) }
-                                .sorted { sortUsers($0, $1, with: searchText) }
-                                .filter { userMatchesSearch($0, searchText) }
-
-                            if followingFiltered.isEmpty {
+                            let following = viewModel.filteredFollowing(searchText)
+                            if following.isEmpty {
                                 Text("You're not following anyone yet.")
                                     .foregroundColor(.secondary)
                             } else {
-                                ForEach(followingFiltered) { user in
+                                ForEach(following) { user in
                                     userRow(for: user)
                                 }
                             }
@@ -65,19 +49,12 @@ struct FriendsView: View {
 
                         // --- Followers Section
                         Section(header: Text("Followers")) {
-                            let followersFiltered = viewModel.followerUsers
-                                .filter {
-                                    !exploreIds.contains($0.documentId) &&
-                                    !followingIds.contains($0.documentId)
-                                }
-                                .sorted { sortUsers($0, $1, with: searchText) }
-                                .filter { userMatchesSearch($0, searchText) }
-
-                            if followersFiltered.isEmpty {
+                            let followers = viewModel.filteredFollowers(searchText)
+                            if followers.isEmpty {
                                 Text("You don't have any followers yet.")
                                     .foregroundColor(.secondary)
                             } else {
-                                ForEach(followersFiltered) { user in
+                                ForEach(followers) { user in
                                     userRow(for: user)
                                 }
                             }
@@ -91,37 +68,6 @@ struct FriendsView: View {
                 await viewModel.loadFriendsData()
                 await viewModel.loadAllUsers()
                 viewModel.startListeningToFriendChanges()
-
-                // --- Debug print statements for section counts
-                // Recompute filtered/exploreIds/followingFiltered/followersFiltered for debug
-                let excludedIds = Set(
-                    viewModel.followingUsers.map(\.documentId) +
-                    viewModel.followerUsers.map(\.documentId) +
-                    [viewModel.currentUserId].compactMap { $0 }
-                )
-                let filtered = viewModel.allUsers
-                    .filter { user in
-                        !excludedIds.contains(user.documentId)
-                    }
-                    .sorted { sortUsers($0, $1, with: searchText) }
-                    .filter { userMatchesSearch($0, searchText) }
-                    .prefix(5)
-                let exploreIds = Set(filtered.map(\.documentId))
-                let followingFiltered = viewModel.followingUsers
-                    .filter { !exploreIds.contains($0.documentId) }
-                    .sorted { sortUsers($0, $1, with: searchText) }
-                    .filter { userMatchesSearch($0, searchText) }
-                let followingIds = Set(viewModel.followingUsers.map(\.documentId))
-                let followersFiltered = viewModel.followerUsers
-                    .filter {
-                        !exploreIds.contains($0.documentId) &&
-                        !followingIds.contains($0.documentId)
-                    }
-                    .sorted { sortUsers($0, $1, with: searchText) }
-                    .filter { userMatchesSearch($0, searchText) }
-                print("[FriendsView] Explore count: \(filtered.count)")
-                print("[FriendsView] Following count: \(followingFiltered.count)")
-                print("[FriendsView] Followers count: \(followersFiltered.count)")
             }
             .alert("Error", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },

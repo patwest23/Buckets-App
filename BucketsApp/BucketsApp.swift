@@ -21,7 +21,7 @@ struct BucketsApp: App {
     @StateObject var feedViewModel: FeedViewModel
     @StateObject var postViewModel: PostViewModel
     // @StateObject var followViewModel = FollowViewModel()
-    @StateObject var friendsViewModel = FriendsViewModel()
+    @StateObject var friendsViewModel: FriendsViewModel
     @StateObject var syncCoordinator: SyncCoordinator
 
     init() {
@@ -42,10 +42,20 @@ struct BucketsApp: App {
         let listVM = ListViewModel()
         let feedVM = FeedViewModel()
         let postVM = PostViewModel()
+        let friendsVM = FriendsViewModel()
+
         _bucketListViewModel = StateObject(wrappedValue: listVM)
         _feedViewModel = StateObject(wrappedValue: feedVM)
         _postViewModel = StateObject(wrappedValue: postVM)
-        _syncCoordinator = StateObject(wrappedValue: SyncCoordinator(postViewModel: postVM, listViewModel: listVM, feedViewModel: feedVM))
+        _friendsViewModel = StateObject(wrappedValue: friendsVM)
+
+        let sync = SyncCoordinator(
+            postViewModel: postVM,
+            listViewModel: listVM,
+            feedViewModel: feedVM,
+            friendsViewModel: friendsVM
+        )
+        _syncCoordinator = StateObject(wrappedValue: sync)
     }
 
     var body: some Scene {
@@ -78,8 +88,6 @@ struct BucketsApp: App {
                                     return
                                 }
                                 print("[BucketsApp] Starting onAppear loading...")
-                                bucketListViewModel.startListeningToItems()
-                                print("[BucketsApp] Started listening to items")
 
                                 guard let firebaseUser = Auth.auth().currentUser else {
                                     print("[BucketsApp] No authenticated user.")
@@ -87,11 +95,15 @@ struct BucketsApp: App {
                                 }
 
                                 await userViewModel.initializeUserSession(for: firebaseUser.uid, email: firebaseUser.email ?? "unknown")
+                                let userId = firebaseUser.uid
+                                feedViewModel.startListeningToPosts(for: [userId])
                                 postViewModel.userViewModel = userViewModel
+                        DispatchQueue.main.async {
+                            syncCoordinator.startAllListeners()
+                        }
 
                                 try? await Task.sleep(nanoseconds: 300_000_000) // wait 0.3 seconds
                                 await userViewModel.loadProfileImage()
-                                await syncCoordinator.refreshFeedAndSyncLikes()
                             }
                         }
                 }

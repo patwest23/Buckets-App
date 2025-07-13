@@ -16,13 +16,16 @@ class SyncCoordinator: ObservableObject {
     let postViewModel: PostViewModel
     let listViewModel: ListViewModel
     let feedViewModel: FeedViewModel
+    let friendsViewModel: FriendsViewModel
 
     init(postViewModel: PostViewModel,
          listViewModel: ListViewModel,
-         feedViewModel: FeedViewModel) {
+         feedViewModel: FeedViewModel,
+         friendsViewModel: FriendsViewModel) {
         self.postViewModel = postViewModel
         self.listViewModel = listViewModel
         self.feedViewModel = feedViewModel
+        self.friendsViewModel = friendsViewModel
     }
 
     /// Call during app startup or after auth.
@@ -93,11 +96,22 @@ class SyncCoordinator: ObservableObject {
         updatedItem.wasShared = true
         updatedItem.postId = postId
         await listViewModel.addOrUpdateItem(updatedItem)
+        print("[SyncCoordinator] Updated item after posting: \(updatedItem.name), wasShared: \(updatedItem.wasShared), postId: \(String(describing: updatedItem.postId))")
+        await refreshFeedAndSyncLikes()
 
         // Reset UI state
         postViewModel.isPosting = false
         postViewModel.caption = ""
         postViewModel.taggedUserIds = []
         postViewModel.selectedItemID = nil
+    }
+
+    /// Start all real-time listeners for posts, items, and feed
+    func startAllListeners(userId: String) {
+        print("[SyncCoordinator] Starting all listeners...")
+        postViewModel.startListeningToPosts(listViewModel: listViewModel)
+        listViewModel.startListeningToItems()
+        feedViewModel.startListeningToPosts(for: [userId])
+        friendsViewModel.startListeningToFriendChanges()
     }
 }

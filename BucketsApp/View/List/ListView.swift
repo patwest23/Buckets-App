@@ -529,7 +529,7 @@ extension ListView {
         )
         .environmentObject(bucketListViewModel)
         .onAppear {
-            print("[DetailItemView Trigger] Appeared item: \(item.wrappedValue.name)")
+            print("[ItemRowView] onAppear: \(item.wrappedValue.name) (id: \(item.wrappedValue.id)) wasShared: \(item.wrappedValue.wasShared), likeCount: \(item.wrappedValue.likeCount)")
             print("[ListView] Total items in view model: \(bucketListViewModel.items.count)")
             if let match = bucketListViewModel.items.first(where: { $0.id == item.wrappedValue.id }) {
                 print("[ListView] ✅ Found matching item: \(match.name)")

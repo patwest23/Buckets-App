@@ -39,6 +39,7 @@ struct FeedRowView: View {
             HStack {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.accentColor)
+//                print("[FeedRowView] item name: \(item?.name ?? "nil"), post.itemName: \(post.itemName ?? "nil")")
                 Text(item?.name ?? post.itemName ?? "Untitled Post")
                     .font(.headline)
                     .bold()
@@ -70,6 +71,7 @@ struct FeedRowView: View {
             HStack(spacing: 8) {
                 Button(action: {
                     Task {
+                        print("[FeedRowView] Tapping like on post: \(post.id ?? "nil")")
                         await postViewModel.toggleLike(for: post.id ?? "", by: userViewModel.user?.id ?? "")
                     }
                 }) {

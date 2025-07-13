@@ -20,7 +20,7 @@ struct DetailItemView: View {
     @EnvironmentObject var syncCoordinator: SyncCoordinator
     @Environment(\.presentationMode) private var presentationMode
 
-    @State private var currentItem: ItemModel
+    // Removed local @State for currentItem; now using bucketListViewModel.currentEditingItem as single source of truth
     @StateObject private var imagePickerVM = ImagePickerViewModel()
     @State private var showFeedConfirmation = false
     @State private var showDeleteAlert = false
@@ -36,172 +36,212 @@ struct DetailItemView: View {
 
     init(item: ItemModel) {
         self.itemID = item.id
-        _currentItem = State(initialValue: item)
+        // No local state for currentItem; initialization handled by view model
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Top row: Checkmark + editable title
-                HStack(spacing: 8) {
-                    Button {
-                        Task {
-                            await toggleCompleted()
+        // Get the current editing item from the view model
+        guard let editingItem = bucketListViewModel.currentEditingItem else {
+            return AnyView(
+                VStack {
+                    Text("Item not found or unavailable.")
+                        .foregroundColor(.secondary)
+                        .padding()
+                    Spacer()
+                }
+            )
+        }
+        // Computed bindings for text and images
+        let nameBinding = Binding<String>(
+            get: { editingItem.name },
+            set: { newValue in
+                if var item = bucketListViewModel.currentEditingItem {
+                    item.name = newValue
+                    Task {
+                        await bucketListViewModel.addOrUpdateItem(item)
+                        await postViewModel.syncPostWithItem(item)
+                        if item.wasShared {
+                            showReshareUpdateAlert = true
                         }
-                    } label: {
-                        Image(systemName: currentItem.completed ? "checkmark.circle.fill" : "circle")
-                            .imageScale(.large)
-                            .foregroundColor(currentItem.completed ? .accentColor : .gray)
                     }
-                    .buttonStyle(.borderless)
+                }
+            }
+        )
+        let completed = editingItem.completed
+        let wasShared = editingItem.wasShared
+        let imageUrls = editingItem.imageUrls
+        let itemId = editingItem.id
+        let userId = editingItem.userId
 
-                    TextField("Title...", text: Binding(
-                        get: { currentItem.name },
-                        set: { newValue in
-                            currentItem.name = newValue
+        return AnyView(
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Top row: Checkmark + editable title
+                    HStack(spacing: 8) {
+                        Button {
                             Task {
-                                await bucketListViewModel.addOrUpdateItem(currentItem)
-                                await postViewModel.syncPostWithItem(currentItem)
-                                if currentItem.wasShared {
-                                    showReshareUpdateAlert = true
+                                await toggleCompleted()
+                            }
+                        } label: {
+                            Image(systemName: completed ? "checkmark.circle.fill" : "circle")
+                                .imageScale(.large)
+                                .foregroundColor(completed ? .accentColor : .gray)
+                        }
+                        .buttonStyle(.borderless)
+
+                        TextField("Title...", text: nameBinding)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .focused($isTitleFocused)
+
+                        Spacer()
+                    }
+
+                    photoPickerView
+
+                    // Image preview grid
+                    if !imageUrls.isEmpty {
+                        photoGridRow
+                    }
+
+                    // Share button
+                    if completed && !imageUrls.isEmpty {
+                        Button("\(wasShared ? "♻️ Repost to Feed" : "📣 Share to Feed")") {
+                            lastShareEvent = .completed
+                            showShareAlert = true
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Text("🗑️ Delete This Item")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red.opacity(0.8))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                        Button("Delete", role: .destructive) {
+                            Task {
+                                if let item = bucketListViewModel.currentEditingItem {
+                                    await bucketListViewModel.deleteItem(item)
                                 }
+                                presentationMode.wrappedValue.dismiss()
                             }
                         }
-                    ))
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                    .focused($isTitleFocused)
+                        Button("Cancel", role: .cancel) { }
+                    }
 
                     Spacer()
                 }
+                .onAppear {
+                    print("[DetailItemView] onAppear fired for item: \(editingItem.name), wasShared: \(editingItem.wasShared)")
 
-                photoPickerView
-
-
-                // Image preview grid
-                if !currentItem.imageUrls.isEmpty {
-                    photoGridRow
-                }
-
-                // Share button
-                if currentItem.completed && !currentItem.imageUrls.isEmpty {
-                    Button("\(currentItem.wasShared ? "♻️ Repost to Feed" : "📣 Share to Feed")") {
-                        lastShareEvent = .completed
-                        showShareAlert = true
+                    if let editingItem = bucketListViewModel.currentEditingItem {
+                        print("[DetailItemView] using currentEditingItem: \(editingItem.name)")
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.accentColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
 
-                Button(role: .destructive) {
-                    showDeleteAlert = true
-                } label: {
-                    Text("🗑️ Delete This Item")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red.opacity(0.8))
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .alert("Are you sure?", isPresented: $showDeleteAlert) {
-                    Button("Delete", role: .destructive) {
-                        Task {
-                            await bucketListViewModel.deleteItem(currentItem)
-                            presentationMode.wrappedValue.dismiss()
+                    if editingItem.userId.isEmpty,
+                       let authUserId = userViewModel.user?.id {
+                        var updatedItem = editingItem
+                        updatedItem.userId = authUserId
+                        if !updatedItem.name.isEmpty || !updatedItem.imageUrls.isEmpty {
+                            Task {
+                                await bucketListViewModel.addOrUpdateItem(updatedItem)
+                            }
                         }
                     }
-                    Button("Cancel", role: .cancel) { }
-                }
 
-                Spacer()
-        }
-            .onAppear {
-                print("[DetailItemView] onAppear fired for item: \(currentItem.name)")
-
-                if let editingItem = bucketListViewModel.currentEditingItem {
-                    print("[DetailItemView] using currentEditingItem: \(editingItem.name)")
-                    currentItem = editingItem
-                } else {
-                    print("[DetailItemView] WARNING: currentEditingItem was nil — using init fallback: \(currentItem.name)")
-                }
-
-                if currentItem.userId.isEmpty,
-                   let authUserId = userViewModel.user?.id {
-                    currentItem.userId = authUserId
-                    if !currentItem.name.isEmpty || !currentItem.imageUrls.isEmpty {
+                    imagePickerVM.onImagesLoaded = {
                         Task {
-                            await bucketListViewModel.addOrUpdateItem(currentItem)
+                            let uploadedUrls = await imagePickerVM.uploadImages(
+                                userId: userViewModel.user?.id ?? "",
+                                itemId: editingItem.id.uuidString
+                            )
+                            var updatedItem = editingItem
+                            if updatedItem.userId.isEmpty,
+                               let uid = userViewModel.user?.id {
+                                updatedItem.userId = uid
+                            }
+                            await bucketListViewModel.updateImageUrls(for: updatedItem, urls: uploadedUrls)
                         }
                     }
                 }
-
-                imagePickerVM.onImagesLoaded = {
+                .onAppear {
+                    print("[DetailItemView] body loaded. itemID: \(itemID)")
+                }
+                .padding()
+            }
+            .onChange(of: postViewModel.didSharePost) { oldValue, newValue in
+                if newValue {
+                    postViewModel.didSharePost = false
+                    // No dismissal here; handled in alert button action
+                }
+            }
+            .navigationTitle("Edit Item")
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
+                Button("Post") {
+                    // Set selected item ID before posting
+                    postViewModel.selectedItemID = editingItem.id.uuidString
                     Task {
-                        let uploadedUrls = await imagePickerVM.uploadImages(
-                            userId: userViewModel.user?.id ?? "",
-                            itemId: currentItem.id.uuidString
-                        )
-                        if currentItem.userId.isEmpty,
-                           let uid = userViewModel.user?.id {
-                            currentItem.userId = uid
-                        }
-                        await bucketListViewModel.updateImageUrls(for: currentItem, urls: uploadedUrls)
-                        if let updated = bucketListViewModel.items.first(where: { $0.id == currentItem.id }) {
-                            currentItem = updated
+                        do {
+                            print("[DetailItemView] addOrUpdateItem starting")
+                            await bucketListViewModel.addOrUpdateItem(editingItem)
+                            print("[DetailItemView] addOrUpdateItem completed")
+
+                            print("[DetailItemView] syncCoordinator.post starting")
+                            try await syncCoordinator.post(item: editingItem)
+                            print("[DetailItemView] syncCoordinator.post completed")
+
+                            print("[DetailItemView] Posted item id: \(editingItem.id), name: \(editingItem.name), wasShared: \(editingItem.wasShared)")
+                            postViewModel.didSharePost = true
+                            try? await Task.sleep(nanoseconds: 500_000_000)
+                            await MainActor.run {
+                                print("[DetailItemView] Setting showFeedConfirmation = true")
+                                showFeedConfirmation = true
+                            }
+                        } catch {
+                            print("[DetailItemView] ERROR during post: \(error)")
                         }
                     }
                 }
-            }
-            .onAppear {
-                print("[DetailItemView] body loaded. itemID: \(itemID)")
-            }
-            .padding()
-        }
-        .navigationTitle("Edit Item")
-        .navigationBarTitleDisplayMode(.inline)
-        .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
-            Button("Post") {
-                // Set selected item ID before posting
-                postViewModel.selectedItemID = currentItem.id.uuidString
-                Task {
-                    // Ensure item is saved (with image URLs) before posting to feed
-                    await bucketListViewModel.addOrUpdateItem(currentItem)
-                    await syncCoordinator.post(item: currentItem)
-                    // Show confirmation after posting
-                    showFeedConfirmation = true
+                Button("Cancel", role: .cancel) {}
+            }, message: {
+                Text(shareMessage(for: lastShareEvent))
+            })
+            // Confirmation alert after posting
+            .alert("✅ Shared to Feed!", isPresented: $showFeedConfirmation) {
+                Button("OK", role: .cancel) {
+                    presentationMode.wrappedValue.dismiss()
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        }, message: {
-            Text(shareMessage(for: lastShareEvent))
-        })
-        // Confirmation alert after posting
-        .alert("✅ Shared to Feed!", isPresented: $showFeedConfirmation) {
-            Button("OK", role: .cancel) {
-                presentationMode.wrappedValue.dismiss()
-            }
-        }
-        .alert("Re-share this update?", isPresented: $showReshareUpdateAlert, actions: {
-            Button("Re-share to Feed") {
-                postViewModel.selectedItemID = currentItem.id.uuidString
-                Task {
-                    await syncCoordinator.post(item: currentItem)
-                    showFeedConfirmation = true
+            .alert("Re-share this update?", isPresented: $showReshareUpdateAlert, actions: {
+                Button("Re-share to Feed") {
+                    postViewModel.selectedItemID = editingItem.id.uuidString
+                    Task {
+                        await syncCoordinator.post(item: editingItem)
+                        showFeedConfirmation = true
+                    }
                 }
-            }
-            Button("Not Now", role: .cancel) {}
-        }, message: {
-            Text("You've already shared this item. Want to re-share the update in your feed?")
-        })
-        
+                Button("Not Now", role: .cancel) {}
+            }, message: {
+                Text("You've already shared this item. Want to re-share the update in your feed?")
+            })
+        )
     }
 
     @ViewBuilder
     private var photoPickerView: some View {
         let isUploading = imagePickerVM.isUploading
+        let completed = bucketListViewModel.currentEditingItem?.completed ?? false
         PhotosPicker(
             selection: $imagePickerVM.selectedItems,
             maxSelectionCount: 3,
@@ -221,19 +261,20 @@ struct DetailItemView: View {
             .background(Color.gray.opacity(0.1))
             .cornerRadius(8)
         }
-        .disabled(!currentItem.completed || isUploading)
+        .disabled(!completed || isUploading)
     }
 
     private func toggleCompleted() async {
-        currentItem.completed.toggle()
-        if currentItem.completed {
-            currentItem.dueDate = Date()
+        guard var item = bucketListViewModel.currentEditingItem else { return }
+        item.completed.toggle()
+        if item.completed {
+            item.dueDate = Date()
         } else {
-            currentItem.dueDate = nil
+            item.dueDate = nil
         }
-        await bucketListViewModel.addOrUpdateItem(currentItem)
-        await postViewModel.syncPostWithItem(currentItem)
-        if currentItem.wasShared {
+        await bucketListViewModel.addOrUpdateItem(item)
+        await postViewModel.syncPostWithItem(item)
+        if item.wasShared {
             showReshareUpdateAlert = true
         }
     }
@@ -242,11 +283,11 @@ struct DetailItemView: View {
 // MARK: - Computed Props
 extension DetailItemView {
     @MainActor private var isShowingChevron: Bool {
-        !currentItem.imageUrls.isEmpty
+        !(bucketListViewModel.currentEditingItem?.imageUrls.isEmpty ?? true)
     }
 
     @MainActor private var isShowingPhotoGrid: Bool {
-        !currentItem.imageUrls.isEmpty
+        !(bucketListViewModel.currentEditingItem?.imageUrls.isEmpty ?? true)
     }
 }
 
@@ -274,7 +315,7 @@ extension DetailItemView {
 
     @ViewBuilder
     private var photoGridRow: some View {
-        let urls = currentItem.imageUrls
+        let urls = bucketListViewModel.currentEditingItem?.imageUrls ?? []
         if !urls.isEmpty {
             photoGrid(urlStrings: urls)
         }

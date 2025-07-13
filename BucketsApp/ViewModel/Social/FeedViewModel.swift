@@ -106,10 +106,6 @@ class FeedViewModel: ObservableObject {
             let sortedPosts = allPosts.sorted { $0.timestamp > $1.timestamp }
             print("[FeedViewModel] Sorted posts (latest first):", sortedPosts.map { $0.itemId })
             
-            // 4) Assign to published property
-            print("[FeedViewModel] Assigning sorted posts to self.posts...")
-            self.posts = sortedPosts
-            
             // Build a mapping from itemId to authorId for all posts
             var itemIdToAuthorId: [String: String] = [:]
             for post in allPosts {
@@ -130,9 +126,19 @@ class FeedViewModel: ObservableObject {
                 }
             }
             
-            print("[FeedViewModel] Assigned posts count:", self.posts.count)
-            print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
-            print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
+            await MainActor.run {
+                print("[FeedViewModel] Assigning updated posts with item names...")
+                self.posts = sortedPosts.map { post in
+                    var updatedPost = post
+                    if let name = self.itemNameCache[post.itemId] {
+                        updatedPost.itemName = name
+                    }
+                    return updatedPost
+                }
+                print("[FeedViewModel] Assigned posts count:", self.posts.count)
+                print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
+                print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
+            }
             
         } catch {
             print("[FeedViewModel] fetchFeedPosts error:", error.localizedDescription)

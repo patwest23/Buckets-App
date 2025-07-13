@@ -63,6 +63,7 @@ struct FeedView: View {
                 showLoading = false
             }
             .onAppear {
+                print("FeedView appeared, checking if initial sync is needed...")
                 if feedViewModel.posts.isEmpty {
                     Task {
                         showLoading = true

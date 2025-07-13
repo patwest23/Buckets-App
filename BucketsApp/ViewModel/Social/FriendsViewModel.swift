@@ -88,11 +88,22 @@ class FriendsViewModel: ObservableObject {
     private func fetchUsers(with ids: [String]) async throws -> [UserModel] {
         var users: [UserModel] = []
 
-        for id in ids {
-            let doc = try await db.collection("users").document(id).getDocument()
-            if var user = try? doc.data(as: UserModel.self) {
-                user.documentId = doc.documentID
-                users.append(user)
+        try await withThrowingTaskGroup(of: UserModel?.self) { group in
+            for id in ids {
+                group.addTask {
+                    let doc = try await self.db.collection("users").document(id).getDocument()
+                    if var user = try? doc.data(as: UserModel.self) {
+                        user.documentId = doc.documentID
+                        return user
+                    }
+                    return nil
+                }
+            }
+
+            for try await user in group {
+                if let user = user {
+                    users.append(user)
+                }
             }
         }
 
@@ -174,6 +185,10 @@ class FriendsViewModel: ObservableObject {
         return followingUsers.contains(where: { $0.id == user.id })
     }
 
+    func startAllListeners() {
+        startListeningToFriendChanges()
+    }
+
     func follow(_ user: UserModel) async {
         guard let currentUserId = currentUserId else { return }
 
@@ -236,3 +251,25 @@ extension FriendsViewModel {
         return vm
     }
 }
+
+extension FriendsViewModel {
+    var exploreUsers: [UserModel] {
+        let followingIds = Set(followingUsers.map { $0.id })
+        let followerIds = Set(followerUsers.map { $0.id })
+
+        return allUsers.filter { user in
+            !followingIds.contains(user.id) &&
+            !followerIds.contains(user.id)
+        }
+    }
+
+    var filteredSearchResults: [UserModel] {
+        let lowercasedQuery = searchText.lowercased()
+        return exploreUsers.filter { user in
+            let name = user.name?.lowercased() ?? ""
+            let username = user.username?.lowercased() ?? ""
+            return name.contains(lowercasedQuery) || username.contains(lowercasedQuery)
+        }
+    }
+}
+
