@@ -9,6 +9,7 @@ import SwiftUI
 import PhotosUI
 import FirebaseStorage
 import FirebaseAuth
+import MapKit
 
 @MainActor
 struct DetailItemView: View {
@@ -22,17 +23,16 @@ struct DetailItemView: View {
 
     // Removed local @State for currentItem; now using bucketListViewModel.currentEditingItem as single source of truth
     @StateObject private var imagePickerVM = ImagePickerViewModel()
+    @StateObject private var locationSearchVM = LocationSearchViewModel()
     @State private var showFeedConfirmation = false
     @State private var showDeleteAlert = false
+    @State private var isAnyTextFieldActive: Bool = false
 
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNotesFocused: Bool
+    @FocusState private var isCaptionFocused: Bool
+    @State private var captionText: String = ""
 
-    // NEW: Social sharing state
-    @State private var showShareAlert: Bool = false
-    @State private var lastShareEvent: PostType? = nil
-
-    @State private var showReshareUpdateAlert = false
 
     init(item: ItemModel) {
         self.itemID = item.id
@@ -60,9 +60,32 @@ struct DetailItemView: View {
                     Task {
                         await bucketListViewModel.addOrUpdateItem(item)
                         await postViewModel.syncPostWithItem(item)
-                        if item.wasShared {
-                            showReshareUpdateAlert = true
-                        }
+                    }
+                }
+            }
+        )
+        let locationBinding = Binding<String>(
+            get: { editingItem.location?.address ?? "" },
+            set: { newValue in
+                if var item = bucketListViewModel.currentEditingItem {
+                    var loc = item.location ?? Location(latitude: 0, longitude: 0, address: "")
+                    loc.address = newValue
+                    item.location = loc
+                    Task {
+                        await bucketListViewModel.addOrUpdateItem(item)
+                        await postViewModel.syncPostWithItem(item)
+                    }
+                }
+            }
+        )
+        let captionBinding = Binding<String>(
+            get: { editingItem.caption ?? "" },
+            set: { newValue in
+                if var item = bucketListViewModel.currentEditingItem {
+                    item.caption = newValue
+                    Task {
+                        await bucketListViewModel.addOrUpdateItem(item)
+                        await postViewModel.syncPostWithItem(item)
                     }
                 }
             }
@@ -71,167 +94,220 @@ struct DetailItemView: View {
         let wasShared = editingItem.wasShared
         let imageUrls = editingItem.imageUrls
 
-        return AnyView(
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Top row: Checkmark + editable title
-                    HStack(spacing: 8) {
-                        Button {
-                            Task {
-                                await toggleCompleted()
-                            }
-                        } label: {
-                            Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                                .imageScale(.large)
-                                .foregroundColor(completed ? .accentColor : .gray)
+        let content = ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Top row: Checkmark + editable title
+                HStack(spacing: 8) {
+                    Button {
+                        Task {
+                            await toggleCompleted()
                         }
-                        .buttonStyle(.borderless)
-
-                        TextField("Title...", text: nameBinding)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                            .focused($isTitleFocused)
-
-                        Spacer()
-                    }
-
-                    photoPickerView
-
-                    // Image preview grid
-                    if !imageUrls.isEmpty {
-                        photoGridRow
-                    }
-
-                    // Share button
-                    if completed && !imageUrls.isEmpty {
-                        Button("\(wasShared ? "♻️ Repost to Feed" : "📣 Share to Feed")") {
-                            lastShareEvent = .completed
-                            showShareAlert = true
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
-
-                    Button(role: .destructive) {
-                        showDeleteAlert = true
                     } label: {
-                        Text("🗑️ Delete This Item")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red.opacity(0.8))
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
+                        Image(systemName: completed ? "checkmark.circle.fill" : "circle")
+                            .imageScale(.large)
+                            .foregroundColor(completed ? .accentColor : .gray)
                     }
-                    .alert("Are you sure?", isPresented: $showDeleteAlert) {
-                        Button("Delete", role: .destructive) {
-                            Task {
-                                if let item = bucketListViewModel.currentEditingItem {
-                                    await bucketListViewModel.deleteItem(item)
-                                }
-                                presentationMode.wrappedValue.dismiss()
-                            }
-                        }
-                        Button("Cancel", role: .cancel) { }
-                    }
+                    .buttonStyle(.borderless)
+
+                    TextField("Title...", text: nameBinding)
+                        .font(.headline)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isTitleFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isTitleFocused ? 2 : 1)
+                                .background(Color.white)
+                        )
+                        .focused($isTitleFocused)
+                        .frame(maxWidth: .infinity)
 
                     Spacer()
                 }
-                .onAppear {
-                    print("[DetailItemView] onAppear fired for item: \(editingItem.name), wasShared: \(editingItem.wasShared)")
 
-                    if let editingItem = bucketListViewModel.currentEditingItem {
-                        print("[DetailItemView] using currentEditingItem: \(editingItem.name)")
-                    }
+                HStack(spacing: 8) {
+                    Text("📍")
+                        .font(.system(size: 22))
 
-                    if editingItem.userId.isEmpty,
-                       let authUserId = userViewModel.user?.id {
-                        var updatedItem = editingItem
-                        updatedItem.userId = authUserId
-                        if !updatedItem.name.isEmpty || !updatedItem.imageUrls.isEmpty {
-                            Task {
-                                await bucketListViewModel.addOrUpdateItem(updatedItem)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Add location...", text: Binding<String>(
+                            get: { locationSearchVM.queryFragment },
+                            set: { locationSearchVM.updateQuery($0) }
+                        ))
+                        .font(.body)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.5), lineWidth: 1)
+                                .background(Color.white)
+                        )
+
+                        if !locationSearchVM.searchResults.isEmpty {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    ForEach(locationSearchVM.searchResults, id: \.self) { result in
+                                        Button {
+                                            let selected = result.title + ", " + result.subtitle
+                                            locationSearchVM.queryFragment = selected
+                                            if var item = bucketListViewModel.currentEditingItem {
+                                                var loc = item.location ?? Location(latitude: 0, longitude: 0, address: "")
+                                                loc.address = selected
+                                                item.location = loc
+                                                Task {
+                                                    await bucketListViewModel.addOrUpdateItem(item)
+                                                    await postViewModel.syncPostWithItem(item)
+                                                }
+                                            }
+                                            locationSearchVM.searchResults = []
+                                        } label: {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(result.title).bold()
+                                                if !result.subtitle.isEmpty {
+                                                    Text(result.subtitle)
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.gray)
+                                                }
+                                            }
+                                            .padding(8)
+                                        }
+                                        Divider()
+                                    }
+                                }
+                                .background(Color.white)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                )
                             }
+                            .frame(maxHeight: 150)
                         }
                     }
+                    .frame(maxWidth: .infinity)
+                }
 
-                    imagePickerVM.onImagesLoaded = {
-                        Task {
-                            let uploadedUrls = await imagePickerVM.uploadImages(
-                                userId: userViewModel.user?.id ?? "",
-                                itemId: editingItem.id.uuidString
-                            )
-                            var updatedItem = editingItem
-                            if updatedItem.userId.isEmpty,
-                               let uid = userViewModel.user?.id {
-                                updatedItem.userId = uid
-                            }
-                            await bucketListViewModel.updateImageUrls(for: updatedItem, urls: uploadedUrls)
-                        }
+                HStack(alignment: .top, spacing: 8) {
+                    Text("📝")
+                        .font(.system(size: 22))
+                        .padding(.top, 10)
+
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isCaptionFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isCaptionFocused ? 2 : 1)
+                            .background(Color.white)
+                        TextEditor(text: captionBinding)
+                            .font(.body)
+                            .padding(8)
+                            .frame(minHeight: 80)
+                            .disabled(!editingItem.completed)
+                            .opacity(editingItem.completed ? 1.0 : 0.5)
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .onAppear {
-                    print("[DetailItemView] body loaded. itemID: \(itemID)")
+
+                photoPickerView
+
+                if !imageUrls.isEmpty {
+                    photoGridRow
                 }
-                .padding()
+
+                Spacer()
             }
+            .onAppear {
+                print("[DetailItemView] onAppear fired for item: \(editingItem.name), wasShared: \(editingItem.wasShared)")
+
+                if let editingItem = bucketListViewModel.currentEditingItem {
+                    print("[DetailItemView] using currentEditingItem: \(editingItem.name)")
+                }
+
+                if editingItem.userId.isEmpty,
+                   let authUserId = userViewModel.user?.id {
+                    var updatedItem = editingItem
+                    updatedItem.userId = authUserId
+                    if !updatedItem.name.isEmpty || !updatedItem.imageUrls.isEmpty {
+                        Task {
+                            await bucketListViewModel.addOrUpdateItem(updatedItem)
+                        }
+                    }
+                }
+
+                imagePickerVM.onImagesLoaded = {
+                    Task {
+                        let uploadedUrls = await imagePickerVM.uploadImages(
+                            userId: userViewModel.user?.id ?? "",
+                            itemId: editingItem.id.uuidString
+                        )
+                        var updatedItem = editingItem
+                        if updatedItem.userId.isEmpty,
+                           let uid = userViewModel.user?.id {
+                            updatedItem.userId = uid
+                        }
+                        await bucketListViewModel.updateImageUrls(for: updatedItem, urls: uploadedUrls)
+                    }
+                }
+
+                NotificationCenter.default.addObserver(forName: UITextField.textDidBeginEditingNotification, object: nil, queue: .main) { _ in
+                    isAnyTextFieldActive = true
+                }
+                NotificationCenter.default.addObserver(forName: UITextField.textDidEndEditingNotification, object: nil, queue: .main) { _ in
+                    isAnyTextFieldActive = false
+                }
+            }
+            .onAppear {
+                print("[DetailItemView] body loaded. itemID: \(itemID)")
+            }
+            .padding()
             .onChange(of: postViewModel.didSharePost) { oldValue, newValue in
                 if newValue {
                     postViewModel.didSharePost = false
-                    // No dismissal here; handled in alert button action
                 }
             }
             .navigationTitle("Edit Item")
             .navigationBarTitleDisplayMode(.inline)
-            .alert("Share to Feed?", isPresented: $showShareAlert, actions: {
-                Button("Post") {
-                    // Set selected item ID before posting
-                    postViewModel.selectedItemID = editingItem.id.uuidString
-                    Task {
-                        print("[DetailItemView] addOrUpdateItem starting")
-                        await bucketListViewModel.addOrUpdateItem(editingItem)
-                        print("[DetailItemView] addOrUpdateItem completed")
-
-                        print("[DetailItemView] syncCoordinator.post starting")
-                        await syncCoordinator.post(item: editingItem)
-                        print("[DetailItemView] syncCoordinator.post completed")
-
-                        print("[DetailItemView] Posted item id: \(editingItem.id), name: \(editingItem.name), wasShared: \(editingItem.wasShared)")
-                        postViewModel.didSharePost = true
-
-//                        await Task.sleep(nanoseconds: 500_000_000)
-
-                        await MainActor.run {
-                            print("[DetailItemView] Setting showFeedConfirmation = true")
-                            showFeedConfirmation = true
-                        }
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            }, message: {
-                Text(shareMessage(for: lastShareEvent))
-            })
-            // Confirmation alert after posting
             .alert("✅ Shared to Feed!", isPresented: $showFeedConfirmation) {
                 Button("OK", role: .cancel) {
                     presentationMode.wrappedValue.dismiss()
                 }
             }
-            .alert("Re-share this update?", isPresented: $showReshareUpdateAlert, actions: {
-                Button("Re-share to Feed") {
-                    postViewModel.selectedItemID = editingItem.id.uuidString
-                    Task {
-                        await syncCoordinator.post(item: editingItem)
-                        showFeedConfirmation = true
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if isAnyTextFieldActive || isCaptionFocused {
+                    Button("Done") {
+                        UIApplication.shared.endEditing()
+                        isAnyTextFieldActive = false
+                        isCaptionFocused = false
                     }
                 }
-                Button("Not Now", role: .cancel) {}
-            }, message: {
-                Text("You've already shared this item. Want to re-share the update in your feed?")
-            })
-        )
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Button(role: .destructive) {
+                showDeleteAlert = true
+            } label: {
+                Text("🗑️ Delete This Item")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.red.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+            }
+            .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    Task {
+                        if let item = bucketListViewModel.currentEditingItem {
+                            await bucketListViewModel.deleteItem(item)
+                            if let post = postViewModel.posts.first(where: { $0.itemId == item.id.uuidString }) {
+                                await postViewModel.deletePost(post)
+                            }
+                        }
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        }
+
+        return AnyView(content)
     }
 
     @ViewBuilder
@@ -243,19 +319,25 @@ struct DetailItemView: View {
             maxSelectionCount: 3,
             matching: .images
         ) {
-            HStack {
-                Text("📸 Select Photo")
-                if isUploading {
-                    ProgressView()
-                        .scaleEffect(0.8)
+            HStack(spacing: 8) {
+                Text("📸")
+                    .font(.system(size: 22))
+
+                HStack {
+                    Text("Select Photo")
+                        .foregroundColor(.accentColor)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.gray)
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
             }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
         }
         .disabled(!completed || isUploading)
     }
@@ -270,9 +352,6 @@ struct DetailItemView: View {
         }
         await bucketListViewModel.addOrUpdateItem(item)
         await postViewModel.syncPostWithItem(item)
-        if item.wasShared {
-            showReshareUpdateAlert = true
-        }
     }
 }
 
@@ -348,47 +427,54 @@ extension DetailItemView {
 }
 
 
-//#if DEBUG
-//struct DetailItemView_Previews: PreviewProvider {
-//    static var previews: some View {
-//        // 1) Create mock environment objects
-//        let mockUserVM = UserViewModel()
-//        let mockListVM = ListViewModel()
-//        let mockPostVM = PostViewModel()
-//        
-//        // 2) Create a sample ItemModel with placeholder images using the new imageUrls array
-//        let sampleItem = ItemModel(
-//            userId: "previewUser",
-//            name: "Sample Bucket List Item",
-//            description: "Short description for preview...",
-//            dueDate: Date().addingTimeInterval(86400 * 3), // 3 days in the future
-//            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
-//            completed: true,
-//            creationDate: Date().addingTimeInterval(-86400), // 1 day ago
-//            imageUrls: [
-//                "https://via.placeholder.com/300",
-//                "https://via.placeholder.com/300",
-//                "https://via.placeholder.com/300"
-//            ]
-//        )
-//        
-//        // 3) Pass the sample item to DetailItemView in each preview
-//        return Group {
-//            DetailItemView(item: sampleItem)
-//                .environmentObject(mockUserVM)
-//                .environmentObject(mockListVM)
-//                .environmentObject(mockPostVM)
-//                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
-//                .previewDisplayName("DetailItemView - Light Mode")
-//
-//            DetailItemView(item: sampleItem)
-//                .environmentObject(mockUserVM)
-//                .environmentObject(mockListVM)
-//                .environmentObject(mockPostVM)
-//                .environmentObject(SyncCoordinator(postViewModel: mockPostVM, listViewModel: mockListVM, feedViewModel: FeedViewModel()))
-//                .preferredColorScheme(.dark)
-//                .previewDisplayName("DetailItemView - Dark Mode")
-//        }
-//    }
-//}
-//#endif
+#if DEBUG
+struct DetailItemView_Previews: PreviewProvider {
+    static var previews: some View {
+        // 1) Create mock environment objects
+        let mockUserVM = UserViewModel()
+        let mockListVM = ListViewModel()
+        let mockPostVM = PostViewModel()
+        let mockFeedVM = FeedViewModel()
+        let mockFriendsVM = FriendsViewModel()
+        let mockSyncCoordinator = SyncCoordinator(
+            postViewModel: mockPostVM,
+            listViewModel: mockListVM,
+            feedViewModel: mockFeedVM,
+            friendsViewModel: mockFriendsVM
+        )
+
+        // 2) Create a sample ItemModel with placeholder images
+        let sampleItem = ItemModel(
+            userId: "previewUser",
+            name: "Sample Bucket List Item",
+            description: "Short description for preview...",
+            dueDate: Date().addingTimeInterval(86400 * 3),
+            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
+            completed: true,
+            creationDate: Date().addingTimeInterval(-86400),
+            imageUrls: [
+                "https://via.placeholder.com/300",
+                "https://via.placeholder.com/300",
+                "https://via.placeholder.com/300"
+            ]
+        )
+        mockListVM.currentEditingItem = sampleItem
+
+        let preview = DetailItemView(item: sampleItem)
+            .environmentObject(mockUserVM)
+            .environmentObject(mockListVM)
+            .environmentObject(mockPostVM)
+            .environmentObject(mockSyncCoordinator)
+
+        return Group {
+            preview
+                .environment(\.colorScheme, .light)
+                .previewDisplayName("DetailItemView - Light Mode")
+
+            preview
+                .environment(\.colorScheme, .dark)
+                .previewDisplayName("DetailItemView - Dark Mode")
+        }
+    }
+}
+#endif

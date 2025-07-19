@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1F0911282E1B00D800A7D996 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0911272E1B00D800A7D996 /* SyncCoordinator.swift */; };
+		1F107EDA2E2C3D9700B692C8 /* LocationSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */; };
 		1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */; };
 		1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B222D21DAE7000DF507 /* UserViewModel.swift */; };
 		1F234B252D21DC85000DF507 /* UserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B242D21DC7E000DF507 /* UserModel.swift */; };
@@ -48,6 +49,7 @@
 
 /* Begin PBXFileReference section */
 		1F0911272E1B00D800A7D996 /* SyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinator.swift; sourceTree = "<group>"; };
+		1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSearchViewModel.swift; sourceTree = "<group>"; };
 		1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenCarouselView.swift; sourceTree = "<group>"; };
 		1F234B222D21DAE7000DF507 /* UserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserViewModel.swift; sourceTree = "<group>"; };
 		1F234B242D21DC7E000DF507 /* UserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserModel.swift; sourceTree = "<group>"; };
@@ -184,6 +186,7 @@
 				1F64774929E5020F00B66F63 /* ListViewModel.swift */,
 				1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */,
 				1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */,
+				1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */,
 				1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */,
 				1F357F592D0D3F06003F121A /* Extensions.swift */,
 				1F0911272E1B00D800A7D996 /* SyncCoordinator.swift */,
@@ -315,6 +318,7 @@
 				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
 				1F0911282E1B00D800A7D996 /* SyncCoordinator.swift in Sources */,
+				1F107EDA2E2C3D9700B692C8 /* LocationSearchViewModel.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
 				1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */,
 				1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */,

@@ -42,17 +42,6 @@ class SyncCoordinator: ObservableObject {
     }
 
 
-    /// Repost an updated item (used after delete + recreate flow).
-    func repost(item: ItemModel) async {
-        if let postId = item.postId,
-           let post = postViewModel.posts.first(where: { $0.id == postId }) {
-            await postViewModel.deletePost(post)
-        }
-        var newItem = item
-        newItem.postId = nil
-        newItem.wasShared = false
-        await listViewModel.addOrUpdateItem(newItem, postViewModel: postViewModel)
-    }
 
     /// Force sync of one specific item's likes.
     func syncLikes(for item: ItemModel) async {
