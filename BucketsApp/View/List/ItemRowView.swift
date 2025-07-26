@@ -13,11 +13,10 @@ struct ItemRowView: View {
     let newlyCreatedItemID: UUID?
     let onEmptyNameLostFocus: (() -> Void)?
     let onNavigateToDetail: (() -> Void)?
+    let focusedItemID: FocusState<UUID?>.Binding
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
-    @FocusState private var isTextFieldFocused: Bool
-    @State private var hasAutoFocused = false
     @State private var showFullScreenGallery = false
 
     private let cardCornerRadius: CGFloat = 12
@@ -27,7 +26,6 @@ struct ItemRowView: View {
     private let imageHeight: CGFloat = 240
 
     var body: some View {
-
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
                 topRow
@@ -46,15 +44,12 @@ struct ItemRowView: View {
         }
         .onAppear {
             print("[ItemRowView] onAppear: \(item.name) (id: \(item.id)) wasShared: \(item.wasShared)")
+            // Autofocus if this is the newly created item
+            if item.id == newlyCreatedItemID {
+                focusedItemID.wrappedValue = item.id
+            }
             Task {
                 await bucketListViewModel.prefetchImages(for: item)
-            }
-
-            if !hasAutoFocused, item.id == newlyCreatedItemID {
-                DispatchQueue.main.async {
-                    isTextFieldFocused = true
-                }
-                hasAutoFocused = true
             }
         }
         .onChange(of: bucketListViewModel.allImageUrls(for: item)) {
@@ -76,7 +71,7 @@ struct ItemRowView: View {
             TextField("", text: bindingForName(), onCommit: handleOnSubmit)
                 .font(.subheadline)
                 .foregroundColor(.primary)
-                .focused($isTextFieldFocused)
+                .focused(focusedItemID, equals: item.id)
 
             Spacer()
 
@@ -89,6 +84,7 @@ struct ItemRowView: View {
             }
             .buttonStyle(.borderless)
         }
+        .contentShape(Rectangle())
     }
 
     private var carouselView: some View {
@@ -230,71 +226,87 @@ struct ItemRowView: View {
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
-}
-
-// MARK: - Preview
-struct ItemRowView_Previews: PreviewProvider {
-    static var previews: some View {
-        
-        let sampleItem = ItemModel(
-            userId: "testUser",
-            name: "Sample Bucket List Item",
-            description: "Go skydiving over the Grand Canyon.",
-            dueDate: Date(),
-            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
-            completed: true,
-            imageUrls: [
-                "https://via.placeholder.com/400",
-                "https://via.placeholder.com/401",
-                "https://via.placeholder.com/402"
-            ],
-            likedBy: ["user1", "user2"],
-            caption: "This was the most unforgettable day ever!",
-            hasPostedAddEvent: true,
-            hasPostedCompletion: true,
-            hasPostedPhotos: true,
-            wasShared: true
-        )
-        
-        let mockListVM = ListViewModel()
-        mockListVM.userCache["testUser"] = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
-        
-        for url in sampleItem.imageUrls {
-            ImageCache.shared.setImage(UIImage(systemName: "photo")!, forKey: url)
-        }
-
-        return Group {
-            // 1) Light Mode
-            ItemRowView(
-                item: .constant(sampleItem),
-                newlyCreatedItemID: nil,
-                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
-                onNavigateToDetail: { print("Navigate to Detail View") }
-            )
-            .environmentObject(mockListVM)
-            .environmentObject(UserViewModel())
-            .environmentObject(OnboardingViewModel())
-            .previewLayout(.sizeThatFits)
-            .padding()
-            .previewDisplayName("Light Mode")
-            
-            // 2) Dark Mode
-            ItemRowView(
-                item: .constant(sampleItem),
-                newlyCreatedItemID: nil,
-                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
-                onNavigateToDetail: { print("Navigate to Detail View") }
-            )
-            .environmentObject(mockListVM)
-            .environmentObject(UserViewModel())
-            .environmentObject(OnboardingViewModel())
-            .previewLayout(.sizeThatFits)
-            .padding()
-            .preferredColorScheme(.dark)
-            .previewDisplayName("Dark Mode")
-        }
+    // MARK: - Init
+    init(
+        item: Binding<ItemModel>,
+        newlyCreatedItemID: UUID?,
+        onEmptyNameLostFocus: (() -> Void)?,
+        onNavigateToDetail: (() -> Void)?,
+        focusedItemID: FocusState<UUID?>.Binding
+    ) {
+        self._item = item
+        self.newlyCreatedItemID = newlyCreatedItemID
+        self.onEmptyNameLostFocus = onEmptyNameLostFocus
+        self.onNavigateToDetail = onNavigateToDetail
+        self.focusedItemID = focusedItemID
     }
 }
+
+//// MARK: - Preview
+//struct ItemRowView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        
+//        let sampleItem = ItemModel(
+//            userId: "testUser",
+//            name: "Sample Bucket List Item",
+//            description: "Go skydiving over the Grand Canyon.",
+//            dueDate: Date(),
+//            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
+//            completed: true,
+//            imageUrls: [
+//                "https://via.placeholder.com/400",
+//                "https://via.placeholder.com/401",
+//                "https://via.placeholder.com/402"
+//            ],
+//            likedBy: ["user1", "user2"],
+//            caption: "This was the most unforgettable day ever!",
+//            hasPostedAddEvent: true,
+//            hasPostedCompletion: true,
+//            hasPostedPhotos: true,
+//            wasShared: true
+//        )
+//        
+//        let mockListVM = ListViewModel()
+//        mockListVM.userCache["testUser"] = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
+//        
+//        for url in sampleItem.imageUrls {
+//            ImageCache.shared.setImage(UIImage(systemName: "photo")!, forKey: url)
+//        }
+//
+//        return Group {
+//            // 1) Light Mode
+//            ItemRowView(
+//                item: .constant(sampleItem),
+//                newlyCreatedItemID: nil,
+//                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
+//                onNavigateToDetail: { print("Navigate to Detail View") },
+//                focusedItemID: .constant(nil)
+//            )
+//            .environmentObject(mockListVM)
+//            .environmentObject(UserViewModel())
+//            .environmentObject(OnboardingViewModel())
+//            .previewLayout(.sizeThatFits)
+//            .padding()
+//            .previewDisplayName("Light Mode")
+//            
+//            // 2) Dark Mode
+//            ItemRowView(
+//                item: .constant(sampleItem),
+//                newlyCreatedItemID: nil,
+//                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
+//                onNavigateToDetail: { print("Navigate to Detail View") },
+//                focusedItemID: .constant(nil)
+//            )
+//            .environmentObject(mockListVM)
+//            .environmentObject(UserViewModel())
+//            .environmentObject(OnboardingViewModel())
+//            .previewLayout(.sizeThatFits)
+//            .padding()
+//            .preferredColorScheme(.dark)
+//            .previewDisplayName("Dark Mode")
+//        }
+//    }
+//}
 
 
 

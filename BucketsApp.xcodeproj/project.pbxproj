@@ -16,6 +16,10 @@
 		1F33EDBF2DF4C7A000994EC2 /* UsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F33EDBE2DF4C7A000994EC2 /* UsernameSetupView.swift */; };
 		1F357F582D0D3A0A003F121A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1F357F572D0D3A0A003F121A /* FirebaseStorage */; };
 		1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F357F592D0D3F06003F121A /* Extensions.swift */; };
+		1F4998812E2DD3B10086510A /* DetailItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F4998802E2DD3B00086510A /* DetailItemViewModel.swift */; };
+		1F5D42B52E356D38004182FB /* LocationSearchFieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5D42B42E356D38004182FB /* LocationSearchFieldView.swift */; };
+		1F5D42B92E3579F7004182FB /* ListContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5D42B82E3579F7004182FB /* ListContainerView.swift */; };
+		1F5D42BB2E357BA5004182FB /* FocusState+UUIDBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5D42BA2E357BA5004182FB /* FocusState+UUIDBinding.swift */; };
 		1F5E875C2A09FB3500B5A4ED /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */; };
 		1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774929E5020F00B66F63 /* ListViewModel.swift */; };
 		1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F64774B29E5023600B66F63 /* ItemModel.swift */; };
@@ -56,6 +60,10 @@
 		1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerViewModel.swift; sourceTree = "<group>"; };
 		1F33EDBE2DF4C7A000994EC2 /* UsernameSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsernameSetupView.swift; sourceTree = "<group>"; };
 		1F357F592D0D3F06003F121A /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		1F4998802E2DD3B00086510A /* DetailItemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemViewModel.swift; sourceTree = "<group>"; };
+		1F5D42B42E356D38004182FB /* LocationSearchFieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSearchFieldView.swift; sourceTree = "<group>"; };
+		1F5D42B82E3579F7004182FB /* ListContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListContainerView.swift; sourceTree = "<group>"; };
+		1F5D42BA2E357BA5004182FB /* FocusState+UUIDBinding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FocusState+UUIDBinding.swift"; sourceTree = "<group>"; };
 		1F64774929E5020F00B66F63 /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
 		1F64774B29E5023600B66F63 /* ItemModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemModel.swift; sourceTree = "<group>"; };
 		1F64774D29E5025000B66F63 /* ListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListView.swift; sourceTree = "<group>"; };
@@ -184,6 +192,7 @@
 			children = (
 				1F234B222D21DAE7000DF507 /* UserViewModel.swift */,
 				1F64774929E5020F00B66F63 /* ListViewModel.swift */,
+				1F4998802E2DD3B00086510A /* DetailItemViewModel.swift */,
 				1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */,
 				1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */,
 				1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */,
@@ -220,8 +229,11 @@
 			isa = PBXGroup;
 			children = (
 				1F64774D29E5025000B66F63 /* ListView.swift */,
+				1F5D42BA2E357BA5004182FB /* FocusState+UUIDBinding.swift */,
+				1F5D42B82E3579F7004182FB /* ListContainerView.swift */,
 				1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */,
 				1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */,
+				1F5D42B42E356D38004182FB /* LocationSearchFieldView.swift */,
 				1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
 				1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */,
 			);
@@ -319,6 +331,7 @@
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
 				1F0911282E1B00D800A7D996 /* SyncCoordinator.swift in Sources */,
 				1F107EDA2E2C3D9700B692C8 /* LocationSearchViewModel.swift in Sources */,
+				1F4998812E2DD3B10086510A /* DetailItemViewModel.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
 				1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */,
 				1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */,
@@ -328,6 +341,7 @@
 				1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */,
 				1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */,
 				1FCD29342D6284A70022E4CB /* SettingsView.swift in Sources */,
+				1F5D42B92E3579F7004182FB /* ListContainerView.swift in Sources */,
 				1F234B252D21DC85000DF507 /* UserModel.swift in Sources */,
 				1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
 				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
@@ -339,9 +353,11 @@
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,
 				1FCD29322D6270A80022E4CB /* PinchZoomImage.swift in Sources */,
+				1F5D42B52E356D38004182FB /* LocationSearchFieldView.swift in Sources */,
 				1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */,
 				1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */,
 				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
+				1F5D42BB2E357BA5004182FB /* FocusState+UUIDBinding.swift in Sources */,
 				1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
 				1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
 			);

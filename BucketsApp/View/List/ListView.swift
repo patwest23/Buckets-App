@@ -27,6 +27,8 @@ struct ListView: View {
 
     // The ID of the item we want to scroll to in ScrollViewReader
     @State private var scrollToId: UUID? = nil
+    // Store the ScrollViewProxy for programmatic scrolling
+    @State private var scrollProxy: ScrollViewProxy? = nil
 
     // Whether any text field is active => shows/hides "Done" button
     @State private var isAnyTextFieldActive: Bool = false
@@ -46,6 +48,9 @@ struct ListView: View {
         }
     }
 
+    // MARK: - Focus State for Item Rows
+    @FocusState private var focusedItemID: UUID?
+
     // Show refresh confirmation overlay
     @State private var showRefreshConfirmation = false
     
@@ -64,6 +69,9 @@ struct ListView: View {
 
                         ScrollViewReader { proxy in
                             contentView
+                                .onAppear {
+                                    self.scrollProxy = proxy
+                                }
                                 .refreshable {
                                     await loadItems()
                                     await syncCoordinator.refreshFeedAndSyncLikes()
@@ -115,7 +123,7 @@ struct ListView: View {
                                 .navigationDestination(item: $selectedItem) { item in
                                     // Only show DetailItemView after tapping chevron (not always)
                                     if let _ = selectedItem {
-                                        DetailItemView(item: item)
+                                        DetailItemView(item: item, listViewModel: bucketListViewModel, postViewModel: postViewModel)
                                             .environmentObject(bucketListViewModel)
                                             .environmentObject(postViewModel)
                                             .environmentObject(userViewModel)
@@ -141,8 +149,10 @@ struct ListView: View {
                                 // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
                                 .onChange(of: scrollToId, { oldVal, newVal in
                                     guard let newVal = newVal else { return }
-                                    withAnimation(.easeOut(duration: 0.2)) {
-                                        proxy.scrollTo(newVal, anchor: .bottom)
+                                    if let proxy = scrollProxy {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            proxy.scrollTo(newVal, anchor: .bottom)
+                                        }
                                     }
                                 })
                         }
@@ -159,55 +169,10 @@ struct ListView: View {
                             .padding(.top, 10)
                     }
                 }
-                // Move toolbar here: apply to ZStack instead of inside ScrollViewReader/contentView
-                .toolbar {
-                    ToolbarItemGroup(placement: .navigationBarLeading) {
-                        Text("Bucket List")
-                            .font(.headline)
-                    }
-                    ToolbarItemGroup(placement: .navigationBarTrailing) {
-                        if isAnyTextFieldActive {
-                            Button("Done") {
-                                UIApplication.shared.endEditing()
-                                isAnyTextFieldActive = false
-                                removeBlankItems()
-                            }
-                            .font(.headline)
-                            .foregroundColor(.accentColor)
-                        } else {
-                            Button {
-                                showProfileView = true
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Text(userViewModel.user?.username?.isEmpty == false
-                                         ? userViewModel.user!.username!
-                                         : "@User")
-                                        .font(.headline)
-                                    profileImageView
-                                        .frame(width: 35, height: 35)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    ToolbarItemGroup(placement: .bottomBar) {
-                        HStack {
-                            Button {
-                                showFeed = true
-                            } label: {
-                                Image(systemName: "house.fill")
-                            }
-                            Spacer()
-                            addButton
-                            Spacer()
-                            Button {
-                                showFriends = true
-                            } label: {
-                                Image(systemName: "person.2.fill")
-                            }
-                        }
-                        .padding(.top, 4)
-                    }
+                // Tap to dismiss keyboard and focus
+                .onTapGesture {
+                    UIApplication.shared.endEditing()
+                    focusedItemID = nil
                 }
                 // Navigation to FriendsView
                 .navigationDestination(isPresented: $showFriends) {
@@ -528,7 +493,8 @@ extension ListView {
                 print("[ListView] selectedItem set: \(item.wrappedValue.name)")
                 bucketListViewModel.currentEditingItem = item.wrappedValue
                 selectedItem = item.wrappedValue
-            }
+            },
+            focusedItemID: $focusedItemID
         )
         .environmentObject(bucketListViewModel)
         .onAppear {
@@ -550,3 +516,5 @@ extension ListView {
         .id(item.wrappedValue.id)
     }
 }
+
+

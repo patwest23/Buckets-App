@@ -333,6 +333,32 @@ class PostViewModel: ObservableObject {
             print("[PostViewModel] toggleLike error:", error.localizedDescription)
         }
     }
+    // MARK: - Create or Update Post from Item
+    /// Creates or updates a post for the given ItemModel.
+    func createOrUpdatePost(for item: ItemModel, type: PostType = .completed) async {
+        guard let user = userViewModel?.user else {
+            print("[PostViewModel] createOrUpdatePost => Missing user.")
+            return
+        }
+
+        let post = PostModel(
+            id: item.postId ?? UUID().uuidString,
+            authorId: user.id,
+            authorUsername: user.username,
+            authorProfileImageUrl: user.profileImageUrl,
+            itemId: item.id.uuidString,
+            itemImageUrls: item.imageUrls,
+            itemName: item.name,
+            type: type,
+            timestamp: Date(),
+            caption: item.caption,
+            taggedUserIds: [],
+            visibility: "public",
+            likedBy: []
+        )
+
+        _ = await addOrUpdatePost(post: post)
+    }
 }
 
 // MARK: - Batch Sync Likes from Posts to Items
@@ -381,3 +407,5 @@ extension PostViewModel {
         print("🔁 [PostViewModel] Final likeCounts => \(likeSummary)")
     }
 }
+
+
