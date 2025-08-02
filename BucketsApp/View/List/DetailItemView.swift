@@ -46,42 +46,31 @@ struct DetailItemView: View {
     private var checkmarkAndTitleRow: some View {
         HStack(spacing: 8) {
             Button {
-                Task { await toggleCompleted() }
+                viewModel.completed.toggle()
             } label: {
-                Image(systemName: (bucketListViewModel.currentEditingItem?.completed ?? false) ? "checkmark.circle.fill" : "circle")
+                Image(systemName: viewModel.completed ? "checkmark.circle.fill" : "circle")
                     .imageScale(.large)
-                    .foregroundColor((bucketListViewModel.currentEditingItem?.completed ?? false) ? .accentColor : .gray)
+                    .foregroundColor(viewModel.completed ? .accentColor : .gray)
                     .padding(8)
             }
             .contentShape(Rectangle())
             .buttonStyle(.borderless)
 
-            TextField("Title...", text: Binding(
-                get: { bucketListViewModel.currentEditingItem?.name ?? "" },
-                set: { newValue in
-                    if var item = bucketListViewModel.currentEditingItem {
-                        item.name = newValue
-                        Task {
-                            await bucketListViewModel.addOrUpdateItem(item)
-                            await postViewModel.syncPostWithItem(item)
-                        }
-                    }
+            TextField("Title...", text: $viewModel.name)
+                .font(.headline)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isTitleFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isTitleFocused ? 2 : 1)
+                        .background(Color(.systemBackground))
+                )
+                .focused($isTitleFocused)
+                .submitLabel(.next)
+                .onSubmit {
+                    isTitleFocused = false
+                    isCaptionFocused = true
                 }
-            ))
-            .font(.headline)
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(isTitleFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isTitleFocused ? 2 : 1)
-                    .background(Color(.systemBackground))
-            )
-            .focused($isTitleFocused)
-            .submitLabel(.next)
-            .onSubmit {
-                isTitleFocused = false
-                isCaptionFocused = true
-            }
-            .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
 
             Spacer()
         }
@@ -90,7 +79,7 @@ struct DetailItemView: View {
 
     @ViewBuilder
     private var photoGridRow: some View {
-        let urls = bucketListViewModel.currentEditingItem?.imageUrls ?? []
+        let urls = viewModel.imageUrls
         if !urls.isEmpty {
             photoGrid(urlStrings: urls)
         }
@@ -123,9 +112,9 @@ struct DetailItemView: View {
                 }
 
                 // Post to Feed button if completed, has photos, and not already shared
-                if (bucketListViewModel.currentEditingItem?.completed ?? false),
-                   !(bucketListViewModel.currentEditingItem?.imageUrls.isEmpty ?? true),
-                   !(bucketListViewModel.currentEditingItem?.wasShared ?? false) {
+                if viewModel.completed,
+                   !viewModel.imageUrls.isEmpty,
+                   !viewModel.wasShared {
                     Button(action: {
                         Task {
                             if let item = bucketListViewModel.currentEditingItem {
@@ -330,7 +319,7 @@ struct DetailItemView: View {
     @ViewBuilder
     private var photoPickerView: some View {
         let isUploading = imagePickerVM.isUploading
-        let completed = bucketListViewModel.currentEditingItem?.completed ?? false
+        let completed = viewModel.completed
         PhotosPicker(
             selection: $imagePickerVM.selectedItems,
             maxSelectionCount: 3,
@@ -359,17 +348,6 @@ struct DetailItemView: View {
         .disabled(!completed || isUploading)
     }
     
-    private func toggleCompleted() async {
-        guard var item = bucketListViewModel.currentEditingItem else { return }
-        item.completed.toggle()
-        if item.completed {
-            item.dueDate = Date()
-        } else {
-            item.dueDate = nil
-        }
-        await bucketListViewModel.addOrUpdateItem(item)
-        await postViewModel.syncPostWithItem(item)
-    }
     
 }
     

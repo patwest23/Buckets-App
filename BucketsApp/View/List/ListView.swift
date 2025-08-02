@@ -62,111 +62,113 @@ struct ListView: View {
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
-                ZStack(alignment: .top) {
-                    ZStack {
-                        Color(uiColor: .systemBackground)
-                            .ignoresSafeArea()
+                VStack(spacing: 0) {
+                    ZStack(alignment: .top) {
+                        ZStack {
+                            Color(uiColor: .systemBackground)
+                                .ignoresSafeArea()
 
-                        ScrollViewReader { proxy in
-                            contentView
-                                .onAppear {
-                                    self.scrollProxy = proxy
-                                }
-                                .refreshable {
-                                    await loadItems()
-                                    await syncCoordinator.refreshFeedAndSyncLikes()
-                                    showRefreshConfirmation = true
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                        showRefreshConfirmation = false
+                            ScrollViewReader { proxy in
+                                contentView
+                                    .onAppear {
+                                        self.scrollProxy = proxy
                                     }
-                                }
-                                .task {
-                                    await loadItems()
-                                    try? await Task.sleep(nanoseconds: 300_000_000) // Wait 0.3s to ensure list is loaded
-                                    await syncCoordinator.refreshFeedAndSyncLikes()
-                                    startTextFieldListeners()
-                                    friendsViewModel.startListeningToFriendChanges()
-                                }
-                                .navigationBarTitleDisplayMode(.inline)
-                                .onDisappear {
-                                    newlyCreatedItemID = nil
-                                    UIApplication.shared.endEditing()
-                                    isAnyTextFieldActive = false
-                                    stopTextFieldListeners()
-                                }
-                                // Navigate to Profile
-                                .navigationDestination(isPresented: $showProfileView) {
-                                    ProfileView(onboardingViewModel: onboardingViewModel)
-                                        .environmentObject(userViewModel)
-                                        .environmentObject(bucketListViewModel)
-                                        .environmentObject(postViewModel)
-                                }
-                                // Navigate to Feed
-                                .navigationDestination(isPresented: $showFeed) {
-                                    /// Use the existing environment object `feedViewModel`
-                                    FeedView()
-                                        .environmentObject(userViewModel)
-                                        .environmentObject(feedViewModel)
-                                        .environmentObject(postViewModel)
-                                        .environmentObject(bucketListViewModel)
-                                        .environmentObject(syncCoordinator)
-                                }
-                                // Navigate to the User Search View
-                                .navigationDestination(isPresented: $showUserSearch) {
-                                    FriendsView()
-                                        .environmentObject(userViewModel)
-                                        .environmentObject(friendsViewModel)
-                                        .environmentObject(syncCoordinator) // ✅ Add this line
-
-                                }
-                                // Navigate to Detail => PASS A COPY of the item
-                                .navigationDestination(item: $selectedItem) { item in
-                                    // Only show DetailItemView after tapping chevron (not always)
-                                    if let _ = selectedItem {
-                                        DetailItemView(item: item, listViewModel: bucketListViewModel, postViewModel: postViewModel)
+                                    .refreshable {
+                                        await loadItems()
+                                        await syncCoordinator.refreshFeedAndSyncLikes()
+                                        showRefreshConfirmation = true
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                            showRefreshConfirmation = false
+                                        }
+                                    }
+                                    .task {
+                                        await loadItems()
+                                        try? await Task.sleep(nanoseconds: 300_000_000) // Wait 0.3s to ensure list is loaded
+                                        await syncCoordinator.refreshFeedAndSyncLikes()
+                                        startTextFieldListeners()
+                                        friendsViewModel.startListeningToFriendChanges()
+                                    }
+                                    .navigationBarTitleDisplayMode(.inline)
+                                    .onDisappear {
+                                        newlyCreatedItemID = nil
+                                        UIApplication.shared.endEditing()
+                                        isAnyTextFieldActive = false
+                                        stopTextFieldListeners()
+                                    }
+                                    // Navigate to Profile
+                                    .navigationDestination(isPresented: $showProfileView) {
+                                        ProfileView(onboardingViewModel: onboardingViewModel)
+                                            .environmentObject(userViewModel)
                                             .environmentObject(bucketListViewModel)
                                             .environmentObject(postViewModel)
+                                    }
+                                    // Navigate to Feed
+                                    .navigationDestination(isPresented: $showFeed) {
+                                        /// Use the existing environment object `feedViewModel`
+                                        FeedView()
                                             .environmentObject(userViewModel)
+                                            .environmentObject(feedViewModel)
+                                            .environmentObject(postViewModel)
+                                            .environmentObject(bucketListViewModel)
+                                            .environmentObject(syncCoordinator)
+                                    }
+                                    // Navigate to the User Search View
+                                    .navigationDestination(isPresented: $showUserSearch) {
+                                        FriendsView()
+                                            .environmentObject(userViewModel)
+                                            .environmentObject(friendsViewModel)
                                             .environmentObject(syncCoordinator) // ✅ Add this line
-                                    }
-                                }
-                                // Delete confirmation
-                                .alert(
-                                    "Are you sure you want to delete this item?",
-                                    isPresented: $bucketListViewModel.showDeleteAlert
-                                ) {
-                                    Button("Delete", role: .destructive) {
-                                        if let toDelete = itemToDelete {
-                                            deleteItem(toDelete)
-                                        }
-                                    }
-                                    Button("Cancel", role: .cancel) {}
-                                } message: {
-                                    if let toDelete = itemToDelete {
-                                        Text("Delete “\(toDelete.name)” from your list?")
-                                    }
-                                }
-                                // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
-                                .onChange(of: scrollToId, { oldVal, newVal in
-                                    guard let newVal = newVal else { return }
-                                    if let proxy = scrollProxy {
-                                        withAnimation(.easeOut(duration: 0.2)) {
-                                            proxy.scrollTo(newVal, anchor: .bottom)
-                                        }
-                                    }
-                                })
-                        }
-                    }
 
-                    if showRefreshConfirmation {
-                        Text("✅ Refreshed")
-                            .font(.caption)
-                            .padding(8)
-                            .background(Capsule().fill(Color.green.opacity(0.85)))
-                            .foregroundColor(.white)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                            .animation(.easeInOut(duration: 0.3), value: showRefreshConfirmation)
-                            .padding(.top, 10)
+                                    }
+                                    // Navigate to Detail => PASS A COPY of the item
+                                    .navigationDestination(item: $selectedItem) { item in
+                                        // Only show DetailItemView after tapping chevron (not always)
+                                        if let _ = selectedItem {
+                                            DetailItemView(item: item, listViewModel: bucketListViewModel, postViewModel: postViewModel)
+                                                .environmentObject(bucketListViewModel)
+                                                .environmentObject(postViewModel)
+                                                .environmentObject(userViewModel)
+                                                .environmentObject(syncCoordinator) // ✅ Add this line
+                                        }
+                                    }
+                                    // Delete confirmation
+                                    .alert(
+                                        "Are you sure you want to delete this item?",
+                                        isPresented: $bucketListViewModel.showDeleteAlert
+                                    ) {
+                                        Button("Delete", role: .destructive) {
+                                            if let toDelete = itemToDelete {
+                                                deleteItem(toDelete)
+                                            }
+                                        }
+                                        Button("Cancel", role: .cancel) {}
+                                    } message: {
+                                        if let toDelete = itemToDelete {
+                                            Text("Delete “\(toDelete.name)” from your list?")
+                                        }
+                                    }
+                                    // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
+                                    .onChange(of: scrollToId, { oldVal, newVal in
+                                        guard let newVal = newVal else { return }
+                                        if let proxy = scrollProxy {
+                                            withAnimation(.easeOut(duration: 0.2)) {
+                                                proxy.scrollTo(newVal, anchor: .bottom)
+                                            }
+                                        }
+                                    })
+                            }
+                        }
+
+                        if showRefreshConfirmation {
+                            Text("✅ Refreshed")
+                                .font(.caption)
+                                .padding(8)
+                                .background(Capsule().fill(Color.green.opacity(0.85)))
+                                .foregroundColor(.white)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                                .animation(.easeInOut(duration: 0.3), value: showRefreshConfirmation)
+                                .padding(.top, 10)
+                        }
                     }
                 }
                 // Tap to dismiss keyboard and focus
@@ -186,7 +188,59 @@ struct ListView: View {
                         .frame(height: 70)
                         .allowsHitTesting(false)
                 }
-                // Remove duplicate sync call from .onAppear
+                // Restore top toolbar and toolbarBackground
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showProfileView = true
+                        } label: {
+                            profileImageView
+                                .frame(width: 36, height: 36)
+                        }
+                    }
+
+                    ToolbarItem(placement: .topBarTrailing) {
+                        if isAnyTextFieldActive {
+                            Button("Done") {
+                                UIApplication.shared.endEditing()
+                                focusedItemID = nil
+                            }
+                            .bold()
+                        }
+                    }
+                }
+                .toolbarBackground(.visible, for: .navigationBar)
+                // Restore bottom overlay navigation bar
+                .overlay(alignment: .bottom) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            showFeed = true
+                        } label: {
+                            Image(systemName: "house.fill")
+                                .font(.title2)
+                                .padding()
+                        }
+                        Spacer()
+                        addButton
+                        Spacer()
+                        Button {
+                            showUserSearch = true
+                        } label: {
+                            Image(systemName: "person.2.fill")
+                                .font(.title2)
+                                .padding()
+                        }
+                        Spacer()
+                    }
+                    .padding(.bottom, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 25)
+                            .fill(Color(.systemBackground))
+                            .shadow(radius: 3)
+                    )
+                    .padding(.horizontal)
+                }
             } else {
                 Text("Please use iOS 17 or later.")
                     .font(.headline)

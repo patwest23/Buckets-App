@@ -135,9 +135,24 @@ struct ItemRowView: View {
 
                     // Checkmark badge with formatted dueDate
                     if item.completed {
-                        Label(formatDate(item.dueDate ?? Date()), systemImage: "checkmark.seal")
-                            .font(.caption)
-                            .foregroundColor(.green)
+                        Label {
+                            Text(formatDate(item.dueDate ?? Date()))
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        } icon: {
+                            Image(systemName: "checkmark.seal")
+                                .foregroundColor(.green)
+                        }
+                    }
+                    if let location = item.location?.address, !location.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .foregroundColor(.purple)
+                                .font(.caption)
+                            Text(location)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 .padding(.top, 2)
@@ -147,15 +162,11 @@ struct ItemRowView: View {
 
     private var captionRow: some View {
         Group {
-            if item.completed {
+            if item.completed, let caption = item.caption, !caption.isEmpty {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(bucketListViewModel.userCache[item.userId]?.username ?? "@\(item.userId.prefix(6))")
+                    Text("\(bucketListViewModel.userCache[item.userId]?.username ?? "@\(item.userId.prefix(6))") \(caption)")
                         .font(.caption)
-                        .fontWeight(.semibold)
-                    if let caption = item.caption, !caption.isEmpty {
-                        Text(caption)
-                            .font(.caption)
-                    }
+                        .fontWeight(.regular)
                 }
                 .foregroundColor(.primary)
                 .padding(.top, 2)
@@ -223,7 +234,7 @@ struct ItemRowView: View {
 
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
+        formatter.dateFormat = "MM/dd/yyyy"
         return formatter.string(from: date)
     }
     // MARK: - Init
@@ -242,71 +253,73 @@ struct ItemRowView: View {
     }
 }
 
-//// MARK: - Preview
-//struct ItemRowView_Previews: PreviewProvider {
-//    static var previews: some View {
-//        
-//        let sampleItem = ItemModel(
-//            userId: "testUser",
-//            name: "Sample Bucket List Item",
-//            description: "Go skydiving over the Grand Canyon.",
-//            dueDate: Date(),
-//            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
-//            completed: true,
-//            imageUrls: [
-//                "https://via.placeholder.com/400",
-//                "https://via.placeholder.com/401",
-//                "https://via.placeholder.com/402"
-//            ],
-//            likedBy: ["user1", "user2"],
-//            caption: "This was the most unforgettable day ever!",
-//            hasPostedAddEvent: true,
-//            hasPostedCompletion: true,
-//            hasPostedPhotos: true,
-//            wasShared: true
-//        )
-//        
-//        let mockListVM = ListViewModel()
-//        mockListVM.userCache["testUser"] = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
-//        
-//        for url in sampleItem.imageUrls {
-//            ImageCache.shared.setImage(UIImage(systemName: "photo")!, forKey: url)
-//        }
-//
-//        return Group {
-//            // 1) Light Mode
-//            ItemRowView(
-//                item: .constant(sampleItem),
-//                newlyCreatedItemID: nil,
-//                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
-//                onNavigateToDetail: { print("Navigate to Detail View") },
-//                focusedItemID: .constant(nil)
-//            )
-//            .environmentObject(mockListVM)
-//            .environmentObject(UserViewModel())
-//            .environmentObject(OnboardingViewModel())
-//            .previewLayout(.sizeThatFits)
-//            .padding()
-//            .previewDisplayName("Light Mode")
-//            
-//            // 2) Dark Mode
-//            ItemRowView(
-//                item: .constant(sampleItem),
-//                newlyCreatedItemID: nil,
-//                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
-//                onNavigateToDetail: { print("Navigate to Detail View") },
-//                focusedItemID: .constant(nil)
-//            )
-//            .environmentObject(mockListVM)
-//            .environmentObject(UserViewModel())
-//            .environmentObject(OnboardingViewModel())
-//            .previewLayout(.sizeThatFits)
-//            .padding()
-//            .preferredColorScheme(.dark)
-//            .previewDisplayName("Dark Mode")
-//        }
-//    }
-//}
+// MARK: - Preview
+struct ItemRowView_Previews: PreviewProvider {
+    @FocusState static var previewFocusID: UUID?
+
+    static var previews: some View {
+
+        let sampleItem = ItemModel(
+            userId: "testUser",
+            name: "Sample Bucket List Item",
+            description: "Go skydiving over the Grand Canyon.",
+            dueDate: Date(),
+            location: Location(latitude: 37.7749, longitude: -122.4194, address: "San Francisco"),
+            completed: true,
+            imageUrls: [
+                "https://via.placeholder.com/400",
+                "https://via.placeholder.com/401",
+                "https://via.placeholder.com/402"
+            ],
+            likedBy: ["user1", "user2"],
+            caption: "This was the most unforgettable day ever!",
+            hasPostedAddEvent: true,
+            hasPostedCompletion: true,
+            hasPostedPhotos: true,
+            wasShared: true
+        )
+
+        let mockListVM = ListViewModel()
+        mockListVM.userCache["testUser"] = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
+
+        for url in sampleItem.imageUrls {
+            if let image = UIImage(systemName: "photo") {
+                ImageCache.shared.setImage(image, forKey: url)
+            }
+        }
+
+        return Group {
+            ItemRowView(
+                item: .constant(sampleItem),
+                newlyCreatedItemID: nil,
+                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
+                onNavigateToDetail: { print("Navigate to Detail View") },
+                focusedItemID: $previewFocusID
+            )
+            .environmentObject(mockListVM)
+            .environmentObject(UserViewModel())
+            .environmentObject(OnboardingViewModel())
+            .previewLayout(.sizeThatFits)
+            .padding()
+            .previewDisplayName("Light Mode")
+
+            ItemRowView(
+                item: .constant(sampleItem),
+                newlyCreatedItemID: nil,
+                onEmptyNameLostFocus: { print("Empty name => auto-delete!") },
+                onNavigateToDetail: { print("Navigate to Detail View") },
+                focusedItemID: $previewFocusID
+            )
+            .environmentObject(mockListVM)
+            .environmentObject(UserViewModel())
+            .environmentObject(OnboardingViewModel())
+            .previewLayout(.sizeThatFits)
+            .padding()
+            .preferredColorScheme(.dark)
+            .previewDisplayName("Dark Mode")
+        }
+    }
+}
 
 
 

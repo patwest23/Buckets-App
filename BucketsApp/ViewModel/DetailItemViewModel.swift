@@ -11,18 +11,44 @@ import MapKit
 
 @MainActor
 final class DetailItemViewModel: ObservableObject {
-    @Published var name: String
-    @Published var caption: String
-    @Published var locationText: String
-    @Published var completed: Bool
-    @Published var wasShared: Bool
-    @Published var imageUrls: [String]
-    @Published var dueDate: Date?
-    @Published var location: Location?
+    @Published var name: String {
+        didSet { startDebouncedSave() }
+    }
+    @Published var caption: String {
+        didSet { startDebouncedSave() }
+    }
+    @Published var locationText: String {
+        didSet { startDebouncedSave() }
+    }
+    @Published var completed: Bool {
+        didSet { startDebouncedSave() }
+    }
+    @Published var wasShared: Bool {
+        didSet { startDebouncedSave() }
+    }
+    @Published var imageUrls: [String] {
+        didSet { startDebouncedSave() }
+    }
+    @Published var dueDate: Date? {
+        didSet { startDebouncedSave() }
+    }
+    @Published var location: Location? {
+        didSet { startDebouncedSave() }
+    }
 
     let itemID: UUID
     private let listViewModel: ListViewModel
     private let postViewModel: PostViewModel
+
+    private var saveTask: Task<Void, Never>? = nil
+
+    private func startDebouncedSave() {
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 700_000_000) // 700ms
+            await save()
+        }
+    }
 
     init(item: ItemModel, listViewModel: ListViewModel, postViewModel: PostViewModel) {
         self.itemID = item.id
@@ -43,7 +69,6 @@ final class DetailItemViewModel: ObservableObject {
     func toggleCompleted() async {
         completed.toggle()
         dueDate = completed ? Date() : nil
-        await save()
     }
 
     func updateLocation(from searchResult: MKLocalSearchCompletion) async {
@@ -52,12 +77,10 @@ final class DetailItemViewModel: ObservableObject {
         var updatedLocation = location ?? Location(latitude: 0, longitude: 0, address: "")
         updatedLocation.address = fullAddress
         location = updatedLocation
-        await save()
     }
 
     func updateImageUrls(_ urls: [String]) async {
         imageUrls = urls
-        await save()
     }
 
     func save() async {
