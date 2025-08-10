@@ -9,14 +9,11 @@ import SwiftUI
 
 struct FriendsView: View {
     @EnvironmentObject var viewModel: FriendsViewModel
-    @State private var searchText = ""
     
     var body: some View {
         NavigationStack {
             VStack {
-                if viewModel.followingUsers.isEmpty &&
-                   viewModel.followerUsers.isEmpty &&
-                   viewModel.allUsers.isEmpty {
+                if viewModel.isLoading {
                     ProgressView("Loading users...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -31,7 +28,7 @@ struct FriendsView: View {
                                 Text("No users to explore.")
                                     .foregroundColor(.secondary)
                             } else {
-                                ForEach(explore, id: \.documentId) { user in
+                                ForEach(explore) { user in
                                     userRow(for: user)
                                 }
                             }
@@ -62,13 +59,13 @@ struct FriendsView: View {
                         }
                     }
                     .listStyle(.insetGrouped)
+                    .searchable(text: $viewModel.searchText, prompt: "Search users")
                 }
             }
             .navigationTitle("Friends")
-            .task {
+            .refreshable {
                 await viewModel.loadFriendsData()
                 await viewModel.loadAllUsers()
-                viewModel.startListeningToFriendChanges()
             }
             .alert("Error", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
@@ -79,14 +76,13 @@ struct FriendsView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
-        .searchable(text: $searchText, prompt: "Search users")
     }
     
     @ViewBuilder
     private func userRow(for user: UserModel) -> some View {
         HStack {
             userProfileImage(for: user)
-            Text(user.username ?? "Unknown")
+            Text(user.username ?? user.name ?? "Unknown")
             Spacer()
             Button {
                 if viewModel.isUserFollowed(user) {
@@ -139,43 +135,29 @@ struct FriendsView: View {
                 .foregroundColor(.gray)
         }
     }
-    
-    private func userMatchesSearch(_ user: UserModel, _ query: String) -> Bool {
-        if query.isEmpty { return true }
-        let lower = query.lowercased()
-        return user.name?.lowercased().contains(lower) == true ||
-               user.username?.lowercased().contains(lower) == true
-    }
-
-    private func sortUsers(_ lhs: UserModel, _ rhs: UserModel, with query: String) -> Bool {
-        guard !query.isEmpty else { return false }
-        let lower = query.lowercased()
-        let lhsScore = (lhs.name?.lowercased().contains(lower) == true ? 1 : 0) +
-                       (lhs.username?.lowercased().contains(lower) == true ? 1 : 0)
-        let rhsScore = (rhs.name?.lowercased().contains(lower) == true ? 1 : 0) +
-                       (rhs.username?.lowercased().contains(lower) == true ? 1 : 0)
-        return lhsScore > rhsScore
-    }
 }
 
 #if DEBUG
+@MainActor
 struct FriendsView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockVM = FriendsViewModel()
-        
-        // Sample users
-        let user1 = UserModel(documentId: "1", email: "alice@test.com", profileImageUrl: nil, name: "Alice", username: "@alice")
-        var user2 = UserModel(documentId: "2", email: "bob@test.com", profileImageUrl: nil, name: "Bob", username: "@bob")
-        user2.isFollowed = true
-        let user3 = UserModel(documentId: "3", email: "charlie@test.com", profileImageUrl: nil, name: "Charlie", username: "@charlie")
-        
-        // Assign test data
-        mockVM.allUsers = [user1, user2]
-        mockVM.followingUsers = [user2]
-        mockVM.followerUsers = [user3]
-        
-        return FriendsView()
-            .environmentObject(mockVM)
+        let vm = FriendsViewModel()
+        vm.isLoading = false
+        vm.searchText = ""
+
+        let user1 = UserModel(documentId: "1", email: "alice@test.com", profileImageUrl: "https://randomuser.me/api/portraits/women/1.jpg", name: "Alice", username: "@alice")
+        let user2 = UserModel(documentId: "2", email: "bob@test.com", profileImageUrl: "https://randomuser.me/api/portraits/men/2.jpg", name: "Bob", username: "@bob")
+        let user3 = UserModel(documentId: "3", email: "charlie@test.com", profileImageUrl: "https://randomuser.me/api/portraits/men/3.jpg", name: "Charlie", username: "@charlie")
+
+        vm.allUsers = [user1, user2]
+        vm.followingUsers = [user2]
+        vm.followerUsers = [user3]
+
+        return NavigationStack {
+            FriendsView()
+        }
+        .environmentObject(vm)
+        .preferredColorScheme(.light)
     }
 }
 #endif

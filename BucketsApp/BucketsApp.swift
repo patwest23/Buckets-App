@@ -97,6 +97,8 @@ struct BucketsApp: App {
                                 await userViewModel.initializeUserSession(for: firebaseUser.uid, email: firebaseUser.email ?? "unknown")
                                 let userId = firebaseUser.uid
                                 feedViewModel.startListeningToPosts(for: [userId])
+                                await friendsViewModel.loadFriendsData()
+                                friendsViewModel.startAllListeners()
                                 postViewModel.userViewModel = userViewModel
                         DispatchQueue.main.async {
                             syncCoordinator.startAllListeners(userId: userId)

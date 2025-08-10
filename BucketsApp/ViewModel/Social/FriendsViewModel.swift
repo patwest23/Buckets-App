@@ -28,6 +28,11 @@ class FriendsViewModel: ObservableObject {
         Auth.auth().currentUser?.uid
     }
 
+    // Prefer Firestore documentId; fall back to id if present in older models
+    private func resolvedId(for user: UserModel) -> String? {
+        return user.documentId ?? (user.id.isEmpty ? nil : user.id)
+    }
+
     func loadFriendsData() async {
         isLoading = true
         defer { isLoading = false }
@@ -58,8 +63,8 @@ class FriendsViewModel: ObservableObject {
 
             print("[FriendsViewModel] ✅ Following loaded count: \(following.count)")
             print("[FriendsViewModel] ✅ Followers loaded count: \(followers.count)")
-            print("[FriendsViewModel] Following IDs: \(self.followingUsers.map { $0.id })")
-            print("[FriendsViewModel] Follower IDs: \(self.followerUsers.map { $0.id })")
+            print("[FriendsViewModel] Following IDs: \(self.followingUsers.map { $0.documentId ?? $0.id })")
+            print("[FriendsViewModel] Follower IDs: \(self.followerUsers.map { $0.documentId ?? $0.id })")
         } catch {
             self.errorMessage = error.localizedDescription
             print("[FriendsViewModel] Error loading friends data: \(error.localizedDescription)")
@@ -111,13 +116,14 @@ class FriendsViewModel: ObservableObject {
     }
     
     func searchUsers() {
-        let lowercasedQuery = searchText.lowercased()
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else {
+            searchResults = allUsers
+            return
+        }
         searchResults = allUsers.filter { user in
-            guard let name = user.name?.lowercased(),
-                  let username = user.username?.lowercased() else {
-                return false
-            }
-            return name.contains(lowercasedQuery) || username.contains(lowercasedQuery)
+            (user.name?.lowercased().contains(q) == true) ||
+            (user.username?.lowercased().contains(q) == true)
         }
     }
     
@@ -158,8 +164,9 @@ class FriendsViewModel: ObservableObject {
                     return false
                 }
                 // Ensure uniqueness across sections
-                let alreadyFollowing = followingUsers.contains(where: { $0.id == user.id })
-                let alreadyFollower = followerUsers.contains(where: { $0.id == user.id })
+                let userKey = resolvedId(for: user)
+                let alreadyFollowing = followingUsers.contains { resolvedId(for: $0) == userKey }
+                let alreadyFollower = followerUsers.contains { resolvedId(for: $0) == userKey }
                 if alreadyFollowing || alreadyFollower {
                     print("[FriendsViewModel] 🔁 Skipping user already followed or following: \(user.username ?? "nil") - \(user.id)")
                     return false
@@ -173,7 +180,7 @@ class FriendsViewModel: ObservableObject {
                 let username = user.username ?? "nil"
                 print("[FriendsViewModel] 👤 \(username) - \(String(describing: user.documentId))")
             }
-            print("[FriendsViewModel] Explore IDs: \(finalUsers.map { $0.id })")
+            print("[FriendsViewModel] Explore IDs: \(finalUsers.map { $0.documentId ?? $0.id })")
             self.allUsers = finalUsers
         } catch {
             self.errorMessage = error.localizedDescription
@@ -182,42 +189,51 @@ class FriendsViewModel: ObservableObject {
     }
     
     func isUserFollowed(_ user: UserModel) -> Bool {
-        return followingUsers.contains(where: { $0.id == user.id })
+        return followingUsers.contains { resolvedId(for: $0) == resolvedId(for: user) }
     }
     
     var exploreUsers: [UserModel] {
-        let followingIds = Set(followingUsers.map { $0.id })
-        let followerIds = Set(followerUsers.map { $0.id })
-        let lowercasedQuery = searchText.lowercased()
+        let followingIds = Set(followingUsers.compactMap { $0.documentId ?? ($0.id.isEmpty ? nil : $0.id) })
+        let followerIds  = Set(followerUsers.compactMap { $0.documentId ?? ($0.id.isEmpty ? nil : $0.id) })
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         return allUsers.filter { user in
-            !followingIds.contains(user.id) &&
-            !followerIds.contains(user.id) &&
-            (
-                user.name?.lowercased().contains(lowercasedQuery) == true ||
-                user.username?.lowercased().contains(lowercasedQuery) == true
-            )
+            let key = user.documentId ?? (user.id.isEmpty ? nil : user.id)
+            guard let key else { return false }
+
+            // Always exclude users already in following/followers
+            guard !followingIds.contains(key), !followerIds.contains(key) else { return false }
+
+            // If no search query, include
+            guard !q.isEmpty else { return true }
+
+            // Otherwise, match by name/username
+            return user.name?.lowercased().contains(q) == true ||
+                   user.username?.lowercased().contains(q) == true
         }
     }
     
     var filteredFollowing: [UserModel] {
-        let query = searchText.lowercased()
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return followingUsers }
         return followingUsers.filter {
-            $0.name?.lowercased().contains(query) == true ||
-            $0.username?.lowercased().contains(query) == true
+            $0.name?.lowercased().contains(q) == true ||
+            $0.username?.lowercased().contains(q) == true
         }
     }
 
     var filteredFollowers: [UserModel] {
-        let query = searchText.lowercased()
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return followerUsers }
         return followerUsers.filter {
-            $0.name?.lowercased().contains(query) == true ||
-            $0.username?.lowercased().contains(query) == true
+            $0.name?.lowercased().contains(q) == true ||
+            $0.username?.lowercased().contains(q) == true
         }
     }
 
     func startAllListeners() {
         startListeningToFriendChanges()
+        Task { await loadAllUsers() }
     }
 
     func follow(_ user: UserModel) async {
@@ -225,9 +241,9 @@ class FriendsViewModel: ObservableObject {
 
         do {
             let currentRef = db.collection("users").document(currentUserId)
-            let targetRef = db.collection("users").document(user.id)
+            let targetRef = db.collection("users").document(resolvedId(for: user) ?? "")
 
-            let followingUpdate: [String: Any] = ["following": FieldValue.arrayUnion([user.id])]
+            let followingUpdate: [String: Any] = ["following": FieldValue.arrayUnion([resolvedId(for: user) ?? ""])]
             let followersUpdate: [String: Any] = ["followers": FieldValue.arrayUnion([currentUserId])]
             try await currentRef.updateData(followingUpdate)
             try await targetRef.updateData(followersUpdate)
@@ -246,9 +262,9 @@ class FriendsViewModel: ObservableObject {
 
         do {
             let currentRef = db.collection("users").document(currentUserId)
-            let targetRef = db.collection("users").document(user.id)
+            let targetRef = db.collection("users").document(resolvedId(for: user) ?? "")
 
-            let followingUpdate: [String: Any] = ["following": FieldValue.arrayRemove([user.id])]
+            let followingUpdate: [String: Any] = ["following": FieldValue.arrayRemove([resolvedId(for: user) ?? ""])]
             let followersUpdate: [String: Any] = ["followers": FieldValue.arrayRemove([currentUserId])]
             try await currentRef.updateData(followingUpdate)
             try await targetRef.updateData(followersUpdate)
