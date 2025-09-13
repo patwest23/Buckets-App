@@ -9,7 +9,16 @@ import SwiftUI
 
 struct FriendsView: View {
     @EnvironmentObject var viewModel: FriendsViewModel
-    
+    @State private var selectedTab: FriendTab = .following
+
+    enum FriendTab: String, CaseIterable, Identifiable {
+        case following = "Following"
+        case followers = "Followers"
+        case explore = "Explore"
+
+        var id: Self { self }
+    }
+
     var body: some View {
         NavigationStack {
             VStack {
@@ -21,9 +30,17 @@ struct FriendsView: View {
                     let following = viewModel.filteredFollowing
                     let followers = viewModel.filteredFollowers
 
+                    Picker("", selection: $selectedTab) {
+                        ForEach(FriendTab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding([.horizontal, .top])
+
                     List {
-                        // --- Explore Section
-                        Section(header: Text("Explore")) {
+                        switch selectedTab {
+                        case .explore:
                             if explore.isEmpty {
                                 Text("No users to explore.")
                                     .foregroundColor(.secondary)
@@ -32,10 +49,7 @@ struct FriendsView: View {
                                     userRow(for: user)
                                 }
                             }
-                        }
-
-                        // --- Following Section
-                        Section(header: Text("Following")) {
+                        case .following:
                             if following.isEmpty {
                                 Text("You're not following anyone yet.")
                                     .foregroundColor(.secondary)
@@ -44,10 +58,7 @@ struct FriendsView: View {
                                     userRow(for: user)
                                 }
                             }
-                        }
-
-                        // --- Followers Section
-                        Section(header: Text("Followers")) {
+                        case .followers:
                             if followers.isEmpty {
                                 Text("You don't have any followers yet.")
                                     .foregroundColor(.secondary)
