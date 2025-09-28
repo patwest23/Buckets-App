@@ -5,6 +5,8 @@
 //  Created by Patrick Westerkamp on 5/13/23.
 //
 
+// trying to stage all and commit witht the new codex merges
+
 import SwiftUI
 import PhotosUI
 import FirebaseFirestore
