@@ -234,6 +234,7 @@ class UserViewModel: ObservableObject {
             print("[UserViewModel] Profile image loaded.")
         } catch {
             print("[UserViewModel] Failed to load profile image:", error.localizedDescription)
+            profileImageData = nil
         }
     }
     
@@ -297,10 +298,16 @@ class UserViewModel: ObservableObject {
             self.user = try snapshot.data(as: UserModel.self)
             self.user?.documentId = userId
             self.isUserLoaded = true
+
+            // Reset any cached profile image when switching accounts or when
+            // the stored URL is empty so that brand new users see the default
+            // avatar until they upload their own image.
             if let url = self.user?.profileImageUrl, !url.isEmpty {
                 Task {
                     await self.loadProfileImage()
                 }
+            } else {
+                self.profileImageData = nil
             }
             print("[UserViewModel] loadCurrentUser: Refreshed user document.")
         } catch {

@@ -386,7 +386,18 @@ struct ListView: View {
     // MARK: - Profile Image Helper
     @ViewBuilder
     private var profileImageView: some View {
-        if let urlString = userViewModel.user?.profileImageUrl,
+        if let data = userViewModel.profileImageData,
+           !data.isEmpty,
+           let uiImage = UIImage(data: data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.accentColor, lineWidth: 2)
+                )
+        } else if let urlString = userViewModel.user?.profileImageUrl,
            !urlString.isEmpty,
            let url = URL(string: urlString) {
             AsyncImage(url: url) { phase in
