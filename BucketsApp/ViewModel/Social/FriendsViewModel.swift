@@ -16,13 +16,15 @@ class FriendsViewModel: ObservableObject {
     @Published var followerUsers: [UserModel] = []
     
     @Published var searchText: String = ""
-    @Published var searchResults: [UserModel] = []
     @Published var allUsers: [UserModel] = []
+    @Published var remoteSearchResults: [UserModel] = []
+    @Published var isSearchingRemotely: Bool = false
     @Published var errorMessage: String?
     @Published var isLoading: Bool = false
 
     private let db = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
+    private var searchTask: Task<Void, Never>?
 
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
@@ -115,15 +117,88 @@ class FriendsViewModel: ObservableObject {
         return users
     }
     
-    func searchUsers() {
-        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else {
-            searchResults = allUsers
+    func handleSearchChange() {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedQuery.isEmpty else {
+            searchTask?.cancel()
+            searchTask = nil
+            remoteSearchResults = []
+            isSearchingRemotely = false
             return
         }
-        searchResults = allUsers.filter { user in
-            (user.name?.lowercased().contains(q) == true) ||
-            (user.username?.lowercased().contains(q) == true)
+
+        searchTask?.cancel()
+        isSearchingRemotely = true
+        remoteSearchResults = []
+        let normalizedQuery = trimmedQuery.lowercased()
+
+        searchTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+
+            await self?.performRemoteSearch(for: normalizedQuery)
+        }
+    }
+
+    private func performRemoteSearch(for query: String) async {
+        do {
+            async let usernameSnapshot = db.collection("users")
+                .whereField("username_lower", isGreaterThanOrEqualTo: query)
+                .whereField("username_lower", isLessThan: query + "\u{f8ff}")
+                .limit(to: 25)
+                .getDocuments()
+
+            async let nameSnapshot = db.collection("users")
+                .whereField("name_lower", isGreaterThanOrEqualTo: query)
+                .whereField("name_lower", isLessThan: query + "\u{f8ff}")
+                .limit(to: 25)
+                .getDocuments()
+
+            let (usernameDocs, nameDocs) = try await (usernameSnapshot, nameSnapshot)
+            let combinedDocs = usernameDocs.documents + nameDocs.documents
+
+            var seenIds = Set<String>()
+            var results: [UserModel] = []
+            let currentId = currentUserId
+
+            for doc in combinedDocs {
+                let id = doc.documentID
+                guard !seenIds.contains(id) else { continue }
+                if let currentId, currentId == id { continue }
+
+                if var user = try? doc.data(as: UserModel.self) {
+                    user.documentId = id
+                    results.append(user)
+                    seenIds.insert(id)
+                }
+            }
+
+            let activeQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard activeQuery == query else { return }
+
+            remoteSearchResults = results.sorted { lhs, rhs in
+                let leftKey = lhs.username?.lowercased() ?? lhs.name?.lowercased() ?? ""
+                let rightKey = rhs.username?.lowercased() ?? rhs.name?.lowercased() ?? ""
+                return leftKey < rightKey
+            }
+            isSearchingRemotely = false
+            searchTask = nil
+        } catch {
+            guard !Task.isCancelled else { return }
+            let activeQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard activeQuery == query else { return }
+
+            print("[FriendsViewModel] ❌ Remote search failed: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
+            remoteSearchResults = []
+            isSearchingRemotely = false
+            searchTask = nil
         }
     }
     
@@ -193,41 +268,62 @@ class FriendsViewModel: ObservableObject {
     }
     
     var exploreUsers: [UserModel] {
-        let followingIds = Set(followingUsers.compactMap { $0.documentId ?? ($0.id.isEmpty ? nil : $0.id) })
-        let followerIds  = Set(followerUsers.compactMap { $0.documentId ?? ($0.id.isEmpty ? nil : $0.id) })
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
+        guard q.isEmpty else {
+            return searchExploreResults
+        }
+
+        let followingIds = Set(followingUsers.compactMap { resolvedId(for: $0) })
+        let followerIds = Set(followerUsers.compactMap { resolvedId(for: $0) })
+
         return allUsers.filter { user in
-            let key = user.documentId ?? (user.id.isEmpty ? nil : user.id)
-            guard let key else { return false }
-
-            // Always exclude users already in following/followers
-            guard !followingIds.contains(key), !followerIds.contains(key) else { return false }
-
-            // If no search query, include
-            guard !q.isEmpty else { return true }
-
-            // Otherwise, match by name/username
-            return user.name?.lowercased().contains(q) == true ||
-                   user.username?.lowercased().contains(q) == true
+            guard let key = resolvedId(for: user) else { return false }
+            return !followingIds.contains(key) && !followerIds.contains(key)
         }
     }
-    
+
     var filteredFollowing: [UserModel] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return followingUsers }
-        return followingUsers.filter {
-            $0.name?.lowercased().contains(q) == true ||
-            $0.username?.lowercased().contains(q) == true
-        }
+        return followingUsers.filter { matches(user: $0, query: q) }
     }
 
     var filteredFollowers: [UserModel] {
         let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return followerUsers }
-        return followerUsers.filter {
-            $0.name?.lowercased().contains(q) == true ||
-            $0.username?.lowercased().contains(q) == true
+        return followerUsers.filter { matches(user: $0, query: q) }
+    }
+
+    private var searchExploreResults: [UserModel] {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return [] }
+
+        var seen = Set<String>()
+        var results: [UserModel] = []
+
+        let localPool = followingUsers + followerUsers + allUsers
+        let localMatches = localPool.filter { matches(user: $0, query: q) }
+        appendUnique(localMatches, to: &results, seen: &seen)
+        appendUnique(remoteSearchResults, to: &results, seen: &seen)
+
+        return results
+    }
+
+    private func matches(user: UserModel, query: String) -> Bool {
+        user.name?.lowercased().contains(query) == true ||
+        user.username?.lowercased().contains(query) == true
+    }
+
+    private func appendUnique(_ users: [UserModel], to results: inout [UserModel], seen: inout Set<String>) {
+        for var user in users {
+            guard let key = resolvedId(for: user) else { continue }
+            if seen.insert(key).inserted {
+                if user.documentId == nil {
+                    user.documentId = key
+                }
+                results.append(user)
+            }
         }
     }
 
@@ -280,6 +376,7 @@ class FriendsViewModel: ObservableObject {
 
     deinit {
         userDocListener?.remove()
+        searchTask?.cancel()
     }
 }
 
