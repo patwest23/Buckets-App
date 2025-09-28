@@ -190,22 +190,22 @@ struct ListView: View {
                 }
                 // Restore top toolbar and toolbarBackground
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            showProfileView = true
-                        } label: {
-                            profileImageView
-                                .frame(width: 36, height: 36)
-                        }
-                    }
-
                     ToolbarItem(placement: .topBarTrailing) {
-                        if isAnyTextFieldActive {
-                            Button("Done") {
-                                UIApplication.shared.endEditing()
-                                focusedItemID = nil
+                        HStack(spacing: 12) {
+                            Button {
+                                showProfileView = true
+                            } label: {
+                                profileImageView
+                                    .frame(width: 36, height: 36)
                             }
-                            .bold()
+
+                            if isAnyTextFieldActive {
+                                Button("Done") {
+                                    UIApplication.shared.endEditing()
+                                    focusedItemID = nil
+                                }
+                                .bold()
+                            }
                         }
                     }
                 }
