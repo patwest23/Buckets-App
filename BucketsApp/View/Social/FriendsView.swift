@@ -22,61 +22,92 @@ struct FriendsView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                if viewModel.isLoading {
-                    ProgressView("Loading users...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    let explore = viewModel.exploreUsers
-                    let following = viewModel.filteredFollowing
-                    let followers = viewModel.filteredFollowers
+                let trimmedQuery = viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let explore = viewModel.exploreUsers
+                let following = viewModel.filteredFollowing
+                let followers = viewModel.filteredFollowers
+                let isQueryEmpty = trimmedQuery.isEmpty
 
-                    Picker("", selection: $selectedTab) {
-                        ForEach(FriendTab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
+                Picker("", selection: $selectedTab) {
+                    ForEach(FriendTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
                     }
-                    .pickerStyle(.segmented)
-                    .padding([.horizontal, .top])
+                }
+                .pickerStyle(.segmented)
+                .padding([.horizontal, .top])
 
-                    List {
-                        switch selectedTab {
-                        case .explore:
-                            if explore.isEmpty {
-                                Text("No users to explore.")
-                                    .foregroundColor(.secondary)
-                            } else {
-                                ForEach(explore) { user in
-                                    userRow(for: user)
+                List {
+                    switch selectedTab {
+                    case .explore:
+                        if explore.isEmpty {
+                            if !isQueryEmpty && viewModel.isSearchingRemotely {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                        .padding(.vertical)
+                                    Spacer()
                                 }
+                            } else if !viewModel.isLoading && !viewModel.isSearchingRemotely {
+                                Text(isQueryEmpty ? "No users to explore." : "No users found.")
+                                    .foregroundColor(.secondary)
                             }
-                        case .following:
-                            if following.isEmpty {
-                                Text("You're not following anyone yet.")
-                                    .foregroundColor(.secondary)
-                            } else {
-                                ForEach(following) { user in
-                                    userRow(for: user)
-                                }
-                            }
-                        case .followers:
-                            if followers.isEmpty {
-                                Text("You don't have any followers yet.")
-                                    .foregroundColor(.secondary)
-                            } else {
-                                ForEach(followers) { user in
-                                    userRow(for: user)
-                                }
+                        } else {
+                            ForEach(explore) { user in
+                                userRow(for: user)
                             }
                         }
+                    case .following:
+                        if following.isEmpty {
+                            if !viewModel.isLoading {
+                                Text(isQueryEmpty ? "You're not following anyone yet." : "No matches in your following.")
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            ForEach(following) { user in
+                                userRow(for: user)
+                            }
+                        }
+                    case .followers:
+                        if followers.isEmpty {
+                            if !viewModel.isLoading {
+                                Text(isQueryEmpty ? "You don't have any followers yet." : "No matches in your followers.")
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            ForEach(followers) { user in
+                                userRow(for: user)
+                            }
+                        }
                     }
-                    .listStyle(.insetGrouped)
-                    .searchable(text: $viewModel.searchText, prompt: "Search users")
+                }
+                .listStyle(.insetGrouped)
+                .searchable(text: $viewModel.searchText, prompt: "Search users")
+                .onChange(of: viewModel.searchText) { _ in
+                    viewModel.handleSearchChange()
                 }
             }
             .navigationTitle("Friends")
             .refreshable {
                 await viewModel.loadFriendsData()
                 await viewModel.loadAllUsers()
+            }
+            .overlay {
+                if viewModel.isLoading {
+                    ProgressView("Loading users...")
+                        .padding(16)
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .allowsHitTesting(false)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if !viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && viewModel.isSearchingRemotely {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .padding()
+                        .allowsHitTesting(false)
+                }
             }
             .alert("Error", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
