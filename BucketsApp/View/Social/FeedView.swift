@@ -9,7 +9,6 @@ import SwiftUI
 
 struct FeedView: View {
     @EnvironmentObject var feedViewModel: FeedViewModel
-    @EnvironmentObject var postViewModel: PostViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var syncCoordinator: SyncCoordinator
@@ -37,9 +36,7 @@ struct FeedView: View {
                                     post: post,
                                     item: matchedItem,
                                     onLike: {
-                                        Task {
-                                            await postViewModel.toggleLike(for: post.id ?? "", by: userViewModel.user?.id ?? "")
-                                        }
+                                        await feedViewModel.toggleLike(post: post)
                                     }
                                 )
                                 .task {

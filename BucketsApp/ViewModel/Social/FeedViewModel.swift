@@ -193,43 +193,45 @@ class FeedViewModel: ObservableObject {
     func toggleLike(post: PostModel) async {
         guard let currentUID = authenticatedUserId else { return }
         guard let postDocId = post.id else { return }
-        
+
         let authorId = post.authorId  // The owner of that post’s doc path
         let postRef = db
             .collection("users")
             .document(authorId)
             .collection("posts")
             .document(postDocId)
-        
+
         do {
-            // If `likedBy` already contains currentUID, remove it. Otherwise, add it.
-            var newLikedBy = post.likedBy
+            let previousLikedBy = post.likedBy
+            var newLikedBy = previousLikedBy
             if newLikedBy.contains(currentUID) {
-                // Unlike
                 newLikedBy.removeAll { $0 == currentUID }
             } else {
-                // Like
                 newLikedBy.append(currentUID)
             }
-            
-            let update: [String: Any] = await MainActor.run {
-                ["likedBy": newLikedBy]
-            }
-            try await postRef.updateData(update)
-            
-            print("[FeedViewModel] toggleLike: \(currentUID) => \(newLikedBy.count) likes total for post \(postDocId)")
-            
-            // Update local feed array for immediate UI feedback
+
+            // Optimistically update the local post so the UI responds immediately.
             if let idx = posts.firstIndex(where: { $0.id == postDocId }) {
-                var updatedPost = posts[idx]
-                updatedPost.likedBy = newLikedBy
-                posts[idx] = updatedPost
-                print("[FeedViewModel] toggleLike updated local post:", postDocId)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    posts[idx].likedBy = newLikedBy
+                }
+                print("[FeedViewModel] toggleLike optimistic update for post:", postDocId)
             }
-            
+
+            try await postRef.updateData(["likedBy": newLikedBy])
+
+            print("[FeedViewModel] toggleLike: \(currentUID) => \(newLikedBy.count) likes total for post \(postDocId)")
+
         } catch {
             print("[FeedViewModel] toggleLike error:", error.localizedDescription)
             self.errorMessage = error.localizedDescription
+            // Revert the optimistic update if Firestore write fails.
+            if let idx = posts.firstIndex(where: { $0.id == post.id }) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    posts[idx].likedBy = post.likedBy
+                }
+                print("[FeedViewModel] toggleLike reverted local post due to error:", postDocId)
+            }
         }
     }
     
