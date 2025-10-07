@@ -95,6 +95,7 @@ struct BucketsApp: App {
                                 }
 
                                 await userViewModel.initializeUserSession(for: firebaseUser.uid, email: firebaseUser.email ?? "unknown")
+                                onboardingViewModel.refreshUsernameRequirement(using: userViewModel)
                                 let userId = firebaseUser.uid
                                 feedViewModel.startListeningToPosts(for: [userId])
                                 await friendsViewModel.loadFriendsData()

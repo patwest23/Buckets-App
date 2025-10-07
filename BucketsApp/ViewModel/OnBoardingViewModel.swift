@@ -83,7 +83,7 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Google Sign-In
 
-    func signInWithGoogle(completion: @escaping (Bool) -> Void) {
+    func signInWithGoogle(using userViewModel: UserViewModel, completion: @escaping (Bool) -> Void) {
         guard let clientID = FirebaseApp.app()?.options.clientID else {
             handleError(NSError(
                 domain: "MissingGoogleClientID",
@@ -155,16 +155,10 @@ final class OnboardingViewModel: ObservableObject {
                 self.clearErrorState()
 
                 Task {
-                    if let userEmail = authUser.email {
-                        let userDocRef = self.firestore.collection("users").document(authUser.uid)
-                        do {
-                            try await userDocRef.setData(["email": userEmail], merge: true)
-                        } catch {
-                            self.handleError(error)
-                            completion(false)
-                            return
-                        }
-                    }
+                    let userEmail = authUser.email ?? ""
+                    await userViewModel.initializeUserSession(for: authUser.uid, email: userEmail)
+
+                    self.refreshUsernameRequirement(using: userViewModel)
 
                     await self.loadProfileImage()
 
@@ -173,6 +167,24 @@ final class OnboardingViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func requiresUsernameSetup(using rawUsername: String?) -> Bool {
+        let trimmed = rawUsername?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return true }
+
+        guard trimmed.hasPrefix("@") else { return true }
+
+        let defaultUsernames = ["@unknown", "@user", "@newuser"]
+        if defaultUsernames.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            return true
+        }
+
+        return trimmed.count < 3
+    }
+
+    func refreshUsernameRequirement(using userViewModel: UserViewModel) {
+        shouldPromptUsername = requiresUsernameSetup(using: userViewModel.user?.username)
     }
     
     // MARK: - Sign In / Out
@@ -348,6 +360,7 @@ final class OnboardingViewModel: ObservableObject {
         errorMessage = nil
         showErrorAlert = false
         isAuthenticated = false
+        shouldPromptUsername = false
     }
 }
 

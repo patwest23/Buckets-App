@@ -9,9 +9,9 @@ import SwiftUI
 
 struct OnboardingView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var userViewModel: UserViewModel
     @State private var showSignUp = false
     @State private var showLogIn = false
-    @State private var showUsernameSetup = false
     
     // Detect whether we’re in Light or Dark mode
     @Environment(\.colorScheme) private var colorScheme
@@ -84,11 +84,7 @@ struct OnboardingView: View {
                         
                         // MARK: - Google Sign-In Button
                         Button(action: {
-                            onboardingViewModel.signInWithGoogle(completion: { success in
-                                if success {
-                                    showUsernameSetup = true
-                                }
-                            })
+                            onboardingViewModel.signInWithGoogle(using: userViewModel, completion: { _ in })
                         }) {
                             HStack {
                                 Image("google_logo")
@@ -105,10 +101,6 @@ struct OnboardingView: View {
                             .foregroundColor(.primary)
                             .cornerRadius(10)
                             .shadow(radius: 5)
-                        }
-                        .sheet(isPresented: $showUsernameSetup) {
-                            UsernameSetupView()
-                                .environmentObject(onboardingViewModel)
                         }
                     }
                     .padding(.horizontal)
