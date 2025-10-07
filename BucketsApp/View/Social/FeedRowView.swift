@@ -9,20 +9,35 @@ import SwiftUI
 
 struct FeedRowView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @EnvironmentObject var postViewModel: PostViewModel
     @EnvironmentObject var userViewModel: UserViewModel
-    
+
     let post: PostModel
     let item: ItemModel? // NEW: injected from parent
-    
+
     /// Callback for "like"
-    let onLike: () -> Void
-    
+    let onLike: @MainActor () async -> Void
+
     /// Dynamically choose text color based on light/dark mode
     private var dynamicTextColor: Color {
         colorScheme == .light ? .black : .white
     }
     
+    private var isLikedByCurrentUser: Bool {
+        guard let currentUserId = userViewModel.user?.id else { return false }
+        return post.likedBy.contains(currentUserId)
+    }
+
+    private var likeButtonBackground: Color {
+        if isLikedByCurrentUser {
+            return Color.red.opacity(colorScheme == .light ? 0.85 : 0.75)
+        }
+        return colorScheme == .light ? Color.black.opacity(0.08) : Color.white.opacity(0.16)
+    }
+
+    private var likeButtonForeground: Color {
+        isLikedByCurrentUser ? .white : dynamicTextColor
+    }
+
     /// If item is completed, format the due date for display
     private var completedDateString: String? {
         guard item?.completed == true, let date = item?.dueDate else { return nil }
@@ -31,8 +46,6 @@ struct FeedRowView: View {
         return formatter.string(from: date)
     }
 
-    // No longer need computed property for currentUserId
-    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // List item name
@@ -68,18 +81,33 @@ struct FeedRowView: View {
             }
 
             // Like row with tappable heart and count
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 Button(action: {
-                    Task {
-                        print("[FeedRowView] Tapping like on post: \(post.id ?? "nil")")
-                        await postViewModel.toggleLike(for: post.id ?? "", by: userViewModel.user?.id ?? "")
-                    }
+                    print("[FeedRowView] Tapping like on post: \(post.id ?? "nil")")
+                    Task { @MainActor in await onLike() }
                 }) {
-                    Image(systemName: post.likedBy.contains(userViewModel.user?.id ?? "") ? "heart.fill" : "heart")
-                        .foregroundColor(post.likedBy.contains(userViewModel.user?.id ?? "") ? .red : dynamicTextColor)
+                    HStack(spacing: 6) {
+                        Image(systemName: isLikedByCurrentUser ? "heart.fill" : "heart")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
+                        Text("\(post.likedBy.count)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(likeButtonForeground)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(likeButtonBackground)
+                    )
                 }
-                Text("\(post.likedBy.count)")
-                    .foregroundColor(dynamicTextColor)
+                .buttonStyle(.plain)
+                .contentShape(Capsule())
+                .accessibilityLabel(isLikedByCurrentUser ? "Unlike" : "Like")
+                .accessibilityValue("\(post.likedBy.count) likes")
+
                 if let completed = completedDateString {
                     Label(completed, systemImage: "checkmark.seal")
                         .font(.caption)
