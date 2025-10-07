@@ -81,7 +81,11 @@ struct ItemRowView: View {
                 Image(systemName: "chevron.right")
                     .imageScale(.medium)
                     .foregroundColor(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                
             }
+            .accessibilityLabel("Open item details")
             .buttonStyle(.borderless)
         }
         .contentShape(Rectangle())
