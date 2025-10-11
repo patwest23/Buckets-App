@@ -12,8 +12,8 @@ struct LocationSearchFieldView: View {
     @Binding var query: String
     let results: [MKLocalSearchCompletion]
     let onSelect: (MKLocalSearchCompletion) -> Void
-
-    @FocusState private var isFocused: Bool
+    var focus: FocusState<Bool>.Binding
+    var onFocusChange: ((Bool) -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -26,11 +26,16 @@ struct LocationSearchFieldView: View {
                     .padding(8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.5), lineWidth: 1)
+                            .stroke(focus.wrappedValue ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: focus.wrappedValue ? 2 : 1)
                             .background(Color(.systemBackground))
                     )
                     .submitLabel(.done)
-                    .focused($isFocused)
+                    .focused(focus)
+                    .textInputAutocapitalization(.words)
+                    .disableAutocorrection(true)
+                    .onChange(of: focus.wrappedValue) { newValue in
+                        onFocusChange?(newValue)
+                    }
 
                 if !results.isEmpty {
                     ScrollView {
@@ -38,6 +43,7 @@ struct LocationSearchFieldView: View {
                             ForEach(results, id: \.self) { result in
                                 Button {
                                     onSelect(result)
+                                    focus.wrappedValue = false
                                 } label: {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(result.title).bold()
