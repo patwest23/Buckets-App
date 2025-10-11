@@ -89,8 +89,8 @@ struct FriendsView: View {
             }
             .navigationTitle("Friends")
             .refreshable {
-                await viewModel.loadFriendsData()
-                await viewModel.loadAllUsers()
+                await viewModel.loadFriendsData(showLoadingIndicator: false)
+                await viewModel.loadAllUsers(showLoadingIndicator: false)
             }
             .overlay {
                 if viewModel.isLoading {
