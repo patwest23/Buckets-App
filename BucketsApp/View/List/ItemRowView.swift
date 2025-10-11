@@ -17,6 +17,7 @@ struct ItemRowView: View {
 
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
+    @EnvironmentObject var postViewModel: PostViewModel
     @State private var showFullScreenGallery = false
 
     private let cardCornerRadius: CGFloat = 12
@@ -204,7 +205,7 @@ struct ItemRowView: View {
         }
 
         Task {
-            await bucketListViewModel.addOrUpdateItem(updated)
+            await bucketListViewModel.addOrUpdateItem(updated, postViewModel: postViewModel)
         }
     }
 
@@ -221,7 +222,7 @@ struct ItemRowView: View {
 
                 if !trimmed.isEmpty {
                     Task {
-                        await bucketListViewModel.addOrUpdateItem(edited)
+                        await bucketListViewModel.addOrUpdateItem(edited, postViewModel: postViewModel)
                     }
                 }
                 item = edited
@@ -302,6 +303,7 @@ struct ItemRowView_Previews: PreviewProvider {
             )
             .environmentObject(mockListVM)
             .environmentObject(UserViewModel())
+            .environmentObject(PostViewModel())
             .environmentObject(OnboardingViewModel())
             .previewLayout(.sizeThatFits)
             .padding()
@@ -316,6 +318,7 @@ struct ItemRowView_Previews: PreviewProvider {
             )
             .environmentObject(mockListVM)
             .environmentObject(UserViewModel())
+            .environmentObject(PostViewModel())
             .environmentObject(OnboardingViewModel())
             .previewLayout(.sizeThatFits)
             .padding()

@@ -54,11 +54,6 @@ struct ListView: View {
     // Show refresh confirmation overlay
     @State private var showRefreshConfirmation = false
     
-    private enum ViewStyle: String {
-        case list, detailed, completed, incomplete
-    }
-    @State private var selectedViewStyle: ViewStyle = .list
-    
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
@@ -82,8 +77,8 @@ struct ListView: View {
                                         }
                                     }
                                     .task {
+                                        bucketListViewModel.registerDefaultPostViewModel(postViewModel)
                                         await loadItems()
-                                        try? await Task.sleep(nanoseconds: 300_000_000) // Wait 0.3s to ensure list is loaded
                                         await syncCoordinator.refreshFeedAndSyncLikes()
                                         startTextFieldListeners()
                                         friendsViewModel.startListeningToFriendChanges()
@@ -264,26 +259,14 @@ struct ListView: View {
     // MARK: - List of Items
     private var itemListView: some View {
         List {
-            ForEach(bucketListViewModel.items.indices, id: \.self) { index in
-                rowView(for: $bucketListViewModel.items[index])
+            ForEach($bucketListViewModel.items) { $item in
+                rowView(for: $item)
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
     }
-    
-    // MARK: - Derived Items
-    private var displayedItems: [ItemModel] {
-        switch selectedViewStyle {
-        case .list, .detailed:
-            return bucketListViewModel.items
-        case .completed:
-            return bucketListViewModel.items.filter { $0.completed }
-        case .incomplete:
-            return bucketListViewModel.items.filter { !$0.completed }
-        }
-    }
-    
+
     // MARK: - UI States
     private var loadingView: some View {
         ProgressView("Loading...")
@@ -320,7 +303,7 @@ struct ListView: View {
             // Create new item
             let newItem = ItemModel(userId: userId)
             Task {
-                await bucketListViewModel.addOrUpdateItem(newItem)
+                await bucketListViewModel.addOrUpdateItem(newItem, postViewModel: postViewModel)
             }
 
             newlyCreatedItemID = newItem.id
@@ -376,10 +359,6 @@ struct ListView: View {
     private func loadItems() async {
         isLoading = true
         await bucketListViewModel.loadItems()
-
-        // 🚨 Delay to ensure items are ready for navigation
-        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-
         isLoading = false
     }
     
@@ -562,6 +541,7 @@ extension ListView {
             focusedItemID: $focusedItemID
         )
         .environmentObject(bucketListViewModel)
+        .environmentObject(postViewModel)
         .onAppear {
             print("[ItemRowView] onAppear: \(item.wrappedValue.name) (id: \(item.wrappedValue.id)) wasShared: \(item.wrappedValue.wasShared), likeCount: \(item.wrappedValue.likeCount)")
             print("[ListView] Total items in view model: \(bucketListViewModel.items.count)")

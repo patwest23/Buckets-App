@@ -97,8 +97,7 @@ final class DetailItemViewModel: ObservableObject {
         current.imageUrls = imageUrls
         current.dueDate = dueDate
         current.location = location
-        await listViewModel.addOrUpdateItem(current)
-        await postViewModel.syncPostWithItem(current)
+        await listViewModel.addOrUpdateItem(current, postViewModel: postViewModel)
     }
 
     func commitPendingChanges() async {
