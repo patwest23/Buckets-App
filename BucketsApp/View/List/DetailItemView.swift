@@ -101,13 +101,13 @@ struct DetailItemView: View {
                 LocationSearchFieldView(
                     query: $locationSearchVM.queryFragment,
                     results: locationSearchVM.searchResults,
-                    focus: $isLocationFocused,
                     onSelect: { result in
                         Task {
                             await viewModel.updateLocation(from: result)
                         }
                         locationSearchVM.searchResults = []
                     },
+                    focus: $isLocationFocused,
                     onFocusChange: { isFocused in
                         if isFocused {
                             isTitleFocused = false
@@ -322,7 +322,7 @@ struct DetailItemView: View {
                         updatedItem.userId = authUserId
                         if !updatedItem.name.isEmpty || !updatedItem.imageUrls.isEmpty {
                             Task {
-                                await bucketListViewModel.addOrUpdateItem(updatedItem)
+                                await bucketListViewModel.addOrUpdateItem(updatedItem, postViewModel: postViewModel)
                             }
                         }
                     }

@@ -89,10 +89,15 @@ final class DetailItemViewModel: ObservableObject {
     }
 
     func save() async {
-        guard let current = listViewModel.currentEditingItem else { return }
-        let updatedItem = applyingEdits(to: current)
-        postViewModel.caption = caption
-        await listViewModel.addOrUpdateItem(updatedItem, postViewModel: postViewModel)
+        guard var current = listViewModel.currentEditingItem else { return }
+        current.name = name
+        current.caption = caption
+        current.completed = completed
+        current.wasShared = wasShared
+        current.imageUrls = imageUrls
+        current.dueDate = dueDate
+        current.location = location
+        await listViewModel.addOrUpdateItem(current, postViewModel: postViewModel)
     }
 
     func commitPendingChanges() async {
