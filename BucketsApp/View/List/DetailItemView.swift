@@ -26,14 +26,11 @@ struct DetailItemView: View {
     @StateObject private var locationSearchVM = LocationSearchViewModel()
     @State private var showFeedConfirmation = false
     @State private var showDeleteAlert = false
-    @State private var isAnyTextFieldActive: Bool = false
-
     @StateObject private var viewModel: DetailItemViewModel
-    
+
     @FocusState private var isTitleFocused: Bool
-    @FocusState private var isNotesFocused: Bool
     @FocusState private var isCaptionFocused: Bool
-    @State private var captionText: String = ""
+    @FocusState private var isLocationFocused: Bool
     
     
     init(item: ItemModel, listViewModel: ListViewModel, postViewModel: PostViewModel) {
@@ -65,10 +62,18 @@ struct DetailItemView: View {
                         .background(Color(.systemBackground))
                 )
                 .focused($isTitleFocused)
+                .textInputAutocapitalization(.sentences)
+                .disableAutocorrection(false)
                 .submitLabel(.next)
                 .onSubmit {
                     isTitleFocused = false
                     isCaptionFocused = true
+                }
+                .onChange(of: isTitleFocused) { newValue in
+                    if newValue {
+                        isCaptionFocused = false
+                        isLocationFocused = false
+                    }
                 }
                 .frame(maxWidth: .infinity)
 
@@ -95,11 +100,18 @@ struct DetailItemView: View {
                 LocationSearchFieldView(
                     query: $locationSearchVM.queryFragment,
                     results: locationSearchVM.searchResults,
+                    focus: $isLocationFocused,
                     onSelect: { result in
                         Task {
                             await viewModel.updateLocation(from: result)
                         }
                         locationSearchVM.searchResults = []
+                    },
+                    onFocusChange: { isFocused in
+                        if isFocused {
+                            isTitleFocused = false
+                            isCaptionFocused = false
+                        }
                     }
                 )
                 captionEditorView
@@ -137,6 +149,11 @@ struct DetailItemView: View {
             }
             .padding()
         }
+        .onChange(of: locationSearchVM.queryFragment) { newValue in
+            if viewModel.locationText != newValue {
+                viewModel.locationText = newValue
+            }
+        }
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -160,6 +177,12 @@ struct DetailItemView: View {
                     .disabled(!viewModel.completed)
                     .opacity(viewModel.completed ? 1.0 : 0.5)
                     .focused($isCaptionFocused)
+                    .onChange(of: isCaptionFocused) { newValue in
+                        if newValue {
+                            isTitleFocused = false
+                            isLocationFocused = false
+                        }
+                    }
             }
             .frame(maxWidth: .infinity)
         }
@@ -212,22 +235,23 @@ struct DetailItemView: View {
         ZStack {
             scrollViewContent
         }
-        .onTapGesture {
-            UIApplication.shared.endEditing()
-            isAnyTextFieldActive = false
-            isCaptionFocused = false
-        }
-        
+        .simultaneousGesture(
+            TapGesture()
+                .onEnded {
+                    guard isEditing else { return }
+                    endEditing()
+                }
+        )
+
         return AnyView(
             content
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        if isAnyTextFieldActive || isCaptionFocused {
+                        if isEditing {
                             Button("Done") {
-                                UIApplication.shared.endEditing()
-                                isAnyTextFieldActive = false
-                                isCaptionFocused = false
+                                endEditing()
                             }
+                            .fontWeight(.semibold)
                         }
                     }
                 }
@@ -264,7 +288,11 @@ struct DetailItemView: View {
                     if let editingItem = bucketListViewModel.currentEditingItem {
                         print("[DetailItemView] using currentEditingItem: \(editingItem.name)")
                     }
-                    
+
+                    if locationSearchVM.queryFragment.isEmpty {
+                        locationSearchVM.queryFragment = viewModel.locationText
+                    }
+
                     if editingItem.userId.isEmpty,
                        let authUserId = userViewModel.user?.id {
                         var updatedItem = editingItem
@@ -291,15 +319,12 @@ struct DetailItemView: View {
                         }
                     }
                     
-                    NotificationCenter.default.addObserver(forName: UITextField.textDidBeginEditingNotification, object: nil, queue: .main) { _ in
-                        isAnyTextFieldActive = true
-                    }
-                    NotificationCenter.default.addObserver(forName: UITextField.textDidEndEditingNotification, object: nil, queue: .main) { _ in
-                        isAnyTextFieldActive = false
-                    }
                 }
                 .onAppear {
                     print("[DetailItemView] body loaded. itemID: \(itemID)")
+                }
+                .onDisappear {
+                    Task { await viewModel.commitPendingChanges() }
                 }
                 .onChange(of: postViewModel.didSharePost) { oldValue, newValue in
                     if newValue {
@@ -315,7 +340,19 @@ struct DetailItemView: View {
                 }
         )
     }
-    
+
+    private var isEditing: Bool {
+        isTitleFocused || isCaptionFocused || isLocationFocused
+    }
+
+    private func endEditing() {
+        isTitleFocused = false
+        isCaptionFocused = false
+        isLocationFocused = false
+        UIApplication.shared.endEditing()
+        Task { await viewModel.commitPendingChanges() }
+    }
+
     @ViewBuilder
     private var photoPickerView: some View {
         let isUploading = imagePickerVM.isUploading

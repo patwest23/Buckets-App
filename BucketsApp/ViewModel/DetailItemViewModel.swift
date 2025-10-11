@@ -41,11 +41,12 @@ final class DetailItemViewModel: ObservableObject {
     private let postViewModel: PostViewModel
 
     private var saveTask: Task<Void, Never>? = nil
+    private let debounceInterval: UInt64 = 1_200_000_000 // 1.2s debounce
 
     private func startDebouncedSave() {
         saveTask?.cancel()
         saveTask = Task {
-            try? await Task.sleep(nanoseconds: 700_000_000) // 700ms
+            try? await Task.sleep(nanoseconds: debounceInterval)
             await save()
         }
     }
@@ -63,6 +64,10 @@ final class DetailItemViewModel: ObservableObject {
 
         self.listViewModel = listViewModel
         self.postViewModel = postViewModel
+    }
+
+    deinit {
+        saveTask?.cancel()
     }
 
 
@@ -94,6 +99,11 @@ final class DetailItemViewModel: ObservableObject {
         current.location = location
         await listViewModel.addOrUpdateItem(current)
         await postViewModel.syncPostWithItem(current)
+    }
+
+    func commitPendingChanges() async {
+        saveTask?.cancel()
+        await save()
     }
 
     var canPost: Bool {
