@@ -299,7 +299,7 @@ struct DetailItemView: View {
                         updatedItem.userId = authUserId
                         if !updatedItem.name.isEmpty || !updatedItem.imageUrls.isEmpty {
                             Task {
-                                await bucketListViewModel.addOrUpdateItem(updatedItem)
+                                await bucketListViewModel.addOrUpdateItem(updatedItem, postViewModel: postViewModel)
                             }
                         }
                     }
