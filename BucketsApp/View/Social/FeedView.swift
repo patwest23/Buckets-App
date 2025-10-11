@@ -12,17 +12,20 @@ struct FeedView: View {
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var syncCoordinator: SyncCoordinator
-    @State private var showLoading = false
+    @EnvironmentObject var friendsViewModel: FriendsViewModel
+    @State private var isRefreshing = false
+    @State private var showsInlineSpinner = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    if showLoading {
+                LazyVStack(spacing: 16) {
+                    if isRefreshing && showsInlineSpinner {
                         ProgressView("Loading Feed...")
-                            .padding()
+                            .padding(.top, 12)
                     }
-                    if feedViewModel.posts.isEmpty {
+
+                    if feedViewModel.posts.isEmpty && !isRefreshing {
                         Text("No posts yet.")
                             .font(.subheadline)
                             .foregroundColor(.gray)
@@ -30,22 +33,17 @@ struct FeedView: View {
                     } else {
                         ForEach($feedViewModel.posts) { $post in
                             let postValue = $post.wrappedValue
-                            let matchedItem = bucketListViewModel.items.first { $0.postId == postValue.id }
+                            let summary = resolvedSummary(for: postValue)
+
                             VStack(alignment: .leading, spacing: 4) {
-                                // MARK: - Feed Card
                                 FeedRowView(
                                     post: $post,
-                                    item: matchedItem,
+                                    itemSummary: summary,
                                     onLike: { updatedPost in
                                         await feedViewModel.toggleLike(post: updatedPost)
                                     }
                                 )
-                                .task {
-                                    let latestPost = $post.wrappedValue
-                                    print("🔍 FeedRowView - postId=\(latestPost.id ?? "nil"), likeCount=\(latestPost.likedBy.count)")
-                                }
 
-                                // MARK: - Timestamp
                                 Text(timeAgoString(for: postValue.timestamp))
                                     .font(.caption2)
                                     .foregroundColor(.gray)
@@ -55,21 +53,39 @@ struct FeedView: View {
                         }
                     }
                 }
+                .padding(.bottom, 24)
+            }
+            .navigationTitle("Feed")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await performRefresh(showSpinner: true) }
+                    } label: {
+                        if showsInlineSpinner {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    .accessibilityLabel("Refresh feed")
+                    .disabled(isRefreshing)
+                }
             }
             .refreshable {
-                showLoading = true
-                await syncCoordinator.refreshFeedAndSyncLikes()
-                showLoading = false
+                await performRefresh(showSpinner: false)
             }
             .onAppear {
-                print("FeedView appeared, checking if initial sync is needed...")
+                updateTrackedUsers()
                 if feedViewModel.posts.isEmpty {
-                    Task {
-                        showLoading = true
-                        await syncCoordinator.refreshFeedAndSyncLikes()
-                        showLoading = false
-                    }
+                    Task { await performRefresh(showSpinner: true) }
                 }
+            }
+            .onChange(of: friendsViewModel.followingUsers) { _ in
+                updateTrackedUsers()
+            }
+            .onChange(of: userViewModel.user?.id) { _ in
+                updateTrackedUsers()
             }
         }
     }
@@ -79,6 +95,47 @@ struct FeedView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    @MainActor
+    private func performRefresh(showSpinner: Bool) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        showsInlineSpinner = showSpinner
+        defer {
+            isRefreshing = false
+            showsInlineSpinner = false
+        }
+        await syncCoordinator.refreshFeedAndSyncLikes()
+    }
+
+    private func updateTrackedUsers() {
+        let friendIds: [String] = friendsViewModel.followingUsers.compactMap { user in
+            if let documentId = user.documentId { return documentId }
+            let id = user.id
+            return id == "unknown-user-id" ? nil : id
+        }
+        feedViewModel.startListeningToPosts(for: friendIds)
+    }
+
+    private func resolvedSummary(for post: PostModel) -> ItemSummary? {
+        if let summary = feedViewModel.itemSummary(for: post.itemId) {
+            return summary
+        }
+
+        if let localItem = bucketListViewModel.items.first(where: { $0.postId == post.id }) {
+            return ItemSummary(
+                id: localItem.id.uuidString,
+                ownerId: localItem.userId,
+                name: localItem.name,
+                dueDate: localItem.dueDate,
+                hasDueTime: localItem.hasDueTime,
+                completed: localItem.completed,
+                likedBy: localItem.likedBy
+            )
+        }
+
+        return nil
     }
 }
 

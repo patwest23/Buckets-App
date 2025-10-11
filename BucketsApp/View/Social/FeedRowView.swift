@@ -12,7 +12,7 @@ struct FeedRowView: View {
     @EnvironmentObject var userViewModel: UserViewModel
 
     @Binding var post: PostModel
-    let item: ItemModel? // NEW: injected from parent
+    let itemSummary: ItemSummary?
 
     /// Callback for "like"
     let onLike: @MainActor (PostModel) async -> Void
@@ -40,7 +40,7 @@ struct FeedRowView: View {
 
     /// If item is completed, format the due date for display
     private var completedDateString: String? {
-        guard item?.completed == true, let date = item?.dueDate else { return nil }
+        guard let summary = itemSummary, summary.completed, let date = summary.dueDate else { return nil }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
@@ -52,8 +52,7 @@ struct FeedRowView: View {
             HStack {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.accentColor)
-//                print("[FeedRowView] item name: \(item?.name ?? "nil"), post.itemName: \(post.itemName ?? "nil")")
-                Text(item?.name ?? post.itemName ?? "Untitled Post")
+                Text(itemSummary?.name ?? post.itemName ?? "Untitled Post")
                     .font(.headline)
                     .bold()
                     .foregroundColor(dynamicTextColor)
@@ -203,7 +202,7 @@ struct FeedRowView_Previews: PreviewProvider {
             NavigationStack {
                 FeedRowView(
                     post: .constant(samplePost),
-                    item: nil,
+                    itemSummary: nil,
                     onLike: { updatedPost in
                         print("[Preview] Liked post \(updatedPost.id ?? "nil")")
                     }
@@ -232,7 +231,7 @@ struct FeedRowView_Previews: PreviewProvider {
 
                 FeedRowView(
                     post: .constant(noImagesPost),
-                    item: nil,
+                    itemSummary: nil,
                     onLike: { updatedPost in
                         print("[Preview] Liked post \(updatedPost.id ?? "nil")")
                     }
