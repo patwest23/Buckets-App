@@ -26,6 +26,7 @@ class SyncCoordinator: ObservableObject {
         self.listViewModel = listViewModel
         self.feedViewModel = feedViewModel
         self.friendsViewModel = friendsViewModel
+        self.listViewModel.registerDefaultPostViewModel(postViewModel)
     }
 
     /// Call during app startup or after auth.
@@ -84,7 +85,7 @@ class SyncCoordinator: ObservableObject {
         var updatedItem = item
         updatedItem.wasShared = true
         updatedItem.postId = postId
-        await listViewModel.addOrUpdateItem(updatedItem)
+        await listViewModel.addOrUpdateItem(updatedItem, postViewModel: postViewModel)
         print("[SyncCoordinator] Updated item after posting: \(updatedItem.name), wasShared: \(updatedItem.wasShared), postId: \(String(describing: updatedItem.postId))")
         await refreshFeedAndSyncLikes()
 

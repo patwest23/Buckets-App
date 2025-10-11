@@ -69,9 +69,14 @@ class ListViewModel: ObservableObject {
     private lazy var db = Firestore.firestore()
     private var listenerRegistration: ListenerRegistration?
     private var userListener: ListenerRegistration?
-    
-    private var userId: String? {
+    private weak var defaultPostViewModel: PostViewModel?
+
+    var userIdProvider: () -> String? = {
         Auth.auth().currentUser?.uid
+    }
+
+    private var userId: String? {
+        userIdProvider()
     }
     
     // MARK: - Throttling for image prefetch
@@ -194,6 +199,10 @@ class ListViewModel: ObservableObject {
     // MARK: - Add or Update
     /// Add or update an item in Firestore. If updating an item that was previously shared (posted), prompt user to update or repost.
     /// Note: For reposting logic, this function expects access to a PostViewModel. UI must handle the user prompt.
+    func registerDefaultPostViewModel(_ postViewModel: PostViewModel) {
+        defaultPostViewModel = postViewModel
+    }
+
     func addOrUpdateItem(_ item: ItemModel, postViewModel: PostViewModel? = nil) async {
         guard let userId = userId else {
             print("[ListViewModel] addOrUpdateItem: userId is nil. Cannot save item.")
@@ -218,11 +227,13 @@ class ListViewModel: ObservableObject {
             return
         }
 
+        let activePostViewModel = postViewModel ?? defaultPostViewModel
+
         // Handle repost/update logic for shared items
         if !isNewItem, newItem.wasShared, newItem.postId != nil {
             // Prompt user for action: update or repost
             let action = await promptUserForPostAction()
-            if action == .repost, let postViewModel = postViewModel, let existingPostId = newItem.postId {
+            if action == .repost, let postViewModel = activePostViewModel, let existingPostId = newItem.postId {
                 // Delete the old post
                 if let postToDelete = postViewModel.posts.first(where: { $0.id == existingPostId }) {
                     await postViewModel.deletePost(postToDelete)
@@ -246,21 +257,15 @@ class ListViewModel: ObservableObject {
             // If .update, fall through to normal update logic below
         }
 
-        let docRef = db
-            .collection("users").document(userId)
-            .collection("items").document(item.id.uuidString)
-
         do {
             print("[ListViewModel] Preparing to write item: \(newItem.id), wasShared: \(newItem.wasShared), postId: \(String(describing: newItem.postId))")
-            let encoded = try Firestore.Encoder().encode(newItem)
-            print("📝 Writing to Firestore:", encoded)
-            try await docRef.setData(encoded, merge: true)
+            try await writeItemToFirestore(newItem, userId: userId)
             print("[ListViewModel] addOrUpdateItem => wrote item \(newItem.id) to Firestore.")
 
             // Do not update self.items here. The Firestore snapshot listener will update items.
 
         // --- Sync post if this item is linked to a post
-        if newItem.postId != nil, let postViewModel = postViewModel {
+        if newItem.postId != nil, let postViewModel = activePostViewModel {
             await postViewModel.syncPostWithItem(newItem)
         }
 
@@ -270,6 +275,19 @@ class ListViewModel: ObservableObject {
         } catch {
             print("[ListViewModel] addOrUpdateItem => Error: \(error.localizedDescription)")
         }
+    }
+
+    func addOrUpdateItem(_ item: ItemModel, syncingWith postViewModel: PostViewModel) async {
+        await addOrUpdateItem(item, postViewModel: postViewModel)
+    }
+
+    func writeItemToFirestore(_ item: ItemModel, userId: String) async throws {
+        let docRef = db
+            .collection("users").document(userId)
+            .collection("items").document(item.id.uuidString)
+        let encoded = try Firestore.Encoder().encode(item)
+        print("📝 Writing to Firestore:", encoded)
+        try await docRef.setData(encoded, merge: true)
     }
     
     // MARK: - Delete Item
