@@ -105,6 +105,7 @@ struct ListView: View {
                                             .environmentObject(feedViewModel)
                                             .environmentObject(postViewModel)
                                             .environmentObject(bucketListViewModel)
+                                            .environmentObject(friendsViewModel)
                                             .environmentObject(syncCoordinator)
                                     }
                                     // Navigate to the User Search View

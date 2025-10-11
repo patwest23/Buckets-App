@@ -9,22 +9,36 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+struct ItemSummary: Equatable {
+    let id: String
+    let ownerId: String
+    var name: String
+    var dueDate: Date?
+    var hasDueTime: Bool
+    var completed: Bool
+    var likedBy: [String]
+}
+
 @MainActor
 class FeedViewModel: ObservableObject {
     @Published var posts: [PostModel] = []
     @Published var errorMessage: String?
     @Published var isLoading: Bool = false
-    
-    private let db = Firestore.firestore()
+    @Published private(set) var itemSummaries: [String: ItemSummary] = [:]
 
-    private var postListeners: [ListenerRegistration] = []
+    private let db = Firestore.firestore()
+    private let pageSize: Int = 25
+
+    private var postListeners: [String: ListenerRegistration] = [:]
 
     /// Authenticated user’s UID
     private var authenticatedUserId: String? {
         Auth.auth().currentUser?.uid
     }
 
-    private var itemNameCache: [String: String] = [:]
+    private var trackedUserIds: Set<String> = []
+    private var paginationState: [String: DocumentSnapshot?] = [:]
+    private var itemSummaryCache: [String: ItemSummary] = [:]
     private var postCache: [String: PostModel] = [:]
     private var pendingLikeUpdates: Set<String> = []
     
@@ -38,144 +52,260 @@ class FeedViewModel: ObservableObject {
     }
     
     // MARK: - Fetch Feed
-    func fetchFeedPosts() async {
+    func fetchFeedPosts(reset: Bool = false, targetedUserIds: [String]? = nil) async {
         guard !isLoading else {
             print("[FeedViewModel] fetchFeedPosts: already loading, skipping.")
             return
         }
         isLoading = true
         defer { isLoading = false }
-        
-        guard let userId = authenticatedUserId else {
+
+        guard let currentUserId = authenticatedUserId else {
             print("[FeedViewModel] fetchFeedPosts: No authenticatedUserId (not authenticated).")
             return
         }
-        
-        print("[FeedViewModel] Current UID:", userId)
-        
-        do {
-            // 1) Fetch ALL user IDs (MVP)
-            let usersSnapshot = try await db.collection("users").getDocuments()
-            let allUserIds = usersSnapshot.documents.map { $0.documentID }
-            print("[FeedViewModel] Retrieved all userIds: \(allUserIds.count)")
-            print("[FeedViewModel] Fetching posts for userIds:", allUserIds)
-            print("[FeedViewModel] Includes current user?", allUserIds.contains(userId))
-            
-            // 2) For each user in allUserIds, fetch their /posts subcollection
-            var allPosts: [PostModel] = []
-            
-            for followedUserId in allUserIds {
-                print("[FeedViewModel] Fetching posts for user:", followedUserId)
-                do {
-                    let snapshot = try await db
-                        .collection("users")
-                        .document(followedUserId)
-                        .collection("posts")
-                        .getDocuments()
-                    
-                    if snapshot.documents.isEmpty {
-                        print("[FeedViewModel] No posts found for user:", followedUserId)
-                    } else {
-                        print("[FeedViewModel] Retrieved \(snapshot.documents.count) post(s) for user:", followedUserId)
-                    }
-                    
-                    var userPosts: [PostModel] = []
-                    for doc in snapshot.documents {
-                        print("[FeedViewModel] Document ID:", doc.documentID)
-                        print("[FeedViewModel] Raw data keys:", Array(doc.data().keys))
-                        let data: [String: Any] = doc.data()
-                        let post = await MainActor.run {
-                            return self.buildPostModel(from: data, documentID: doc.documentID)
-                        }
-                        if post.id == nil || post.itemId.isEmpty {
-                            print("[FeedViewModel] Warning: Malformed post detected, skipping:", doc.documentID)
-                            continue
-                        }
-                        let itemName: String = itemNameCache[post.itemId] ?? "Untitled Post"
-                        print("[FeedViewModel] Post loaded:", post.id ?? "nil", "-", itemName)
-                        userPosts.append(post)
-                    }
-                    allPosts.append(contentsOf: userPosts)
-                    print("[FeedViewModel] \(followedUserId) => loaded \(userPosts.count) post(s)")
-                } catch {
-                    print("[FeedViewModel] Error fetching posts for user \(followedUserId):", error.localizedDescription)
-                }
+
+        trackedUserIds.insert(currentUserId)
+
+        let resolvedTargetIds = targetedUserIds?.filter { !$0.isEmpty } ?? []
+        var userIdsToFetch: [String] = resolvedTargetIds
+
+        if userIdsToFetch.isEmpty {
+            if trackedUserIds.isEmpty {
+                userIdsToFetch = [currentUserId]
+            } else {
+                userIdsToFetch = Array(trackedUserIds)
             }
-            
-            startListeningToPosts(for: allUserIds)
-            
-            // 3) Sort combined posts by timestamp descending
-            let sortedPosts = allPosts.sorted { $0.timestamp > $1.timestamp }
-            print("[FeedViewModel] Sorted posts (latest first):", sortedPosts.map { $0.itemId })
-            
-            // Build a mapping from itemId to authorId for all posts
-            var itemIdToAuthorId: [String: String] = [:]
-            for post in allPosts {
-                if itemNameCache[post.itemId] == nil, !post.itemId.isEmpty {
-                    itemIdToAuthorId[post.itemId] = post.authorId
-                }
-            }
-
-            for (itemId, authorId) in itemIdToAuthorId {
-                let itemRef = db.collection("users").document(authorId).collection("items").document(itemId)
-                do {
-                    let snapshot = try await itemRef.getDocument()
-                    if let data = snapshot.data(), let name = data["name"] as? String {
-                        self.itemNameCache[itemId] = name
-                    }
-                } catch {
-                    print("[FeedViewModel] Failed to fetch item \(itemId):", error.localizedDescription)
-                }
-            }
-            
-            await MainActor.run {
-                print("[FeedViewModel] Assigning updated posts with item names...")
-
-                var mergedPosts: [PostModel] = []
-                for var post in sortedPosts {
-                    guard let postId = post.id else {
-                        print("[FeedViewModel] Skipping post without id during merge.")
-                        continue
-                    }
-
-                    if let name = self.itemNameCache[post.itemId] {
-                        post.itemName = name
-                    }
-
-                    if var cachedPost = self.postCache[postId] {
-                        if post.itemName == nil {
-                            post.itemName = cachedPost.itemName
-                        }
-
-                        if self.pendingLikeUpdates.contains(postId) {
-                            if cachedPost.likedBy != post.likedBy {
-                                print("[FeedViewModel] Preserving optimistic likes for post", postId)
-                                post.likedBy = cachedPost.likedBy
-                            } else {
-                                self.pendingLikeUpdates.remove(postId)
-                            }
-                        }
-                    }
-
-                    self.postCache[postId] = post
-                    mergedPosts.append(post)
-                }
-
-                self.posts = mergedPosts
-                let mergedIds = Set(mergedPosts.compactMap { $0.id })
-                self.postCache = self.postCache.filter { mergedIds.contains($0.key) }
-                self.pendingLikeUpdates = self.pendingLikeUpdates.intersection(mergedIds)
-                print("[FeedViewModel] Assigned posts count:", self.posts.count)
-                print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
-                print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
-            }
-            
-        } catch {
-            print("[FeedViewModel] fetchFeedPosts error:", error.localizedDescription)
-            self.errorMessage = error.localizedDescription
-            // Even on error, ensure posts is set to empty to reflect failure state
-            self.posts = []
         }
+
+        if reset {
+            paginationState = [:]
+            postCache = [:]
+        }
+
+        if !resolvedTargetIds.isEmpty {
+            resolvedTargetIds.forEach { paginationState[$0] = nil }
+        } else if reset {
+            userIdsToFetch.forEach { paginationState[$0] = nil }
+        }
+
+        var fetchedPosts: [PostModel] = []
+        var paginationUpdates: [String: DocumentSnapshot?] = [:]
+
+        for userId in userIdsToFetch {
+            do {
+                let startAfter = paginationState[userId] ?? nil
+                let (userPosts, lastSnapshot) = try await fetchPosts(for: userId, startAfter: startAfter)
+                paginationUpdates[userId] = lastSnapshot
+                for post in userPosts {
+                    await ensureItemSummary(for: post)
+                }
+                fetchedPosts.append(contentsOf: userPosts)
+            } catch {
+                print("[FeedViewModel] Error fetching posts for user \(userId):", error.localizedDescription)
+            }
+        }
+
+        for (userId, snapshot) in paginationUpdates {
+            paginationState[userId] = snapshot
+        }
+
+        mergeFetchedPosts(fetchedPosts, replacingExisting: reset && resolvedTargetIds.isEmpty)
+    }
+
+    private func fetchPosts(for userId: String, startAfter: DocumentSnapshot?) async throws -> ([PostModel], DocumentSnapshot?) {
+        var query = db
+            .collection("users")
+            .document(userId)
+            .collection("posts")
+            .order(by: "timestamp", descending: true)
+            .limit(to: pageSize)
+
+        if let startAfter {
+            query = query.start(afterDocument: startAfter)
+        }
+
+        let snapshot = try await query.getDocuments()
+        var posts: [PostModel] = []
+
+        for document in snapshot.documents {
+            let data = document.data()
+            var post = buildPostModel(from: data, documentID: document.documentID)
+            if post.id == nil || post.itemId.isEmpty {
+                print("[FeedViewModel] Warning: Malformed post detected, skipping:", document.documentID)
+                continue
+            }
+
+            if let summary = itemSummaryCache[post.itemId] {
+                post.itemName = summary.name
+            }
+
+            posts.append(post)
+        }
+
+        return (posts, snapshot.documents.last)
+    }
+
+    private func ensureItemSummary(for post: PostModel) async {
+        guard itemSummaryCache[post.itemId] == nil else { return }
+
+        let itemRef = db
+            .collection("users")
+            .document(post.authorId)
+            .collection("items")
+            .document(post.itemId)
+
+        do {
+            let snapshot = try await itemRef.getDocument()
+            guard let data = snapshot.data() else { return }
+
+            let summary = ItemSummary(
+                id: post.itemId,
+                ownerId: post.authorId,
+                name: data["name"] as? String ?? post.itemName ?? "Untitled Post",
+                dueDate: (data["dueDate"] as? Timestamp)?.dateValue(),
+                hasDueTime: data["hasDueTime"] as? Bool ?? false,
+                completed: data["completed"] as? Bool ?? false,
+                likedBy: data["likedBy"] as? [String] ?? []
+            )
+
+            itemSummaryCache[post.itemId] = summary
+            itemSummaries = itemSummaryCache
+        } catch {
+            print("[FeedViewModel] Failed to fetch item summary for \(post.itemId):", error.localizedDescription)
+        }
+    }
+
+    private func mergeFetchedPosts(_ fetchedPosts: [PostModel], replacingExisting: Bool) {
+        if replacingExisting {
+            postCache.removeAll()
+        }
+
+        for var post in fetchedPosts {
+            guard let postId = post.id else { continue }
+
+            if let summary = itemSummaryCache[post.itemId] {
+                post.itemName = summary.name
+            }
+
+            if pendingLikeUpdates.contains(postId), let cached = postCache[postId] {
+                if cached.likedBy != post.likedBy {
+                    print("[FeedViewModel] Preserving optimistic likes for post", postId)
+                    post.likedBy = cached.likedBy
+                } else {
+                    pendingLikeUpdates.remove(postId)
+                }
+            } else {
+                pendingLikeUpdates.remove(postId)
+            }
+
+            postCache[postId] = post
+        }
+
+        posts = postCache.values.sorted { $0.timestamp > $1.timestamp }
+        itemSummaries = itemSummaryCache
+        let validIds = Set(postCache.keys)
+        pendingLikeUpdates = pendingLikeUpdates.intersection(validIds)
+    }
+
+    private func attachListener(for userId: String) {
+        let listener = db
+            .collection("users")
+            .document(userId)
+            .collection("posts")
+            .order(by: "timestamp", descending: true)
+            .limit(to: pageSize)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                if let error = error {
+                    print("[FeedViewModel] Listener error for user \(userId):", error.localizedDescription)
+                    return
+                }
+                guard let snapshot = snapshot else { return }
+
+                Task {
+                    await self.handleSnapshot(snapshot, for: userId)
+                }
+            }
+
+        postListeners[userId] = listener
+    }
+
+    private func handleSnapshot(_ snapshot: QuerySnapshot, for userId: String) async {
+        let _ = userId
+        var updatedPosts: [PostModel] = []
+        var removedPostIds: [String] = []
+
+        for change in snapshot.documentChanges {
+            switch change.type {
+            case .added, .modified:
+                var post = buildPostModel(from: change.document.data(), documentID: change.document.documentID)
+                if post.id == nil || post.itemId.isEmpty {
+                    continue
+                }
+                if let summary = itemSummaryCache[post.itemId] {
+                    post.itemName = summary.name
+                }
+                await ensureItemSummary(for: post)
+                updatedPosts.append(post)
+            case .removed:
+                removedPostIds.append(change.document.documentID)
+            @unknown default:
+                continue
+            }
+        }
+
+        if updatedPosts.isEmpty && removedPostIds.isEmpty {
+            return
+        }
+
+        var requiresResort = false
+
+        for postId in removedPostIds {
+            postCache[postId] = nil
+            pendingLikeUpdates.remove(postId)
+            requiresResort = true
+        }
+
+        for var post in updatedPosts {
+            guard let postId = post.id else { continue }
+
+            if let summary = itemSummaryCache[post.itemId] {
+                post.itemName = summary.name
+            }
+
+            if pendingLikeUpdates.contains(postId), let cached = postCache[postId] {
+                if cached.likedBy != post.likedBy {
+                    post.likedBy = cached.likedBy
+                } else {
+                    pendingLikeUpdates.remove(postId)
+                }
+            } else {
+                pendingLikeUpdates.remove(postId)
+            }
+
+            postCache[postId] = post
+            requiresResort = true
+        }
+
+        if requiresResort {
+            posts = postCache.values.sorted { $0.timestamp > $1.timestamp }
+        }
+
+        let remainingItemIds = Set(postCache.values.map { $0.itemId })
+        itemSummaryCache = itemSummaryCache.filter { remainingItemIds.contains($0.key) }
+        itemSummaries = itemSummaryCache
+        pendingLikeUpdates = pendingLikeUpdates.intersection(Set(postCache.keys))
+    }
+
+    private func removePosts(forAuthor authorId: String) {
+        postCache = postCache.filter { $0.value.authorId != authorId }
+        let validIds = Set(postCache.keys)
+        pendingLikeUpdates = pendingLikeUpdates.intersection(validIds)
+        let remainingItemIds = Set(postCache.values.map { $0.itemId })
+        itemSummaryCache = itemSummaryCache.filter { remainingItemIds.contains($0.key) }
+        posts = postCache.values.sorted { $0.timestamp > $1.timestamp }
+        itemSummaries = itemSummaryCache
     }
 
     private func buildPostModel(from data: [String: Any], documentID: String) -> PostModel {
@@ -216,7 +346,7 @@ class FeedViewModel: ObservableObject {
     }
     
     func refreshFeed() async {
-        await fetchFeedPosts()
+        await fetchFeedPosts(reset: true)
     }
     
     // MARK: - Like a Post
@@ -256,6 +386,11 @@ class FeedViewModel: ObservableObject {
                 updatedPost.likedBy = newLikedBy
                 postCache[postDocId] = updatedPost
             }
+            if var summary = itemSummaryCache[post.itemId] {
+                summary.likedBy = newLikedBy
+                itemSummaryCache[post.itemId] = summary
+                itemSummaries = itemSummaryCache
+            }
             pendingLikeUpdates.insert(postDocId)
 
             try await postRef.updateData(["likedBy": newLikedBy])
@@ -276,6 +411,11 @@ class FeedViewModel: ObservableObject {
             if var cached = postCache[postDocId] {
                 cached.likedBy = post.likedBy
                 postCache[postDocId] = cached
+            }
+            if var summary = itemSummaryCache[post.itemId] {
+                summary.likedBy = post.likedBy
+                itemSummaryCache[post.itemId] = summary
+                itemSummaries = itemSummaryCache
             }
         }
     }
@@ -314,32 +454,40 @@ class FeedViewModel: ObservableObject {
     }
     
     func startListeningToPosts(for userIds: [String]) {
-        // Remove old listeners
-        postListeners.forEach { $0.remove() }
-        postListeners.removeAll()
+        guard let currentUserId = authenticatedUserId else { return }
 
-        for uid in userIds {
-            let listener = db.collection("users")
-                .document(uid)
-                .collection("posts")
-                .addSnapshotListener { [weak self] _, error in
-                    guard let self = self else { return }
-                    if let error = error {
-                        print("[FeedViewModel] Listener error for user \(uid):", error.localizedDescription)
-                        return
-                    }
+        var combinedIds = Set(userIds)
+        combinedIds.insert(currentUserId)
 
-                    Task {
-                        await self.fetchFeedPosts()
-                    }
-                }
+        let removedIds = trackedUserIds.subtracting(combinedIds)
+        let addedIds = combinedIds.subtracting(trackedUserIds)
 
-            postListeners.append(listener)
+        for id in removedIds {
+            postListeners[id]?.remove()
+            postListeners[id] = nil
+            paginationState[id] = nil
+            removePosts(forAuthor: id)
+        }
+
+        trackedUserIds = combinedIds
+
+        for id in addedIds {
+            attachListener(for: id)
+        }
+
+        if !addedIds.isEmpty {
+            Task {
+                await self.fetchFeedPosts(reset: false, targetedUserIds: Array(addedIds))
+            }
         }
     }
     
+    func itemSummary(for itemId: String) -> ItemSummary? {
+        itemSummaryCache[itemId]
+    }
+
     func getItemName(for itemId: String) -> String {
-        return itemNameCache[itemId] ?? "Untitled Post"
+        return itemSummaryCache[itemId]?.name ?? "Untitled Post"
     }
 
 }
