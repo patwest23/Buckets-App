@@ -16,15 +16,17 @@ class FeedViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     
     private let db = Firestore.firestore()
-    
+
     private var postListeners: [ListenerRegistration] = []
-    
+
     /// Authenticated user’s UID
     private var authenticatedUserId: String? {
         Auth.auth().currentUser?.uid
     }
-    
+
     private var itemNameCache: [String: String] = [:]
+    private var postCache: [String: PostModel] = [:]
+    private var pendingLikeUpdates: Set<String> = []
     
     init() {
         // You can call fetchFeedPosts() here or in the FeedView’s .onAppear.
@@ -128,13 +130,41 @@ class FeedViewModel: ObservableObject {
             
             await MainActor.run {
                 print("[FeedViewModel] Assigning updated posts with item names...")
-                self.posts = sortedPosts.map { post in
-                    var updatedPost = post
-                    if let name = self.itemNameCache[post.itemId] {
-                        updatedPost.itemName = name
+
+                var mergedPosts: [PostModel] = []
+                for var post in sortedPosts {
+                    guard let postId = post.id else {
+                        print("[FeedViewModel] Skipping post without id during merge.")
+                        continue
                     }
-                    return updatedPost
+
+                    if let name = self.itemNameCache[post.itemId] {
+                        post.itemName = name
+                    }
+
+                    if var cachedPost = self.postCache[postId] {
+                        if post.itemName == nil {
+                            post.itemName = cachedPost.itemName
+                        }
+
+                        if self.pendingLikeUpdates.contains(postId) {
+                            if cachedPost.likedBy != post.likedBy {
+                                print("[FeedViewModel] Preserving optimistic likes for post", postId)
+                                post.likedBy = cachedPost.likedBy
+                            } else {
+                                self.pendingLikeUpdates.remove(postId)
+                            }
+                        }
+                    }
+
+                    self.postCache[postId] = post
+                    mergedPosts.append(post)
                 }
+
+                self.posts = mergedPosts
+                let mergedIds = Set(mergedPosts.compactMap { $0.id })
+                self.postCache = self.postCache.filter { mergedIds.contains($0.key) }
+                self.pendingLikeUpdates = self.pendingLikeUpdates.intersection(mergedIds)
                 print("[FeedViewModel] Assigned posts count:", self.posts.count)
                 print("[FeedViewModel] fetchFeedPosts => loaded \(allPosts.count) total posts.")
                 print("✅ fetchFeedPosts completed. Total posts:", allPosts.count)
@@ -218,6 +248,16 @@ class FeedViewModel: ObservableObject {
                 print("[FeedViewModel] toggleLike optimistic update for post:", postDocId)
             }
 
+            if var cached = postCache[postDocId] {
+                cached.likedBy = newLikedBy
+                postCache[postDocId] = cached
+            } else {
+                var updatedPost = post
+                updatedPost.likedBy = newLikedBy
+                postCache[postDocId] = updatedPost
+            }
+            pendingLikeUpdates.insert(postDocId)
+
             try await postRef.updateData(["likedBy": newLikedBy])
 
             print("[FeedViewModel] toggleLike: \(currentUID) => \(newLikedBy.count) likes total for post \(postDocId)")
@@ -231,6 +271,11 @@ class FeedViewModel: ObservableObject {
                     posts[idx].likedBy = post.likedBy
                 }
                 print("[FeedViewModel] toggleLike reverted local post due to error:", postDocId)
+            }
+            pendingLikeUpdates.remove(postDocId)
+            if var cached = postCache[postDocId] {
+                cached.likedBy = post.likedBy
+                postCache[postDocId] = cached
             }
         }
     }

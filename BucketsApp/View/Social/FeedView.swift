@@ -28,23 +28,25 @@ struct FeedView: View {
                             .foregroundColor(.gray)
                             .padding()
                     } else {
-                        ForEach(feedViewModel.posts) { post in
-                            let matchedItem = bucketListViewModel.items.first { $0.postId == post.id }
+                        ForEach($feedViewModel.posts) { $post in
+                            let postValue = $post.wrappedValue
+                            let matchedItem = bucketListViewModel.items.first { $0.postId == postValue.id }
                             VStack(alignment: .leading, spacing: 4) {
                                 // MARK: - Feed Card
                                 FeedRowView(
-                                    post: post,
+                                    post: $post,
                                     item: matchedItem,
-                                    onLike: {
-                                        await feedViewModel.toggleLike(post: post)
+                                    onLike: { updatedPost in
+                                        await feedViewModel.toggleLike(post: updatedPost)
                                     }
                                 )
                                 .task {
-                                    print("🔍 FeedRowView - postId=\(post.id ?? "nil"), likeCount=\(post.likedBy.count)")
+                                    let latestPost = $post.wrappedValue
+                                    print("🔍 FeedRowView - postId=\(latestPost.id ?? "nil"), likeCount=\(latestPost.likedBy.count)")
                                 }
 
                                 // MARK: - Timestamp
-                                Text(timeAgoString(for: post.timestamp))
+                                Text(timeAgoString(for: postValue.timestamp))
                                     .font(.caption2)
                                     .foregroundColor(.gray)
                             }
