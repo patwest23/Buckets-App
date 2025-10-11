@@ -100,13 +100,13 @@ struct DetailItemView: View {
                 LocationSearchFieldView(
                     query: $locationSearchVM.queryFragment,
                     results: locationSearchVM.searchResults,
-                    focus: $isLocationFocused,
                     onSelect: { result in
                         Task {
                             await viewModel.updateLocation(from: result)
                         }
                         locationSearchVM.searchResults = []
                     },
+                    focus: $isLocationFocused,
                     onFocusChange: { isFocused in
                         if isFocused {
                             isTitleFocused = false
