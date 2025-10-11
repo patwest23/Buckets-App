@@ -108,4 +108,16 @@ final class DetailItemViewModel: ObservableObject {
     var canPost: Bool {
         completed && !imageUrls.isEmpty && !wasShared
     }
+
+    func applyingEdits(to item: ItemModel) -> ItemModel {
+        var updated = item
+        updated.name = name
+        updated.caption = caption
+        updated.completed = completed
+        updated.wasShared = wasShared
+        updated.imageUrls = imageUrls
+        updated.dueDate = dueDate
+        updated.location = location
+        return updated
+    }
 }

@@ -27,6 +27,7 @@ struct DetailItemView: View {
     @State private var showFeedConfirmation = false
     @State private var showDeleteAlert = false
     @StateObject private var viewModel: DetailItemViewModel
+    @State private var isPostingToFeed = false
 
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isCaptionFocused: Bool
@@ -119,30 +120,54 @@ struct DetailItemView: View {
                 photoPickerView
                     .padding(.vertical, 2)
 
-                if !(bucketListViewModel.currentEditingItem?.imageUrls.isEmpty ?? true) {
-                    photoGridRow
-                }
+                photoGridRow
 
-                // Post to Feed button if completed, has photos, and not already shared
-                if viewModel.completed,
-                   !viewModel.imageUrls.isEmpty,
-                   !viewModel.wasShared {
-                    Button(action: {
-                        Task {
-                            if let item = bucketListViewModel.currentEditingItem {
-                                await postViewModel.createOrUpdatePost(for: item)
-                                showFeedConfirmation = true
+                if !viewModel.wasShared {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button(action: {
+                            Task {
+                                guard !isPostingToFeed else { return }
+                                isPostingToFeed = true
+                                defer { isPostingToFeed = false }
+                                await viewModel.commitPendingChanges()
+                                postViewModel.caption = viewModel.caption
+                                if var item = bucketListViewModel.currentEditingItem {
+                                    item = viewModel.applyingEdits(to: item)
+                                    await syncCoordinator.post(item: item)
+                                    bucketListViewModel.currentEditingItem = item
+                                    viewModel.wasShared = true
+                                    showFeedConfirmation = true
+                                }
                             }
-                        }
-                    }) {
-                        Text("📢 Post to Feed")
+                        }) {
+                            HStack {
+                                if isPostingToFeed {
+                                    ProgressView()
+                                        .tint(.white)
+                                }
+                                Text("📢 Post to Feed")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                            }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
+                            .background(viewModel.canPost ? Color.blue : Color.gray.opacity(0.4))
                             .foregroundColor(.white)
                             .cornerRadius(10)
-                            .padding(.horizontal)
+                        }
+                        .disabled(!viewModel.canPost || isPostingToFeed)
+
+                        if !viewModel.completed {
+                            Text("Mark this item complete before sharing to your feed.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        } else if viewModel.imageUrls.isEmpty {
+                            Text("Add at least one photo before posting.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
                     }
+                    .padding(.horizontal)
                 }
 
                 Spacer()
@@ -174,8 +199,6 @@ struct DetailItemView: View {
                     .font(.body)
                     .padding(8)
                     .frame(minHeight: 80)
-                    .disabled(!viewModel.completed)
-                    .opacity(viewModel.completed ? 1.0 : 0.5)
                     .focused($isCaptionFocused)
                     .onChange(of: isCaptionFocused) { newValue in
                         if newValue {
@@ -310,6 +333,7 @@ struct DetailItemView: View {
                                 userId: userViewModel.user?.id ?? "",
                                 itemId: editingItem.id.uuidString
                             )
+                            await viewModel.updateImageUrls(uploadedUrls)
                             var updatedItem = editingItem
                             if updatedItem.userId.isEmpty,
                                let uid = userViewModel.user?.id {
@@ -356,7 +380,6 @@ struct DetailItemView: View {
     @ViewBuilder
     private var photoPickerView: some View {
         let isUploading = imagePickerVM.isUploading
-        let completed = viewModel.completed
         PhotosPicker(
             selection: $imagePickerVM.selectedItems,
             maxSelectionCount: 3,
@@ -382,7 +405,7 @@ struct DetailItemView: View {
             .contentShape(Rectangle())
             .padding(.vertical, 2)
         }
-        .disabled(!completed || isUploading)
+        .disabled(isUploading)
     }
     
     
