@@ -8,7 +8,6 @@
 import Foundation
 import MapKit
 
-@MainActor
 class LocationSearchViewModel: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
     @Published var queryFragment = ""
     @Published var searchResults: [MKLocalSearchCompletion] = []
@@ -22,16 +21,22 @@ class LocationSearchViewModel: NSObject, ObservableObject, MKLocalSearchComplete
         searchCompleter.resultTypes = .address
     }
 
+    @MainActor
     func updateQuery(_ query: String) {
         queryFragment = query
         searchCompleter.queryFragment = query
     }
 
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        self.searchResults = completer.results
+    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            self.searchResults = self.searchCompleter.results
+        }
     }
 
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
-        print("❌ Location autocomplete failed:", error.localizedDescription)
+    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        Task { @MainActor in
+            print("❌ Location autocomplete failed:", error.localizedDescription)
+        }
     }
 }

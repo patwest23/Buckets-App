@@ -9,6 +9,9 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+extension Dictionary: @unchecked Sendable where Key == String, Value == Any {}
+extension Dictionary: @unchecked Sendable where Key == AnyHashable, Value == Any {}
+
 struct ItemSummary: Equatable {
     let id: String
     let ownerId: String
@@ -223,7 +226,8 @@ class FeedViewModel: ObservableObject {
                 }
                 guard let snapshot = snapshot else { return }
 
-                Task {
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
                     await self.handleSnapshot(snapshot, for: userId)
                 }
             }
