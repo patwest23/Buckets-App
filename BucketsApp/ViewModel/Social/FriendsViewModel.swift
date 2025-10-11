@@ -22,6 +22,8 @@ class FriendsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isLoading: Bool = false
 
+    private var loadingRequestCount = 0
+
     private let db = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
     private var searchTask: Task<Void, Never>?
@@ -35,9 +37,25 @@ class FriendsViewModel: ObservableObject {
         return user.documentId ?? (user.id.isEmpty ? nil : user.id)
     }
 
-    func loadFriendsData() async {
-        isLoading = true
-        defer { isLoading = false }
+    private func beginLoading(showIndicator: Bool) {
+        guard showIndicator else { return }
+        loadingRequestCount += 1
+        if !isLoading {
+            isLoading = true
+        }
+    }
+
+    private func endLoading(showIndicator: Bool) {
+        guard showIndicator else { return }
+        loadingRequestCount = max(0, loadingRequestCount - 1)
+        if loadingRequestCount == 0 {
+            isLoading = false
+        }
+    }
+
+    func loadFriendsData(showLoadingIndicator: Bool = true) async {
+        beginLoading(showIndicator: showLoadingIndicator)
+        defer { endLoading(showIndicator: showLoadingIndicator) }
         guard let userId = currentUserId else { return }
 
         do {
@@ -87,7 +105,7 @@ class FriendsViewModel: ObservableObject {
                 }
 
                 Task {
-                    await self.loadFriendsData()
+                    await self.loadFriendsData(showLoadingIndicator: false)
                 }
             }
     }
@@ -202,12 +220,12 @@ class FriendsViewModel: ObservableObject {
         }
     }
     
-    func loadAllUsers() async {
-        isLoading = true
-        defer { isLoading = false }
+    func loadAllUsers(showLoadingIndicator: Bool = true) async {
+        beginLoading(showIndicator: showLoadingIndicator)
+        defer { endLoading(showIndicator: showLoadingIndicator) }
         print("[FriendsViewModel] ⚙️ loadAllUsers started")
 
-        await loadFriendsData()
+        await loadFriendsData(showLoadingIndicator: false)
 
         guard let currentUserId = currentUserId else {
             print("[FriendsViewModel] ❌ currentUserId is nil")
@@ -329,7 +347,7 @@ class FriendsViewModel: ObservableObject {
 
     func startAllListeners() {
         startListeningToFriendChanges()
-        Task { await loadAllUsers() }
+        Task { await loadAllUsers(showLoadingIndicator: false) }
     }
 
     func follow(_ user: UserModel) async {
@@ -344,8 +362,8 @@ class FriendsViewModel: ObservableObject {
             try await currentRef.updateData(followingUpdate)
             try await targetRef.updateData(followersUpdate)
 
-            await loadFriendsData()
-            await loadAllUsers()
+            await loadFriendsData(showLoadingIndicator: false)
+            await loadAllUsers(showLoadingIndicator: false)
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to follow user: \(error.localizedDescription)"
@@ -365,8 +383,8 @@ class FriendsViewModel: ObservableObject {
             try await currentRef.updateData(followingUpdate)
             try await targetRef.updateData(followersUpdate)
 
-            await loadFriendsData()
-            await loadAllUsers()
+            await loadFriendsData(showLoadingIndicator: false)
+            await loadAllUsers(showLoadingIndicator: false)
         } catch {
             await MainActor.run {
                 self.errorMessage = "Failed to unfollow user: \(error.localizedDescription)"
