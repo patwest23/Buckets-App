@@ -11,11 +11,11 @@ struct FeedRowView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var userViewModel: UserViewModel
 
-    let post: PostModel
+    @Binding var post: PostModel
     let item: ItemModel? // NEW: injected from parent
 
     /// Callback for "like"
-    let onLike: @MainActor () async -> Void
+    let onLike: @MainActor (PostModel) async -> Void
 
     /// Dynamically choose text color based on light/dark mode
     private var dynamicTextColor: Color {
@@ -84,7 +84,8 @@ struct FeedRowView: View {
             HStack(spacing: 12) {
                 Button(action: {
                     print("[FeedRowView] Tapping like on post: \(post.id ?? "nil")")
-                    Task { @MainActor in await onLike() }
+                    let currentPost = post
+                    Task { @MainActor in await onLike(currentPost) }
                 }) {
                     HStack(spacing: 6) {
                         Image(systemName: isLikedByCurrentUser ? "heart.fill" : "heart")
@@ -201,10 +202,10 @@ struct FeedRowView_Previews: PreviewProvider {
         return Group {
             NavigationStack {
                 FeedRowView(
-                    post: samplePost,
+                    post: .constant(samplePost),
                     item: nil,
-                    onLike: {
-                        print("[Preview] Liked post \(samplePost.id ?? "nil")")
+                    onLike: { updatedPost in
+                        print("[Preview] Liked post \(updatedPost.id ?? "nil")")
                     }
                 )
                 .environmentObject(postVM)
@@ -212,7 +213,7 @@ struct FeedRowView_Previews: PreviewProvider {
                 .environmentObject(ListViewModel())
             }
             .previewDisplayName("FeedRowView - MVP Completed Item w/ Multiple Images")
-            
+
             NavigationStack {
                 // A variant with no images, incomplete item
                 let noImagesPost = PostModel(
@@ -228,12 +229,12 @@ struct FeedRowView_Previews: PreviewProvider {
                     visibility: nil,
                     likedBy: []
                 )
-                
+
                 FeedRowView(
-                    post: noImagesPost,
+                    post: .constant(noImagesPost),
                     item: nil,
-                    onLike: {
-                        print("[Preview] Liked post \(noImagesPost.id ?? "nil")")
+                    onLike: { updatedPost in
+                        print("[Preview] Liked post \(updatedPost.id ?? "nil")")
                     }
                 )
                 .environmentObject(postVM)
