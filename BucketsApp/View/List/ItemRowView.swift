@@ -53,7 +53,7 @@ struct ItemRowView: View {
                 await bucketListViewModel.prefetchImages(for: item)
             }
         }
-        .onChange(of: bucketListViewModel.allImageUrls(for: item)) {
+        .onChange(of: bucketListViewModel.allImageUrls(for: item), initial: false) {
             Task {
                 await bucketListViewModel.prefetchImages(for: item)
             }

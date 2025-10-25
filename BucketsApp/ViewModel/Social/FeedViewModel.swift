@@ -9,7 +9,7 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
-struct ItemSummary: Equatable {
+struct ItemSummary: Equatable, Sendable {
     let id: String
     let ownerId: String
     var name: String
@@ -223,43 +223,42 @@ class FeedViewModel: ObservableObject {
                 }
                 guard let snapshot = snapshot else { return }
 
+                var updatedPosts: [PostModel] = []
+                var removedPostIds: [String] = []
+
+                for change in snapshot.documentChanges {
+                    switch change.type {
+                    case .added, .modified:
+                        var post = self.buildPostModel(from: change.document.data(), documentID: change.document.documentID)
+                        if post.id == nil || post.itemId.isEmpty {
+                            continue
+                        }
+                        if let summary = self.itemSummaryCache[post.itemId] {
+                            post.itemName = summary.name
+                        }
+                        updatedPosts.append(post)
+                    case .removed:
+                        removedPostIds.append(change.document.documentID)
+                    @unknown default:
+                        continue
+                    }
+                }
+
+                guard !updatedPosts.isEmpty || !removedPostIds.isEmpty else {
+                    return
+                }
+
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }
-                    await self.handleSnapshot(snapshot, for: userId)
+                    await self.applySnapshotUpdates(updatedPosts: updatedPosts, removedPostIds: removedPostIds)
                 }
             }
 
         postListeners[userId] = listener
     }
 
-    private func handleSnapshot(_ snapshot: QuerySnapshot, for userId: String) async {
-        let _ = userId
-        var updatedPosts: [PostModel] = []
-        var removedPostIds: [String] = []
-
-        for change in snapshot.documentChanges {
-            switch change.type {
-            case .added, .modified:
-                var post = buildPostModel(from: change.document.data(), documentID: change.document.documentID)
-                if post.id == nil || post.itemId.isEmpty {
-                    continue
-                }
-                if let summary = itemSummaryCache[post.itemId] {
-                    post.itemName = summary.name
-                }
-                await ensureItemSummary(for: post)
-                updatedPosts.append(post)
-            case .removed:
-                removedPostIds.append(change.document.documentID)
-            @unknown default:
-                continue
-            }
-        }
-
-        if updatedPosts.isEmpty && removedPostIds.isEmpty {
-            return
-        }
-
+    @MainActor
+    private func applySnapshotUpdates(updatedPosts: [PostModel], removedPostIds: [String]) async {
         var requiresResort = false
 
         for postId in removedPostIds {
@@ -270,6 +269,10 @@ class FeedViewModel: ObservableObject {
 
         for var post in updatedPosts {
             guard let postId = post.id else { continue }
+
+            if itemSummaryCache[post.itemId] == nil {
+                await ensureItemSummary(for: post)
+            }
 
             if let summary = itemSummaryCache[post.itemId] {
                 post.itemName = summary.name

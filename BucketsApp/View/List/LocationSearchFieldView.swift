@@ -37,7 +37,7 @@ struct LocationSearchFieldView: View {
                     .focused(focus, equals: .location)
                     .textInputAutocapitalization(.words)
                     .disableAutocorrection(true)
-                    .onChange(of: isFocused) { newValue in
+                    .onChange(of: isFocused, initial: false) { _, newValue in
                         onFocusChange?(newValue)
                     }
 

@@ -134,7 +134,7 @@ extension ProfileView {
                 selection: $selectedImageItem,
                 matching: .images
             )
-            .onChange(of: selectedImageItem) { oldValue, newValue in
+            .onChange(of: selectedImageItem, initial: false) { oldValue, newValue in
                 loadProfileImage(newValue)
             }
             

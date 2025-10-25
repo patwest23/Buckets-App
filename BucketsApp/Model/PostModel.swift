@@ -8,13 +8,13 @@
 import Foundation
 import FirebaseFirestore
 
-enum PostType: String, Codable {
+enum PostType: String, Codable, Sendable {
     case added
     case completed
     case photos
 }
 
-struct PostModel: Identifiable, Codable {
+struct PostModel: Identifiable, Codable, Sendable {
     
     @DocumentID var id: String? = nil
 

@@ -83,7 +83,7 @@ struct FriendsView: View {
                 }
                 .listStyle(.insetGrouped)
                 .searchable(text: $viewModel.searchText, prompt: "Search users")
-                .onChange(of: viewModel.searchText) { _ in
+                .onChange(of: viewModel.searchText, initial: false) {
                     viewModel.handleSearchChange()
                 }
             }
