@@ -11,6 +11,12 @@ import FirebaseStorage
 import FirebaseAuth
 import MapKit
 
+enum DetailItemField: Hashable {
+    case title
+    case caption
+    case location
+}
+
 @MainActor
 struct DetailItemView: View {
     let itemID: UUID
@@ -29,9 +35,7 @@ struct DetailItemView: View {
     @StateObject private var viewModel: DetailItemViewModel
     @State private var isPostingToFeed = false
 
-    @FocusState private var isTitleFocused: Bool
-    @FocusState private var isCaptionFocused: Bool
-    @FocusState private var isLocationFocused: Bool
+    @FocusState private var focusedField: DetailItemField?
     
     
     init(item: ItemModel, listViewModel: ListViewModel, postViewModel: PostViewModel) {
@@ -59,22 +63,15 @@ struct DetailItemView: View {
                 .padding(8)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isTitleFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isTitleFocused ? 2 : 1)
+                        .stroke(focusedField == .title ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: focusedField == .title ? 2 : 1)
                         .background(Color(.systemBackground))
                 )
-                .focused($isTitleFocused)
+                .focused($focusedField, equals: .title)
                 .textInputAutocapitalization(.sentences)
                 .disableAutocorrection(false)
                 .submitLabel(.next)
                 .onSubmit {
-                    isTitleFocused = false
-                    isCaptionFocused = true
-                }
-                .onChange(of: isTitleFocused) { newValue in
-                    if newValue {
-                        isCaptionFocused = false
-                        isLocationFocused = false
-                    }
+                    focusedField = .caption
                 }
                 .frame(maxWidth: .infinity)
 
@@ -92,98 +89,6 @@ struct DetailItemView: View {
     }
     
     @ViewBuilder
-    private var scrollViewContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Top row: Checkmark + editable title
-                checkmarkAndTitleRow
-
-                LocationSearchFieldView(
-                    query: $locationSearchVM.queryFragment,
-                    results: locationSearchVM.searchResults,
-                    onSelect: { result in
-                        Task {
-                            await viewModel.updateLocation(from: result)
-                        }
-                        locationSearchVM.searchResults = []
-                    },
-                    focus: $isLocationFocused,
-                    onFocusChange: { isFocused in
-                        if isFocused {
-                            isTitleFocused = false
-                            isCaptionFocused = false
-                        }
-                    }
-                )
-                captionEditorView
-
-                photoPickerView
-                    .padding(.vertical, 2)
-
-                photoGridRow
-
-                if !viewModel.wasShared {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Button(action: {
-                            Task {
-                                guard !isPostingToFeed else { return }
-                                isPostingToFeed = true
-                                defer { isPostingToFeed = false }
-                                await viewModel.commitPendingChanges()
-                                postViewModel.caption = viewModel.caption
-                                if var item = bucketListViewModel.currentEditingItem {
-                                    item = viewModel.applyingEdits(to: item)
-                                    await syncCoordinator.post(item: item)
-                                    bucketListViewModel.currentEditingItem = item
-                                    viewModel.wasShared = true
-                                    showFeedConfirmation = true
-                                }
-                            }
-                        }) {
-                            HStack {
-                                if isPostingToFeed {
-                                    ProgressView()
-                                        .tint(.white)
-                                }
-                                Text("📢 Post to Feed")
-                                    .fontWeight(.semibold)
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(viewModel.canPost ? Color.blue : Color.gray.opacity(0.4))
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                        }
-                        .disabled(!viewModel.canPost || isPostingToFeed)
-
-                        if !viewModel.completed {
-                            Text("Mark this item complete before sharing to your feed.")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        } else if viewModel.imageUrls.isEmpty {
-                            Text("Add at least one photo before posting.")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-
-                Spacer()
-            }
-            .padding()
-        }
-        .onChange(of: locationSearchVM.queryFragment) { newValue in
-            if viewModel.locationText != newValue {
-                viewModel.locationText = newValue
-            }
-        }
-        .scrollDismissesKeyboard(.interactively)
-    }
-
-
-    @ViewBuilder
     private var captionEditorView: some View {
         HStack(alignment: .top, spacing: 8) {
             Text("📝")
@@ -192,20 +97,14 @@ struct DetailItemView: View {
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isCaptionFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isCaptionFocused ? 2 : 1)
+                    .stroke(focusedField == .caption ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: focusedField == .caption ? 2 : 1)
                     .background(Color(.systemBackground))
 
                 TextEditor(text: $viewModel.caption)
                     .font(.body)
                     .padding(8)
                     .frame(minHeight: 80)
-                    .focused($isCaptionFocused)
-                    .onChange(of: isCaptionFocused) { newValue in
-                        if newValue {
-                            isTitleFocused = false
-                            isLocationFocused = false
-                        }
-                    }
+                    .focused($focusedField, equals: .caption)
             }
             .frame(maxWidth: .infinity)
         }
@@ -255,16 +154,103 @@ struct DetailItemView: View {
             )
         }
         let content =
-        ZStack {
-            scrollViewContent
-        }
-        .simultaneousGesture(
-            TapGesture()
-                .onEnded {
-                    guard isEditing else { return }
-                    endEditing()
+        Form {
+            Section {
+                checkmarkAndTitleRow
+            }
+
+            Section {
+                LocationSearchFieldView(
+                    query: $locationSearchVM.queryFragment,
+                    results: locationSearchVM.searchResults,
+                    onSelect: { result in
+                        Task {
+                            await viewModel.updateLocation(from: result)
+                        }
+                        locationSearchVM.searchResults = []
+                    },
+                    focus: $focusedField
+                )
+
+                captionEditorView
+            }
+
+            if !viewModel.imageUrls.isEmpty {
+                Section("Photos") {
+                    photoGridRow
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                 }
-        )
+            }
+
+            Section {
+                photoPickerView
+            }
+
+            if !viewModel.wasShared {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button(action: {
+                            Task {
+                                guard !isPostingToFeed else { return }
+                                isPostingToFeed = true
+                                defer { isPostingToFeed = false }
+                                await viewModel.commitPendingChanges()
+                                postViewModel.caption = viewModel.caption
+                                if var item = bucketListViewModel.currentEditingItem {
+                                    item = viewModel.applyingEdits(to: item)
+                                    await syncCoordinator.post(item: item)
+                                    bucketListViewModel.currentEditingItem = item
+                                    viewModel.wasShared = true
+                                    showFeedConfirmation = true
+                                }
+                            }
+                        }) {
+                            HStack {
+                                if isPostingToFeed {
+                                    ProgressView()
+                                        .tint(.white)
+                                }
+                                Text("📢 Post to Feed")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(viewModel.canPost ? Color.blue : Color.gray.opacity(0.4))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                        .disabled(!viewModel.canPost || isPostingToFeed)
+
+                        if !viewModel.completed {
+                            Text("Mark this item complete before sharing to your feed.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        } else if viewModel.imageUrls.isEmpty {
+                            Text("Add at least one photo before posting.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    showDeleteAlert = true
+                } label: {
+                    Text("🗑️ Delete This Item")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: locationSearchVM.queryFragment) { newValue in
+            if viewModel.locationText != newValue {
+                viewModel.locationText = newValue
+            }
+        }
 
         return AnyView(
             content
@@ -277,33 +263,26 @@ struct DetailItemView: View {
                             .fontWeight(.semibold)
                         }
                     }
-                }
-                .safeAreaInset(edge: .bottom, alignment: .center, spacing: 0) {
-                    Button(role: .destructive) {
-                        showDeleteAlert = true
-                    } label: {
-                        Text("🗑️ Delete This Item")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.red.opacity(0.8))
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                            .padding(.horizontal)
-                    }
-                    .alert("Are you sure?", isPresented: $showDeleteAlert) {
-                        Button("Delete", role: .destructive) {
-                            Task {
-                                if let item = bucketListViewModel.currentEditingItem {
-                                    await bucketListViewModel.deleteItem(item)
-                                    if let post = postViewModel.posts.first(where: { $0.itemId == item.id.uuidString }) {
-                                        await postViewModel.deletePost(post)
-                                    }
-                                }
-                                presentationMode.wrappedValue.dismiss()
-                            }
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") {
+                            endEditing()
                         }
-                        Button("Cancel", role: .cancel) { }
                     }
+                }
+                .alert("Are you sure?", isPresented: $showDeleteAlert) {
+                    Button("Delete", role: .destructive) {
+                        Task {
+                            if let item = bucketListViewModel.currentEditingItem {
+                                await bucketListViewModel.deleteItem(item)
+                                if let post = postViewModel.posts.first(where: { $0.itemId == item.id.uuidString }) {
+                                    await postViewModel.deletePost(post)
+                                }
+                            }
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { }
                 }
                 .onAppear {
                     print("[DetailItemView] onAppear fired for item: \(editingItem.name), wasShared: \(editingItem.wasShared)")
@@ -366,13 +345,11 @@ struct DetailItemView: View {
     }
 
     private var isEditing: Bool {
-        isTitleFocused || isCaptionFocused || isLocationFocused
+        focusedField != nil
     }
 
     private func endEditing() {
-        isTitleFocused = false
-        isCaptionFocused = false
-        isLocationFocused = false
+        focusedField = nil
         UIApplication.shared.endEditing()
         Task { await viewModel.commitPendingChanges() }
     }

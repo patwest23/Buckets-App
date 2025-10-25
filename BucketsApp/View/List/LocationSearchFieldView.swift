@@ -12,8 +12,12 @@ struct LocationSearchFieldView: View {
     @Binding var query: String
     let results: [MKLocalSearchCompletion]
     let onSelect: (MKLocalSearchCompletion) -> Void
-    var focus: FocusState<Bool>.Binding
+    var focus: FocusState<DetailItemField?>.Binding
     var onFocusChange: ((Bool) -> Void)? = nil
+
+    private var isFocused: Bool {
+        focus.wrappedValue == .location
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -26,14 +30,14 @@ struct LocationSearchFieldView: View {
                     .padding(8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(focus.wrappedValue ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: focus.wrappedValue ? 2 : 1)
+                            .stroke(isFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isFocused ? 2 : 1)
                             .background(Color(.systemBackground))
                     )
                     .submitLabel(.done)
-                    .focused(focus)
+                    .focused(focus, equals: .location)
                     .textInputAutocapitalization(.words)
                     .disableAutocorrection(true)
-                    .onChange(of: focus.wrappedValue) { newValue in
+                    .onChange(of: isFocused) { newValue in
                         onFocusChange?(newValue)
                     }
 
@@ -43,7 +47,7 @@ struct LocationSearchFieldView: View {
                             ForEach(results, id: \.self) { result in
                                 Button {
                                     onSelect(result)
-                                    focus.wrappedValue = false
+                                    focus.wrappedValue = nil
                                 } label: {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(result.title).bold()
