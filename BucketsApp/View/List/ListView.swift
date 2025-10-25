@@ -144,14 +144,14 @@ struct ListView: View {
                                         }
                                     }
                                     // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
-                                    .onChange(of: scrollToId, { oldVal, newVal in
+                                    .onChange(of: scrollToId, initial: false) { oldVal, newVal in
                                         guard let newVal = newVal else { return }
                                         if let proxy = scrollProxy {
                                             withAnimation(.easeOut(duration: 0.2)) {
                                                 proxy.scrollTo(newVal, anchor: .bottom)
                                             }
                                         }
-                                    })
+                                    }
                             }
                         }
 

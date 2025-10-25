@@ -34,12 +34,11 @@ struct UsernameSetupView: View {
                 .autocapitalization(.none)
                 .disableAutocorrection(true)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .onChange(of: username) {
+                .onChange(of: username, initial: false) { _, newValue in
                     hasInteracted = true
                     validationTask?.cancel()
-                    let latest = username
                     validationTask = Task {
-                        await validateUsername(latest)
+                        await validateUsername(newValue)
                     }
                 }
 

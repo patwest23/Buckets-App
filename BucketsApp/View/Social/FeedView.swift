@@ -81,10 +81,10 @@ struct FeedView: View {
                     Task { await performRefresh(showSpinner: true) }
                 }
             }
-            .onChange(of: friendsViewModel.followingUsers) { _ in
+            .onChange(of: friendsViewModel.followingUsers, initial: false) {
                 updateTrackedUsers()
             }
-            .onChange(of: userViewModel.user?.id) { _ in
+            .onChange(of: userViewModel.user?.id, initial: false) {
                 updateTrackedUsers()
             }
         }

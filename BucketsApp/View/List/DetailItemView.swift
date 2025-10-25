@@ -246,7 +246,7 @@ struct DetailItemView: View {
             }
         }
         .scrollDismissesKeyboard(.interactively)
-        .onChange(of: locationSearchVM.queryFragment) { newValue in
+        .onChange(of: locationSearchVM.queryFragment, initial: false) { _, newValue in
             if viewModel.locationText != newValue {
                 viewModel.locationText = newValue
             }
@@ -329,7 +329,7 @@ struct DetailItemView: View {
                 .onDisappear {
                     Task { await viewModel.commitPendingChanges() }
                 }
-                .onChange(of: postViewModel.didSharePost) { oldValue, newValue in
+                .onChange(of: postViewModel.didSharePost, initial: false) { oldValue, newValue in
                     if newValue {
                         postViewModel.didSharePost = false
                     }
