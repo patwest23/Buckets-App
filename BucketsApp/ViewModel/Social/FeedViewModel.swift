@@ -9,9 +9,6 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
-extension Dictionary: @unchecked Sendable where Key == String, Value == Any {}
-extension Dictionary: @unchecked Sendable where Key == AnyHashable, Value == Any {}
-
 struct ItemSummary: Equatable {
     let id: String
     let ownerId: String
@@ -502,7 +499,10 @@ class MockFeedViewModel: FeedViewModel {
         self.posts = posts // set the sample data
     }
     
-    override func fetchFeedPosts() async {
+    override func fetchFeedPosts(
+        reset: Bool = false,
+        targetedUserIds: [String]? = nil
+    ) async {
         // Normally would load from Firestore
         // Here, do nothing or maybe update `posts` with a new array
         print("[MockFeedViewModel] fetchFeedPosts() - in preview, so no network call.")
