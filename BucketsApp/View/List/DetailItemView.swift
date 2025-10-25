@@ -58,22 +58,28 @@ struct DetailItemView: View {
             .contentShape(Rectangle())
             .buttonStyle(.borderless)
 
-            TextField("Title...", text: $viewModel.name)
-                .font(.headline)
-                .padding(8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(focusedField == .title ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: focusedField == .title ? 2 : 1)
-                        .background(Color(.systemBackground))
-                )
-                .focused($focusedField, equals: .title)
-                .textInputAutocapitalization(.sentences)
-                .disableAutocorrection(false)
-                .submitLabel(.next)
-                .onSubmit {
-                    focusedField = .caption
-                }
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 0) {
+                TextField("Title...", text: $viewModel.name)
+                    .font(.headline)
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(focusedField == .title ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: focusedField == .title ? 2 : 1)
+                            .background(Color(.systemBackground))
+                    )
+                    .focused($focusedField, equals: .title)
+                    .textInputAutocapitalization(.sentences)
+                    .disableAutocorrection(false)
+                    .submitLabel(.next)
+                    .onSubmit {
+                        focusedField = .caption
+                    }
+                    .frame(maxWidth: .infinity)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focusField(.title)
+            }
 
             Spacer()
         }
@@ -107,9 +113,16 @@ struct DetailItemView: View {
                     .focused($focusedField, equals: .caption)
             }
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focusField(.caption)
+            }
         }
         .contentShape(Rectangle())
         .padding(.vertical, 2)
+        .onTapGesture {
+            focusField(.caption)
+        }
     }
     
     private func photoGrid(urlStrings: [String]) -> some View {
@@ -352,6 +365,12 @@ struct DetailItemView: View {
         focusedField = nil
         UIApplication.shared.endEditing()
         Task { await viewModel.commitPendingChanges() }
+    }
+
+    private func focusField(_ field: DetailItemField) {
+        if focusedField != field {
+            focusedField = field
+        }
     }
 
     @ViewBuilder

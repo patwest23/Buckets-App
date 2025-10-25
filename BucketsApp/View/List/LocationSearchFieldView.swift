@@ -40,6 +40,10 @@ struct LocationSearchFieldView: View {
                     .onChange(of: isFocused) { newValue in
                         onFocusChange?(newValue)
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        focus.wrappedValue = .location
+                    }
 
                 if !results.isEmpty {
                     ScrollView {
@@ -74,8 +78,15 @@ struct LocationSearchFieldView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focus.wrappedValue = .location
+            }
         }
         .contentShape(Rectangle())
         .padding(.vertical, 2)
+        .onTapGesture {
+            focus.wrappedValue = .location
+        }
     }
 }
