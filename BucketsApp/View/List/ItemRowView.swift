@@ -25,24 +25,24 @@ struct ItemRowView: View {
     private let cardShadowRadius: CGFloat = 4
     private let spacing: CGFloat = 6
     private let imageHeight: CGFloat = 240
+    private let controlCornerRadius: CGFloat = 10
+    private let controlHeight: CGFloat = 44
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 8) {
-                topRow
-                carouselView
-                iconsRow
-                captionRow
-            }
-            .padding(cardPadding)
-            .background(
-                RoundedRectangle(cornerRadius: cardCornerRadius)
-                    .fill(Color(UIColor.secondarySystemGroupedBackground))
-                    .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
-            )
-            // Removed blue outline overlay when selected
-            .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: spacing) {
+            topRow
+            carouselView
+            iconsRow
+            captionRow
         }
+        .padding(cardPadding)
+        .background(
+            RoundedRectangle(cornerRadius: cardCornerRadius)
+                .fill(Color(UIColor.secondarySystemGroupedBackground))
+                .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
+        )
+        // Removed blue outline overlay when selected
+        .contentShape(Rectangle())
         .onAppear {
             print("[ItemRowView] onAppear: \(item.name) (id: \(item.id)) wasShared: \(item.wasShared)")
             // Autofocus if this is the newly created item
@@ -61,33 +61,60 @@ struct ItemRowView: View {
     }
 
     private var topRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Button(action: toggleCompleted) {
                 Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                     .imageScale(.large)
                     .foregroundColor(item.completed ? .accentColor : .gray)
+                    .frame(width: controlHeight, height: controlHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: controlCornerRadius)
+                            .fill(Color(UIColor.systemBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: controlCornerRadius)
+                            .stroke(item.completed ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: 1.5)
+                    )
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.completed ? "Mark item as incomplete" : "Mark item as complete")
 
             TextField("", text: bindingForName(), onCommit: handleOnSubmit)
                 .font(.subheadline)
                 .foregroundColor(.primary)
                 .focused(focusedItemID, equals: item.id)
-
-            Spacer()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: controlCornerRadius)
+                        .fill(Color(UIColor.systemBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: controlCornerRadius)
+                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
                 onNavigateToDetail?()
             } label: {
                 Image(systemName: "chevron.right")
                     .imageScale(.medium)
-                    .foregroundColor(.secondary)
-                    .frame(width: 44, height: 44)
+                    .foregroundColor(.accentColor)
+                    .frame(width: controlHeight, height: controlHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: controlCornerRadius)
+                            .fill(Color(UIColor.systemBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: controlCornerRadius)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
                     .contentShape(Rectangle())
-                
+
             }
             .accessibilityLabel("Open item details")
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
         }
         .contentShape(Rectangle())
     }
