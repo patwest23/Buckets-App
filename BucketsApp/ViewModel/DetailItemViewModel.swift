@@ -41,31 +41,24 @@ final class DetailItemViewModel: ObservableObject {
     private let listViewModel: ListViewModel
     private let postViewModel: PostViewModel
 
-    private var localSyncTask: Task<Void, Never>? = nil
     private var autosaveTask: Task<Void, Never>? = nil
     private var hasPendingChanges = false
     private var isApplyingExternalUpdate = false
     private var lastSyncedItem: ItemModel
     private var cancellables: Set<AnyCancellable> = []
 
-    private let localSyncInterval: UInt64 = 150_000_000 // 0.15s for local UI updates
     private let autosaveInterval: UInt64 = 4_000_000_000 // 4s for background autosave
 
     private func registerChangeIfNeeded() {
         guard !isApplyingExternalUpdate else { return }
         hasPendingChanges = true
-        scheduleLocalSync()
+        pushDraftToList()
         scheduleAutosave()
     }
 
-    private func scheduleLocalSync() {
-        localSyncTask?.cancel()
+    private func pushDraftToList() {
         let draft = applyingEdits(to: listViewModel.currentEditingItem ?? lastSyncedItem)
-        localSyncTask = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: localSyncInterval)
-            await self.listViewModel.applyLocalEdits(draft)
-        }
+        listViewModel.updateEditingDraft(draft)
     }
 
     private func scheduleAutosave() {
@@ -101,7 +94,6 @@ final class DetailItemViewModel: ObservableObject {
     }
 
     deinit {
-        localSyncTask?.cancel()
         autosaveTask?.cancel()
         cancellables.forEach { $0.cancel() }
     }
@@ -134,11 +126,11 @@ final class DetailItemViewModel: ObservableObject {
         postViewModel.caption = caption
         await listViewModel.addOrUpdateItem(updatedItem, postViewModel: postViewModel)
         lastSyncedItem = updatedItem
+        listViewModel.updateEditingDraft(updatedItem)
         hasPendingChanges = false
     }
 
     func commitPendingChanges() async {
-        localSyncTask?.cancel()
         autosaveTask?.cancel()
         await saveIfNeeded()
     }

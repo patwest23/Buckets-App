@@ -42,6 +42,12 @@ enum SortingMode: String, CaseIterable {
     case byTitle
 }
 
+enum ItemDataSource: String {
+    case none
+    case cache
+    case remote
+}
+
 @MainActor
 class ListViewModel: ObservableObject {
     
@@ -62,6 +68,7 @@ class ListViewModel: ObservableObject {
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
     @Published private(set) var cachedUsers: [String: UserModel] = [:]
+    @Published private(set) var lastLoadedDataSource: ItemDataSource = .none
     
     // @Published var imageCache: [String : UIImage] = [:]
     
@@ -71,6 +78,7 @@ class ListViewModel: ObservableObject {
     private var userListener: ListenerRegistration?
     private let userCacheStore = UserCache.shared
     private weak var defaultPostViewModel: PostViewModel?
+    private let itemCache: ItemCacheStore
 
     var userIdProvider: () -> String? = {
         Auth.auth().currentUser?.uid
@@ -84,8 +92,9 @@ class ListViewModel: ObservableObject {
     private var lastPrefetchTimestamps: [String: Date] = [:]
     
     // MARK: - Initialization
-    init() {
+    init(itemCache: ItemCacheStore = .shared) {
         print("[ListViewModel] init.")
+        self.itemCache = itemCache
     }
     
     deinit {
@@ -102,8 +111,46 @@ class ListViewModel: ObservableObject {
         listenerRegistration = nil
         print("[ListViewModel] Stopped listening to items.")
         clearImageCache()
+        lastLoadedDataSource = .none
     }
-    
+
+    func restoreCachedItems() {
+        guard let userId = userId else {
+            print("[ListViewModel] restoreCachedItems: userId is nil.")
+            return
+        }
+
+        guard let cached = itemCache.cachedItems(for: userId), !cached.isEmpty else {
+            print("[ListViewModel] restoreCachedItems: no cached items found for userId=\(userId)")
+            return
+        }
+
+        print("[ListViewModel] restoreCachedItems: Restoring \(cached.count) cached items for userId=\(userId)")
+        items = cached
+        lastLoadedDataSource = .cache
+        sortItems()
+    }
+
+    func cacheItems(_ items: [ItemModel], for userId: String) {
+        itemCache.cache(items: items, for: userId)
+    }
+
+    func updateEditingDraft(_ item: ItemModel) {
+        if currentEditingItem == nil {
+            currentEditingItem = item
+        } else if currentEditingItem?.id == item.id {
+            if currentEditingItem != item {
+                currentEditingItem = item
+            }
+        } else {
+            return
+        }
+
+        if let index = items.firstIndex(where: { $0.id == item.id }), items[index] != item {
+            items[index] = item
+        }
+    }
+
     func fetchUserIfNeeded(for userId: String) async {
         if cachedUsers[userId] != nil { return }
 
@@ -132,7 +179,9 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] loadItems: userId is nil (not authenticated).")
             return
         }
-        
+
+        restoreCachedItems()
+
         do {
             let snapshot = try await db
                 .collection("users")
@@ -143,27 +192,30 @@ class ListViewModel: ObservableObject {
             let fetchedItems = try snapshot.documents.compactMap {
                 try $0.data(as: ItemModel.self)
             }
-            
+
             self.items = fetchedItems
+            self.lastLoadedDataSource = .remote
+            cacheItems(fetchedItems, for: userId)
             print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
             sortItems()
-            
+
             await prefetchItemImages()
-            
+
         } catch {
             print("[ListViewModel] loadItems error:", error.localizedDescription)
         }
     }
-    
+
     // MARK: - Real-Time Updates
     func startListeningToItems() {
         guard let userId = userId else {
             print("[ListViewModel] startListeningToItems: userId is nil (not authenticated).")
             return
         }
-        
+
         stopListeningToItems()
-        
+        restoreCachedItems()
+
         let collectionRef = db
             .collection("users")
             .document(userId)
@@ -183,6 +235,8 @@ class ListViewModel: ObservableObject {
                     try $0.data(as: ItemModel.self)
                 }
                 self.items = fetched
+                self.lastLoadedDataSource = .remote
+                self.cacheItems(fetched, for: userId)
                 print("[ListViewModel] startListeningToItems: Received \(self.items.count) items")
                 self.sortItems()
                 

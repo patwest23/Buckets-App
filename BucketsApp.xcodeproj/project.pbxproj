@@ -49,8 +49,22 @@
 		1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A2029E20C2300868BAC /* SignUpView.swift */; };
 		1FFCE5B92B4200CB001751CA /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */; };
 		1FFCE5BB2B420BEF001751CA /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1FFCE5BA2B420BEF001751CA /* FirebaseAuth */; };
-		1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */; };
+                1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */; };
+                AA0000000000000000000101 /* ItemCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000100 /* ItemCacheStore.swift */; };
+                AA0000000000000000000204 /* ListViewModelSharedItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000201 /* ListViewModelSharedItemTests.swift */; };
+                AA0000000000000000000205 /* ListViewModelCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000202 /* ListViewModelCacheTests.swift */; };
+                AA0000000000000000000206 /* DetailItemViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000203 /* DetailItemViewModelTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+                AA0000000000000000000241 /* PBXContainerItemProxy */ = {
+                        isa = PBXContainerItemProxy;
+                        containerPortal = 1FED1A0129E20B2E00868BAC /* Project object */;
+                        proxyType = 1;
+                        remoteGlobalIDString = 1FED1A0829E20B2E00868BAC;
+                        remoteInfo = BucketsApp;
+                };
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1F0911272E1B00D800A7D996 /* SyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinator.swift; sourceTree = "<group>"; };
@@ -84,14 +98,19 @@
 		1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowView.swift; sourceTree = "<group>"; };
 		1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewUserNameView.swift; sourceTree = "<group>"; };
 		1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostModel.swift; sourceTree = "<group>"; };
-		1FED1A0929E20B2E00868BAC /* BucketsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BucketsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+                1FED1A0929E20B2E00868BAC /* BucketsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BucketsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+                AA0000000000000000000221 /* BucketsAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BucketsAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketsApp.swift; sourceTree = "<group>"; };
 		1FED1A1029E20B3100868BAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1FED1A1329E20B3100868BAC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		1FED1A1E29E20C1500868BAC /* LogInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogInView.swift; sourceTree = "<group>"; };
-		1FED1A2029E20C2300868BAC /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
-		1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateUserNameView.swift; sourceTree = "<group>"; };
+                1FED1A2029E20C2300868BAC /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
+                1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+                1FFDC43E2D4FF2EB00DD087F /* UpdateUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateUserNameView.swift; sourceTree = "<group>"; };
+                AA0000000000000000000100 /* ItemCacheStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemCacheStore.swift; sourceTree = "<group>"; };
+                AA0000000000000000000201 /* ListViewModelSharedItemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModelSharedItemTests.swift; sourceTree = "<group>"; };
+                AA0000000000000000000202 /* ListViewModelCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModelCacheTests.swift; sourceTree = "<group>"; };
+                AA0000000000000000000203 /* DetailItemViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemViewModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -100,19 +119,26 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		1FED1A0629E20B2E00868BAC /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				1F8EB9582B537915009CC18E /* GoogleSignInSwift in Frameworks */,
+                1FED1A0629E20B2E00868BAC /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                1F8EB9582B537915009CC18E /* GoogleSignInSwift in Frameworks */,
 				1F8EB9562B537915009CC18E /* GoogleSignIn in Frameworks */,
 				1FFCE5BB2B420BEF001751CA /* FirebaseAuth in Frameworks */,
 				1F5E875C2A09FB3500B5A4ED /* FirebaseAnalytics in Frameworks */,
 				1F357F582D0D3A0A003F121A /* FirebaseStorage in Frameworks */,
-				1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                                1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                AA0000000000000000000211 /* Frameworks */ = {
+                        isa = PBXFrameworksBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -138,23 +164,25 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		1FED1A0029E20B2E00868BAC = {
-			isa = PBXGroup;
-			children = (
-				1FED1A0B29E20B2E00868BAC /* BucketsApp */,
-				1FED1A0A29E20B2E00868BAC /* Products */,
-				1FDE823A2B3E286C0078862C /* Frameworks */,
-			);
-			sourceTree = "<group>";
-		};
-		1FED1A0A29E20B2E00868BAC /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				1FED1A0929E20B2E00868BAC /* BucketsApp.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
+                1FED1A0029E20B2E00868BAC = {
+                        isa = PBXGroup;
+                        children = (
+                                1FED1A0B29E20B2E00868BAC /* BucketsApp */,
+                                AA0000000000000000000200 /* BucketsAppTests */,
+                                1FED1A0A29E20B2E00868BAC /* Products */,
+                                1FDE823A2B3E286C0078862C /* Frameworks */,
+                        );
+                        sourceTree = "<group>";
+                };
+                1FED1A0A29E20B2E00868BAC /* Products */ = {
+                        isa = PBXGroup;
+                        children = (
+                                1FED1A0929E20B2E00868BAC /* BucketsApp.app */,
+                                AA0000000000000000000221 /* BucketsAppTests.xctest */,
+                        );
+                        name = Products;
+                        sourceTree = "<group>";
+                };
 		1FED1A0B29E20B2E00868BAC /* BucketsApp */ = {
 			isa = PBXGroup;
 			children = (
@@ -206,17 +234,18 @@
 			path = ViewModel;
 			sourceTree = "<group>";
 		};
-		1FED1A1C29E20B6000868BAC /* Model */ = {
-			isa = PBXGroup;
-			children = (
+                1FED1A1C29E20B6000868BAC /* Model */ = {
+                        isa = PBXGroup;
+                        children = (
                                 1F64774B29E5023600B66F63 /* ItemModel.swift */,
                                 1F234B242D21DC7E000DF507 /* UserModel.swift */,
                                 1FA123442F12345000AAA111 /* UserCache.swift */,
+                                AA0000000000000000000100 /* ItemCacheStore.swift */,
                                 1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */,
-			);
-			path = Model;
-			sourceTree = "<group>";
-		};
+                        );
+                        path = Model;
+                        sourceTree = "<group>";
+                };
 		1FED1A1D29E20BF800868BAC /* OnBoarding */ = {
 			isa = PBXGroup;
 			children = (
@@ -228,68 +257,100 @@
 			path = OnBoarding;
 			sourceTree = "<group>";
 		};
-		1FED1A2429E210A400868BAC /* List */ = {
-			isa = PBXGroup;
-			children = (
-				1F64774D29E5025000B66F63 /* ListView.swift */,
-				1F5D42BA2E357BA5004182FB /* FocusState+UUIDBinding.swift */,
-				1F5D42B82E3579F7004182FB /* ListContainerView.swift */,
-				1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */,
-				1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */,
-				1F5D42B42E356D38004182FB /* LocationSearchFieldView.swift */,
-				1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
-				1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */,
-			);
-			path = List;
-			sourceTree = "<group>";
-		};
+                1FED1A2429E210A400868BAC /* List */ = {
+                        isa = PBXGroup;
+                        children = (
+                                1F64774D29E5025000B66F63 /* ListView.swift */,
+                                1F5D42BA2E357BA5004182FB /* FocusState+UUIDBinding.swift */,
+                                1F5D42B82E3579F7004182FB /* ListContainerView.swift */,
+                                1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */,
+                                1FCE7E452C0C036D00F7B2C6 /* DetailItemView.swift */,
+                                1F5D42B42E356D38004182FB /* LocationSearchFieldView.swift */,
+                                1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
+                                1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */,
+                        );
+                        path = List;
+                        sourceTree = "<group>";
+                };
+                AA0000000000000000000200 /* BucketsAppTests */ = {
+                        isa = PBXGroup;
+                        children = (
+                                AA0000000000000000000201 /* ListViewModelSharedItemTests.swift */,
+                                AA0000000000000000000202 /* ListViewModelCacheTests.swift */,
+                                AA0000000000000000000203 /* DetailItemViewModelTests.swift */,
+                        );
+                        path = BucketsAppTests;
+                        sourceTree = "<group>";
+                };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		1FED1A0829E20B2E00868BAC /* BucketsApp */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 1FED1A1729E20B3100868BAC /* Build configuration list for PBXNativeTarget "BucketsApp" */;
-			buildPhases = (
-				1FED1A0529E20B2E00868BAC /* Sources */,
-				1FED1A0629E20B2E00868BAC /* Frameworks */,
-				1FED1A0729E20B2E00868BAC /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				1FE7B0CA2D7E28DD00D7BDC1 /* Social */,
-				1FE7B0D72D7E29A900D7BDC1 /* Social */,
-			);
-			name = BucketsApp;
-			packageProductDependencies = (
-				1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */,
-				1FFCE5BA2B420BEF001751CA /* FirebaseAuth */,
-				1F8EB9552B537915009CC18E /* GoogleSignIn */,
-				1F8EB9572B537915009CC18E /* GoogleSignInSwift */,
-				1F357F572D0D3A0A003F121A /* FirebaseStorage */,
-				1FCC05822D0E685100892746 /* FirebaseFirestore */,
-			);
-			productName = BucketsApp;
-			productReference = 1FED1A0929E20B2E00868BAC /* BucketsApp.app */;
-			productType = "com.apple.product-type.application";
-		};
+                1FED1A0829E20B2E00868BAC /* BucketsApp */ = {
+                        isa = PBXNativeTarget;
+                        buildConfigurationList = 1FED1A1729E20B3100868BAC /* Build configuration list for PBXNativeTarget "BucketsApp" */;
+                        buildPhases = (
+                                1FED1A0529E20B2E00868BAC /* Sources */,
+                                1FED1A0629E20B2E00868BAC /* Frameworks */,
+                                1FED1A0729E20B2E00868BAC /* Resources */,
+                        );
+                        buildRules = (
+                        );
+                        dependencies = (
+                        );
+                        fileSystemSynchronizedGroups = (
+                                1FE7B0CA2D7E28DD00D7BDC1 /* Social */,
+                                1FE7B0D72D7E29A900D7BDC1 /* Social */,
+                        );
+                        name = BucketsApp;
+                        packageProductDependencies = (
+                                1F5E875B2A09FB3500B5A4ED /* FirebaseAnalytics */,
+                                1FFCE5BA2B420BEF001751CA /* FirebaseAuth */,
+                                1F8EB9552B537915009CC18E /* GoogleSignIn */,
+                                1F8EB9572B537915009CC18E /* GoogleSignInSwift */,
+                                1F357F572D0D3A0A003F121A /* FirebaseStorage */,
+                                1FCC05822D0E685100892746 /* FirebaseFirestore */,
+                        );
+                        productName = BucketsApp;
+                        productReference = 1FED1A0929E20B2E00868BAC /* BucketsApp.app */;
+                        productType = "com.apple.product-type.application";
+                };
+                AA0000000000000000000220 /* BucketsAppTests */ = {
+                        isa = PBXNativeTarget;
+                        buildConfigurationList = AA0000000000000000000230 /* Build configuration list for PBXNativeTarget "BucketsAppTests" */;
+                        buildPhases = (
+                                AA0000000000000000000210 /* Sources */,
+                                AA0000000000000000000211 /* Frameworks */,
+                                AA0000000000000000000212 /* Resources */,
+                        );
+                        buildRules = (
+                        );
+                        dependencies = (
+                                AA0000000000000000000240 /* PBXTargetDependency */,
+                        );
+                        name = BucketsAppTests;
+                        productName = BucketsAppTests;
+                        productReference = AA0000000000000000000221 /* BucketsAppTests.xctest */;
+                        productType = "com.apple.product-type.bundle.unit-test";
+                };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		1FED1A0129E20B2E00868BAC /* Project object */ = {
 			isa = PBXProject;
-			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1410;
-				LastUpgradeCheck = 1620;
-				TargetAttributes = {
-					1FED1A0829E20B2E00868BAC = {
-						CreatedOnToolsVersion = 14.1;
-					};
-				};
-			};
+                        attributes = {
+                                BuildIndependentTargetsInParallel = 1;
+                                LastSwiftUpdateCheck = 1410;
+                                LastUpgradeCheck = 1620;
+                                TargetAttributes = {
+                                        1FED1A0829E20B2E00868BAC = {
+                                                CreatedOnToolsVersion = 14.1;
+                                        };
+                                        AA0000000000000000000220 = {
+                                                CreatedOnToolsVersion = 14.1;
+                                                TestTargetID = 1FED1A0829E20B2E00868BAC;
+                                        };
+                                };
+                        };
 			buildConfigurationList = 1FED1A0429E20B2E00868BAC /* Build configuration list for PBXProject "BucketsApp" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
@@ -306,31 +367,43 @@
 			productRefGroup = 1FED1A0A29E20B2E00868BAC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (
-				1FED1A0829E20B2E00868BAC /* BucketsApp */,
-			);
-		};
+                        targets = (
+                                1FED1A0829E20B2E00868BAC /* BucketsApp */,
+                                AA0000000000000000000220 /* BucketsAppTests */,
+                        );
+                };
 /* End PBXProject section */
 
+/* Begin PBXTargetDependency section */
+                AA0000000000000000000240 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 1FED1A0829E20B2E00868BAC /* BucketsApp */; targetProxy = AA0000000000000000000241 /* PBXContainerItemProxy */; };
+/* End PBXTargetDependency section */
+
 /* Begin PBXResourcesBuildPhase section */
-		1FED1A0729E20B2E00868BAC /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				1FED1A1429E20B3100868BAC /* Preview Assets.xcassets in Resources */,
-				1FED1A1129E20B3100868BAC /* Assets.xcassets in Resources */,
-				1FFCE5B92B4200CB001751CA /* GoogleService-Info.plist in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                1FED1A0729E20B2E00868BAC /* Resources */ = {
+                        isa = PBXResourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                1FED1A1429E20B3100868BAC /* Preview Assets.xcassets in Resources */,
+                                1FED1A1129E20B3100868BAC /* Assets.xcassets in Resources */,
+                                1FFCE5B92B4200CB001751CA /* GoogleService-Info.plist in Resources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                AA0000000000000000000212 /* Resources */ = {
+                        isa = PBXResourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		1FED1A0529E20B2E00868BAC /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
+                1FED1A0529E20B2E00868BAC /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
 				1F0911282E1B00D800A7D996 /* SyncCoordinator.swift in Sources */,
 				1F107EDA2E2C3D9700B692C8 /* LocationSearchViewModel.swift in Sources */,
@@ -347,7 +420,8 @@
 				1F5D42B92E3579F7004182FB /* ListContainerView.swift in Sources */,
                                 1F234B252D21DC85000DF507 /* UserModel.swift in Sources */,
                                 1FA123452F12345000AAA111 /* UserCache.swift in Sources */,
-				1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
+                                AA0000000000000000000101 /* ItemCacheStore.swift in Sources */,
+                                1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
 				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
 				1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
 				1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */,
@@ -363,10 +437,20 @@
 				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
 				1F5D42BB2E357BA5004182FB /* FocusState+UUIDBinding.swift in Sources */,
 				1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
-				1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+                                1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
+                AA0000000000000000000210 /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                                AA0000000000000000000204 /* ListViewModelSharedItemTests.swift in Sources */,
+                                AA0000000000000000000205 /* ListViewModelCacheTests.swift in Sources */,
+                                AA0000000000000000000206 /* DetailItemViewModelTests.swift in Sources */,
+                        );
+                        runOnlyForDeploymentPostprocessing = 0;
+                };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -520,11 +604,11 @@
 			};
 			name = Debug;
 		};
-		1FED1A1929E20B3100868BAC /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                1FED1A1929E20B3100868BAC /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -548,10 +632,55 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
+                                TARGETED_DEVICE_FAMILY = "1,2";
+                        };
+                        name = Release;
+                };
+                AA0000000000000000000231 /* Debug */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                GENERATE_INFOPLIST_FILE = YES;
+                                IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+                                MARKETING_VERSION = 0.1.0;
+                                OTHER_LDFLAGS = (
+                                        "-framework",
+                                        XCTest,
+                                );
+                                PRODUCT_BUNDLE_IDENTIFIER = com.patrickwesterkamp.BucketsAppTests;
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+                                SWIFT_EMIT_LOC_STRINGS = NO;
+                                SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+                                SWIFT_VERSION = 5.0;
+                                TARGETED_DEVICE_FAMILY = "1,2";
+                                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BucketsApp.app/BucketsApp";
+                        };
+                        name = Debug;
+                };
+                AA0000000000000000000232 /* Release */ = {
+                        isa = XCBuildConfiguration;
+                        buildSettings = {
+                                CODE_SIGN_STYLE = Automatic;
+                                CURRENT_PROJECT_VERSION = 1;
+                                GENERATE_INFOPLIST_FILE = YES;
+                                IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+                                MARKETING_VERSION = 0.1.0;
+                                OTHER_LDFLAGS = (
+                                        "-framework",
+                                        XCTest,
+                                );
+                                PRODUCT_BUNDLE_IDENTIFIER = com.patrickwesterkamp.BucketsAppTests;
+                                PRODUCT_NAME = "$(TARGET_NAME)";
+                                SWIFT_EMIT_LOC_STRINGS = NO;
+                                SWIFT_OPTIMIZATION_LEVEL = "-O";
+                                SWIFT_VERSION = 5.0;
+                                TARGETED_DEVICE_FAMILY = "1,2";
+                                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BucketsApp.app/BucketsApp";
+                        };
+                        name = Release;
+                };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -564,15 +693,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1FED1A1729E20B3100868BAC /* Build configuration list for PBXNativeTarget "BucketsApp" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1FED1A1829E20B3100868BAC /* Debug */,
-				1FED1A1929E20B3100868BAC /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
+                1FED1A1729E20B3100868BAC /* Build configuration list for PBXNativeTarget "BucketsApp" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                1FED1A1829E20B3100868BAC /* Debug */,
+                                1FED1A1929E20B3100868BAC /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
+                AA0000000000000000000230 /* Build configuration list for PBXNativeTarget "BucketsAppTests" */ = {
+                        isa = XCConfigurationList;
+                        buildConfigurations = (
+                                AA0000000000000000000231 /* Debug */,
+                                AA0000000000000000000232 /* Release */,
+                        );
+                        defaultConfigurationIsVisible = 0;
+                        defaultConfigurationName = Release;
+                };
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
