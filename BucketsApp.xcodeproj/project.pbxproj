@@ -32,7 +32,6 @@
                 1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE006E72A10541200B0A6D7 /* ProfileView.swift */; };
                 1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
                 1FE6B36B29E65E5200C6B59A /* ItemRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */; };
-                1FE99B9B2E9C5A5D0009C44F /* OnboardingFieldStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE99B9A2E9C5A5D0009C44F /* OnboardingFieldStyle.swift */; };
                 1FE99B9D2E9C5A5D0009C44F /* UsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE99B9C2E9C5A5D0009C44F /* UsernameSetupView.swift */; };
                 1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */; };
 		1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */; };
@@ -67,7 +66,6 @@
                 1FE006E72A10541200B0A6D7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
                 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingViewModel.swift; sourceTree = "<group>"; };
                 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowView.swift; sourceTree = "<group>"; };
-                1FE99B9A2E9C5A5D0009C44F /* OnboardingFieldStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFieldStyle.swift; sourceTree = "<group>"; };
                 1FE99B9C2E9C5A5D0009C44F /* UsernameSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsernameSetupView.swift; sourceTree = "<group>"; };
                 1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewUserNameView.swift; sourceTree = "<group>"; };
 		1FED1A0929E20B2E00868BAC /* BucketsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BucketsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -197,7 +195,6 @@
                                 1F70BCB629E350D5000B3BB9 /* OnBoardingView.swift */,
                                 1FED1A1E29E20C1500868BAC /* LogInView.swift */,
                                 1FED1A2029E20C2300868BAC /* SignUpView.swift */,
-                                1FE99B9A2E9C5A5D0009C44F /* OnboardingFieldStyle.swift */,
                                 1FE99B9C2E9C5A5D0009C44F /* UsernameSetupView.swift */,
                         );
 			path = OnBoarding;
@@ -321,7 +318,6 @@
 				1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */,
                             1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */,
                             1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
-                            1FE99B9B2E9C5A5D0009C44F /* OnboardingFieldStyle.swift in Sources */,
                             1FE99B9D2E9C5A5D0009C44F /* UsernameSetupView.swift in Sources */,
                             1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
 				1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
