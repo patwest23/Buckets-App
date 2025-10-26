@@ -12,115 +12,122 @@ struct OnboardingView: View {
     @EnvironmentObject var userViewModel: UserViewModel
     @State private var showSignUp = false
     @State private var showLogIn = false
-    
-    // Detect whether we’re in Light or Dark mode
+
     @Environment(\.colorScheme) private var colorScheme
-    
+
+    private var heroGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                BucketTheme.primary.opacity(colorScheme == .dark ? 0.45 : 0.3),
+                BucketTheme.secondary.opacity(colorScheme == .dark ? 0.25 : 0.2)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                VStack(spacing: 40) {
-                    
-                    // MARK: - App Icon or Logo
-                    Image(systemName: "checkmark.circle.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 60, maxHeight: 60)
-                        .foregroundColor(.accentColor)
-                        .padding()
-                    
-                    Spacer()
-                    
-                    // MARK: - Main Title
-                    Text("What do you want to do before you die?")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.primary) // adapt to Light/Dark
-                        .padding(.horizontal, 40.0)
-                    
-                    Spacer()
-                    
-                    // MARK: - Buttons (Sign Up & Log In)
-                    VStack(spacing: 20) {
-                        
-                        // Sign Up Button
-                        Button(action: {
-                            showSignUp.toggle()
-                        }) {
-                            Text("✍️ Sign Up")
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                // Condition: White in light mode, .secondarySystemBackground in dark mode
-                                .background(buttonBackgroundColor)
-                                .foregroundColor(.primary)
-                                .cornerRadius(10)
-                                .shadow(radius: 5)
-                        }
-                        .sheet(isPresented: $showSignUp) {
-                            SignUpView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                        
-                        // Log In Button
-                        Button(action: {
-                            showLogIn.toggle()
-                        }) {
-                            Text("🪵 Log In")
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                // Same dynamic background
-                                .background(buttonBackgroundColor)
-                                .foregroundColor(.primary)
-                                .cornerRadius(10)
-                                .shadow(radius: 5)
-                        }
-                        .sheet(isPresented: $showLogIn) {
-                            LogInView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                        
-                        // MARK: - Google Sign-In Button
-                        Button(action: {
-                            onboardingViewModel.signInWithGoogle(using: userViewModel, completion: { _ in })
-                        }) {
-                            HStack {
-                                Image("google_logo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 24, height: 24)
+            VStack(spacing: BucketTheme.largeSpacing) {
+                VStack(spacing: BucketTheme.mediumSpacing) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: BucketTheme.cornerRadius, style: .continuous)
+                            .fill(heroGradient)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: BucketTheme.cornerRadius, style: .continuous)
+                                    .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                            )
+                            .shadow(color: BucketTheme.shadow(for: colorScheme), radius: 18, x: 0, y: 12)
 
-                                Text("Sign in with Google")
-                                    .fontWeight(.bold)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(buttonBackgroundColor)
-                            .foregroundColor(.primary)
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
+                        VStack(spacing: BucketTheme.mediumSpacing) {
+                            Text("Buckets")
+                                .font(.largeTitle.weight(.bold))
+                                .foregroundStyle(.white)
+
+                            Text("Dream it. Do it. ✅")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+
+                            Text("What do you want to experience next?")
+                                .font(.headline)
+                                .foregroundStyle(.white.opacity(0.9))
+                                .multilineTextAlignment(.center)
                         }
+                        .padding(BucketTheme.largeSpacing)
                     }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 260)
+
+                    HStack(spacing: BucketTheme.mediumSpacing) {
+                        Label("Curate your bucket list", systemImage: "sparkles")
+                        Label("Share with friends", systemImage: "hands.clap")
+                        Label("Capture memories", systemImage: "camera.fill")
+                    }
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal)
-                    
-                    Spacer()
                 }
-                .padding()
+
+                VStack(spacing: BucketTheme.mediumSpacing) {
+                    Button {
+                        showSignUp.toggle()
+                    } label: {
+                        Label("Create your account", systemImage: "wand.and.stars")
+                            .symbolVariant(.fill)
+                    }
+                    .buttonStyle(BucketPrimaryButtonStyle())
+                    .sheet(isPresented: $showSignUp) {
+                        SignUpView()
+                            .environmentObject(onboardingViewModel)
+                    }
+
+                    Button {
+                        showLogIn.toggle()
+                    } label: {
+                        Label("I already have an account", systemImage: "person.crop.circle.badge.checkmark")
+                            .symbolVariant(.fill)
+                    }
+                    .buttonStyle(BucketSecondaryButtonStyle())
+                    .sheet(isPresented: $showLogIn) {
+                        LogInView()
+                            .environmentObject(onboardingViewModel)
+                    }
+
+                    Button {
+                        onboardingViewModel.signInWithGoogle(using: userViewModel, completion: { _ in })
+                    } label: {
+                        HStack(spacing: BucketTheme.smallSpacing) {
+                            Image("google_logo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 22, height: 22)
+
+                            Text("Continue with Google")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(BucketSecondaryButtonStyle())
+                }
+
+                VStack(spacing: BucketTheme.smallSpacing) {
+                    Text("✨ Your adventures, beautifully organized")
+                        .font(.subheadline)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+
+                    Text("Swipe, tap, and share milestones with the people that matter most. Let's make your memories playful and unforgettable.")
+                        .font(.footnote)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
             }
-            // Overall background color adapts to Light/Dark
-            .background(Color(uiColor: .systemBackground))
+            .padding(.vertical, BucketTheme.largeSpacing)
+            .padding(.horizontal, BucketTheme.largeSpacing)
+            .bucketBackground()
             .navigationBarHidden(true)
         }
-    }
-    
-    /// Computed property to pick the button background color:
-    /// White in Light Mode, .secondarySystemBackground in Dark Mode
-    private var buttonBackgroundColor: Color {
-        colorScheme == .dark
-        ? Color(uiColor: .secondarySystemBackground)
-        : Color.white
     }
 }
 

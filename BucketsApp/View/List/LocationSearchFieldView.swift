@@ -15,76 +15,78 @@ struct LocationSearchFieldView: View {
     var focus: FocusState<DetailItemField?>.Binding
     var onFocusChange: ((Bool) -> Void)? = nil
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private var isFocused: Bool {
         focus.wrappedValue == .location
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text("📍")
-                .font(.system(size: 22))
-
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: BucketTheme.smallSpacing) {
+            HStack(spacing: BucketTheme.smallSpacing) {
+                Text("📍")
+                    .font(.title3)
                 TextField("Add location...", text: $query)
                     .font(.body)
-                    .padding(8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(isFocused ? Color.accentColor : Color.gray.opacity(0.5), lineWidth: isFocused ? 2 : 1)
-                            .background(Color(.systemBackground))
-                    )
                     .submitLabel(.done)
                     .focused(focus, equals: .location)
                     .textInputAutocapitalization(.words)
                     .disableAutocorrection(true)
+                    .padding(.horizontal, BucketTheme.mediumSpacing)
+                    .padding(.vertical, BucketTheme.smallSpacing + 4)
+                    .background(BucketTheme.surface(for: colorScheme))
+                    .clipShape(RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                            .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                    )
                     .onChange(of: isFocused, initial: false) { _, newValue in
                         onFocusChange?(newValue)
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        focus.wrappedValue = .location
-                    }
-
-                if !results.isEmpty {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(results, id: \.self) { result in
-                                Button {
-                                    onSelect(result)
-                                    focus.wrappedValue = nil
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(result.title).bold()
-                                        if !result.subtitle.isEmpty {
-                                            Text(result.subtitle)
-                                                .font(.subheadline)
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    .padding(8)
-                                }
-                                .contentShape(Rectangle())
-                                Divider()
-                            }
-                        }
-                        .background(Color(.systemBackground))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .frame(maxHeight: 150)
-                }
             }
-            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
             .onTapGesture {
                 focus.wrappedValue = .location
             }
+
+            if !results.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(results.enumerated()), id: \.offset) { index, result in
+                        Button {
+                            onSelect(result)
+                            focus.wrappedValue = nil
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(result.title)
+                                    .font(.callout.weight(.semibold))
+                                if !result.subtitle.isEmpty {
+                                    Text(result.subtitle)
+                                        .font(.caption)
+                                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, BucketTheme.smallSpacing)
+                        }
+                        .buttonStyle(.plain)
+                        if index < results.count - 1 {
+                            Divider()
+                                .overlay(BucketTheme.border(for: colorScheme))
+                        }
+                    }
+                }
+                .padding(.horizontal, BucketTheme.mediumSpacing)
+                .padding(.vertical, BucketTheme.smallSpacing)
+                .background(BucketTheme.surface(for: colorScheme))
+                .clipShape(RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                        .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                )
+            }
         }
         .contentShape(Rectangle())
-        .padding(.vertical, 2)
         .onTapGesture {
             focus.wrappedValue = .location
         }

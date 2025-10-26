@@ -53,190 +53,185 @@ struct ListView: View {
 
     // Show refresh confirmation overlay
     @State private var showRefreshConfirmation = false
-    
+
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
-                VStack(spacing: 0) {
-                    ZStack(alignment: .top) {
-                        ZStack {
-                            Color(uiColor: .systemBackground)
-                                .ignoresSafeArea()
+                ZStack(alignment: .top) {
+                    BucketTheme.backgroundGradient(for: colorScheme)
+                        .ignoresSafeArea()
 
-                            ScrollViewReader { proxy in
-                                contentView
-                                    .onAppear {
-                                        self.scrollProxy = proxy
-                                    }
-                                    .refreshable {
-                                        await loadItems()
-                                        await syncCoordinator.refreshFeedAndSyncLikes()
-                                        showRefreshConfirmation = true
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                            showRefreshConfirmation = false
-                                        }
-                                    }
-                                    .task {
-                                        bucketListViewModel.registerDefaultPostViewModel(postViewModel)
-                                        bucketListViewModel.restoreCachedItems()
-                                        await loadItems()
-                                        await syncCoordinator.refreshFeedAndSyncLikes()
-                                        startTextFieldListeners()
-                                        friendsViewModel.startListeningToFriendChanges()
-                                    }
-                                    .navigationBarTitleDisplayMode(.inline)
-                                    .onDisappear {
-                                        newlyCreatedItemID = nil
-                                        UIApplication.shared.endEditing()
-                                        isAnyTextFieldActive = false
-                                        stopTextFieldListeners()
-                                    }
-                                    // Navigate to Profile
-                                    .navigationDestination(isPresented: $showProfileView) {
-                                        ProfileView(onboardingViewModel: onboardingViewModel)
-                                            .environmentObject(userViewModel)
-                                            .environmentObject(bucketListViewModel)
-                                            .environmentObject(postViewModel)
-                                    }
-                                    // Navigate to Feed
-                                    .navigationDestination(isPresented: $showFeed) {
-                                        /// Use the existing environment object `feedViewModel`
-                                        FeedView()
-                                            .environmentObject(userViewModel)
-                                            .environmentObject(feedViewModel)
-                                            .environmentObject(postViewModel)
-                                            .environmentObject(bucketListViewModel)
-                                            .environmentObject(friendsViewModel)
-                                            .environmentObject(syncCoordinator)
-                                    }
-                                    // Navigate to the User Search View
-                                    .navigationDestination(isPresented: $showUserSearch) {
-                                        FriendsView()
-                                            .environmentObject(userViewModel)
-                                            .environmentObject(friendsViewModel)
-                                            .environmentObject(syncCoordinator) // ✅ Add this line
-
-                                    }
-                                    // Navigate to Detail => PASS A COPY of the item
-                                    .navigationDestination(item: $selectedItem) { item in
-                                        // Only show DetailItemView after tapping chevron (not always)
-                                        if let _ = selectedItem {
-                                            DetailItemView(item: item, listViewModel: bucketListViewModel, postViewModel: postViewModel)
-                                                .environmentObject(bucketListViewModel)
-                                                .environmentObject(postViewModel)
-                                                .environmentObject(userViewModel)
-                                                .environmentObject(syncCoordinator) // ✅ Add this line
-                                        }
-                                    }
-                                    // Delete confirmation
-                                    .alert(
-                                        "Are you sure you want to delete this item?",
-                                        isPresented: $bucketListViewModel.showDeleteAlert
-                                    ) {
-                                        Button("Delete", role: .destructive) {
-                                            if let toDelete = itemToDelete {
-                                                deleteItem(toDelete)
-                                            }
-                                        }
-                                        Button("Cancel", role: .cancel) {}
-                                    } message: {
-                                        if let toDelete = itemToDelete {
-                                            Text("Delete “\(toDelete.name)” from your list?")
-                                        }
-                                    }
-                                    // Scroll to changed ID (Swift 5.9+ two-parameter .onChange)
-                                    .onChange(of: scrollToId, initial: false) { oldVal, newVal in
-                                        guard let newVal = newVal else { return }
-                                        if let proxy = scrollProxy {
-                                            withAnimation(.easeOut(duration: 0.2)) {
-                                                proxy.scrollTo(newVal, anchor: .bottom)
-                                            }
-                                        }
-                                    }
+                    ScrollViewReader { proxy in
+                        contentView
+                            .onAppear {
+                                self.scrollProxy = proxy
                             }
-                        }
+                            .refreshable {
+                                await loadItems()
+                                await syncCoordinator.refreshFeedAndSyncLikes()
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                    showRefreshConfirmation = true
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                    withAnimation(.easeOut(duration: 0.3)) {
+                                        showRefreshConfirmation = false
+                                    }
+                                }
+                            }
+                            .task {
+                                bucketListViewModel.registerDefaultPostViewModel(postViewModel)
+                                bucketListViewModel.restoreCachedItems()
+                                await loadItems()
+                                await syncCoordinator.refreshFeedAndSyncLikes()
+                                startTextFieldListeners()
+                                friendsViewModel.startListeningToFriendChanges()
+                            }
+                            .navigationBarTitleDisplayMode(.inline)
+                            .onDisappear {
+                                newlyCreatedItemID = nil
+                                UIApplication.shared.endEditing()
+                                isAnyTextFieldActive = false
+                                stopTextFieldListeners()
+                            }
+                            // Navigate to Profile
+                            .navigationDestination(isPresented: $showProfileView) {
+                                ProfileView(onboardingViewModel: onboardingViewModel)
+                                    .environmentObject(userViewModel)
+                                    .environmentObject(bucketListViewModel)
+                                    .environmentObject(postViewModel)
+                            }
+                            // Navigate to Feed
+                            .navigationDestination(isPresented: $showFeed) {
+                                FeedView()
+                                    .environmentObject(userViewModel)
+                                    .environmentObject(feedViewModel)
+                                    .environmentObject(postViewModel)
+                                    .environmentObject(bucketListViewModel)
+                                    .environmentObject(friendsViewModel)
+                                    .environmentObject(syncCoordinator)
+                            }
+                            // Navigate to the User Search View
+                            .navigationDestination(isPresented: $showUserSearch) {
+                                FriendsView()
+                                    .environmentObject(userViewModel)
+                                    .environmentObject(friendsViewModel)
+                                    .environmentObject(syncCoordinator)
 
-                        if showRefreshConfirmation {
-                            Text("✅ Refreshed")
-                                .font(.caption)
-                                .padding(8)
-                                .background(Capsule().fill(Color.green.opacity(0.85)))
-                                .foregroundColor(.white)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                                .animation(.easeInOut(duration: 0.3), value: showRefreshConfirmation)
-                                .padding(.top, 10)
+                            }
+                            // Navigate to Detail => PASS A COPY of the item
+                            .navigationDestination(item: $selectedItem) { item in
+                                if let _ = selectedItem {
+                                    DetailItemView(item: item, listViewModel: bucketListViewModel, postViewModel: postViewModel)
+                                        .environmentObject(bucketListViewModel)
+                                        .environmentObject(postViewModel)
+                                        .environmentObject(userViewModel)
+                                        .environmentObject(syncCoordinator)
+                                }
+                            }
+                            .alert(
+                                "Are you sure you want to delete this item?",
+                                isPresented: $bucketListViewModel.showDeleteAlert
+                            ) {
+                                Button("Delete", role: .destructive) {
+                                    if let toDelete = itemToDelete {
+                                        deleteItem(toDelete)
+                                    }
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                if let toDelete = itemToDelete {
+                                    Text("Delete “\(toDelete.name)” from your list?")
+                                }
+                            }
+                            .onChange(of: scrollToId, initial: false) { _, newVal in
+                                guard let newVal = newVal else { return }
+                                if let proxy = scrollProxy {
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        proxy.scrollTo(newVal, anchor: .center)
+                                    }
+                                }
+                            }
+                    }
+
+                    if showRefreshConfirmation {
+                        HStack(spacing: BucketTheme.smallSpacing) {
+                            Text("✨")
+                            Text("List Updated")
+                                .font(.caption.weight(.semibold))
                         }
+                        .padding(.horizontal, BucketTheme.mediumSpacing)
+                        .padding(.vertical, BucketTheme.smallSpacing)
+                        .background(
+                            Capsule()
+                                .fill(BucketTheme.elevatedSurface(for: colorScheme))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                        )
+                        .shadow(color: BucketTheme.shadow(for: colorScheme), radius: 10, x: 0, y: 4)
+                        .padding(.top, BucketTheme.largeSpacing)
                     }
                 }
-                // Tap to dismiss keyboard and focus
+                .bucketToolbarBackground()
                 .onTapGesture {
                     UIApplication.shared.endEditing()
                     focusedItemID = nil
                 }
-                // Navigation to FriendsView
                 .navigationDestination(isPresented: $showFriends) {
                     FriendsView()
                         .environmentObject(userViewModel)
-                        .environmentObject(friendsViewModel) // ✅ use the existing instance
+                        .environmentObject(friendsViewModel)
                 }
-                // Extra space above keyboard
                 .safeAreaInset(edge: .bottom) {
                     Color.clear
                         .frame(height: 70)
                         .allowsHitTesting(false)
                 }
-                // Restore top toolbar and toolbarBackground
                 .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        VStack(spacing: 2) {
+                            Text("Your Buckets")
+                                .font(.headline.weight(.semibold))
+                            Text("Dream it. Do it. Share it.")
+                                .font(.caption)
+                                .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: BucketTheme.smallSpacing) {
+                            Button {
+                                showFeed = true
+                            } label: {
+                                Image(systemName: "sparkles.rectangle.stack")
+                            }
+                            .buttonStyle(BucketIconButtonStyle())
+
                             Button {
                                 showProfileView = true
                             } label: {
                                 profileImageView
                                     .frame(width: 36, height: 36)
                             }
+                            .buttonStyle(BucketIconButtonStyle())
 
                             if isAnyTextFieldActive {
                                 Button("Done") {
                                     UIApplication.shared.endEditing()
                                     focusedItemID = nil
                                 }
-                                .bold()
+                                .font(.headline)
+                                .buttonStyle(BucketSecondaryButtonStyle())
                             }
                         }
                     }
                 }
-                .toolbarBackground(.visible, for: .navigationBar)
-                // Restore bottom overlay navigation bar
                 .overlay(alignment: .bottom) {
-                    HStack {
-                        Spacer()
-                        Button {
-                            showFeed = true
-                        } label: {
-                            Image(systemName: "house.fill")
-                                .font(.title2)
-                                .padding()
-                        }
-                        Spacer()
-                        addButton
-                        Spacer()
-                        Button {
-                            showUserSearch = true
-                        } label: {
-                            Image(systemName: "person.2.fill")
-                                .font(.title2)
-                                .padding()
-                        }
-                        Spacer()
-                    }
-                    .padding(.bottom, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 25)
-                            .fill(Color(.systemBackground))
-                            .shadow(radius: 3)
-                    )
-                    .padding(.horizontal)
+                    bottomActionBar
+                        .padding(.horizontal, BucketTheme.largeSpacing)
+                        .padding(.bottom, BucketTheme.largeSpacing)
                 }
             } else {
                 Text("Please use iOS 17 or later.")
@@ -261,29 +256,60 @@ struct ListView: View {
     // MARK: - List of Items
     private var itemListView: some View {
         List {
-            ForEach($bucketListViewModel.items) { $item in
-                rowView(for: $item)
+            Section {
+                ForEach($bucketListViewModel.items) { $item in
+                    rowView(for: $item)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(
+                            EdgeInsets(
+                                top: BucketTheme.smallSpacing,
+                                leading: BucketTheme.mediumSpacing,
+                                bottom: BucketTheme.smallSpacing,
+                                trailing: BucketTheme.mediumSpacing
+                            )
+                        )
+                }
             }
+            .listSectionSpacing(BucketTheme.smallSpacing)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .animation(.easeInOut, value: bucketListViewModel.items)
     }
 
     // MARK: - UI States
     private var loadingView: some View {
-        ProgressView("Loading...")
-            .progressViewStyle(CircularProgressViewStyle())
-            .scaleEffect(1.5)
-            .padding()
+        VStack(spacing: BucketTheme.mediumSpacing) {
+            ProgressView()
+                .progressViewStyle(.circular)
+            Text("Gathering your dreams…")
+                .font(.callout)
+                .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+        }
+        .padding()
+        .bucketCard()
+        .padding(.horizontal, BucketTheme.largeSpacing)
+        .padding(.top, BucketTheme.largeSpacing)
     }
     
     private var emptyStateView: some View {
-        Text("What do you want to do before you die?")
-            .foregroundColor(.primary)
-            .font(.title)
-            .fontWeight(.bold)
-            .multilineTextAlignment(.center)
-            .padding()
+        VStack(spacing: BucketTheme.mediumSpacing) {
+            Text("🎯")
+                .font(.system(size: 48))
+            Text("Let’s start your first bucket!")
+                .font(.title2.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text("Tap the plus to capture something magical you want to experience.")
+                .font(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+        }
+        .padding(.vertical, BucketTheme.largeSpacing)
+        .padding(.horizontal, BucketTheme.largeSpacing)
+        .bucketCard()
+        .padding(.horizontal, BucketTheme.largeSpacing)
+        .padding(.top, BucketTheme.largeSpacing)
     }
     
     // MARK: - Add Button
@@ -316,17 +342,42 @@ struct ListView: View {
                 scrollToId = newItem.id
             }
         } label: {
-            ZStack {
-                Circle()
-                    .frame(width: 60, height: 60)
-                    .foregroundColor(.accentColor)
-                    .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
-
-                Image(systemName: "plus")
-                    .foregroundColor(.white)
-                    .font(.system(size: 30, weight: .bold))
-            }
+            Label("Add Dream", systemImage: "plus")
+                .font(.headline)
         }
+        .buttonStyle(BucketPrimaryButtonStyle())
+        .shadow(color: BucketTheme.shadow(for: colorScheme), radius: 12, x: 0, y: 6)
+    }
+
+    private var bottomActionBar: some View {
+        HStack(spacing: BucketTheme.mediumSpacing) {
+            Button {
+                showFeed = true
+            } label: {
+                Label("Feed", systemImage: "sparkles")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(BucketIconButtonStyle())
+
+            addButton
+
+            Button {
+                showUserSearch = true
+            } label: {
+                Label("Friends", systemImage: "person.2.fill")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(BucketIconButtonStyle())
+        }
+        .padding(.vertical, BucketTheme.smallSpacing)
+        .padding(.horizontal, BucketTheme.mediumSpacing)
+        .background(BucketTheme.elevatedSurface(for: colorScheme))
+        .clipShape(RoundedRectangle(cornerRadius: BucketTheme.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: BucketTheme.cornerRadius, style: .continuous)
+                .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+        )
+        .shadow(color: BucketTheme.shadow(for: colorScheme), radius: 18, x: 0, y: 10)
     }
     
     // MARK: - Removing blank items
