@@ -18,8 +18,10 @@ class TagUserViewModel: ObservableObject {
     @Published var taggedUserIds: [String] = []             // Final list of tagged user IDs
     
     @Published var errorMessage: String?
-    
+
     private let db = Firestore.firestore()
+    private let userCache = UserCache.shared
+    private var cachedUsers: [String: UserModel] = [:]
     
     /// The user ID of the currently authenticated user
     private var currentUserId: String? {
@@ -33,6 +35,21 @@ class TagUserViewModel: ObservableObject {
     
     deinit {
         print("[TagUserViewModel] deinit.")
+    }
+
+    private func storeUser(_ user: UserModel, id: String) {
+        cachedUsers[id] = user
+        userCache.cache(user: user, for: id)
+    }
+
+    private func cachedSuggestions(for query: String) -> [UserModel] {
+        let normalized = query.lowercased()
+        let matches = cachedUsers.values.filter { user in
+            let usernameMatch = user.username?.lowercased().hasPrefix("@\(normalized)") ?? false
+            let nameMatch = user.name?.lowercased().hasPrefix(normalized) ?? false
+            return usernameMatch || nameMatch
+        }
+        return Array(matches.prefix(10))
     }
     
     // MARK: - Handle Text Changes
@@ -52,14 +69,20 @@ class TagUserViewModel: ObservableObject {
         if lastWord.hasPrefix("@") {
             // Remove the leading “@” to get “somePartialName”
             let queryText = String(lastWord.dropFirst())
-            
+
             // If empty (just typed “@”), or too short, you might not query yet
             guard queryText.count > 0 else {
                 mentionSuggestions = []
                 return
             }
-            
+
             // 3) Perform an async mention search
+            let cachedMatches = cachedSuggestions(for: queryText)
+            if !cachedMatches.isEmpty {
+                mentionSuggestions = cachedMatches
+            } else {
+                mentionSuggestions = []
+            }
             Task {
                 await searchUsernames(matching: queryText)
             }
@@ -79,21 +102,18 @@ class TagUserViewModel: ObservableObject {
             let snap = try await db.collection("users")
                 .whereField("username", isEqualTo: "@\(queryText)")
                 .getDocuments()
-            
+
             var results = [UserModel]()
             for doc in snap.documents {
-                if let user = try? doc.data(as: UserModel.self),
-                   user.id != currentUserId {
+                let id = doc.documentID
+                if var user = try? doc.data(as: UserModel.self),
+                   id != currentUserId {
+                    user.documentId = id
+                    storeUser(user, id: id)
                     results.append(user)
                 }
             }
-            
-            // If you want “startsWith” logic, consider:
-            //   .order(by: "username")
-            //   .start(at: ["@\(queryText)"])
-            //   .end(at: ["@\(queryText)\u{f8ff}"])
-            // or store a “username_lowercase” field for case-insensitive queries, etc.
-            
+
             self.mentionSuggestions = results
         } catch {
             print("[TagUserViewModel] searchUsernames error:", error.localizedDescription)

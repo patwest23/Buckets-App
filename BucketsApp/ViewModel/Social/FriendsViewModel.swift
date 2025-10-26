@@ -27,6 +27,8 @@ class FriendsViewModel: ObservableObject {
     private let db = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
     private var searchTask: Task<Void, Never>?
+    private let userCache = UserCache.shared
+    private var inMemoryUsers: [String: UserModel] = [:]
 
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
@@ -35,6 +37,22 @@ class FriendsViewModel: ObservableObject {
     // Prefer Firestore documentId; fall back to id if present in older models
     private func resolvedId(for user: UserModel) -> String? {
         return user.documentId ?? (user.id.isEmpty ? nil : user.id)
+    }
+
+    private func cachedUser(for id: String) -> UserModel? {
+        if let user = inMemoryUsers[id] {
+            return user
+        }
+        if let persisted = userCache.cachedUser(for: id) {
+            inMemoryUsers[id] = persisted
+            return persisted
+        }
+        return nil
+    }
+
+    private func storeUser(_ user: UserModel, for id: String) {
+        inMemoryUsers[id] = user
+        userCache.cache(user: user, for: id)
     }
 
     private func beginLoading(showIndicator: Bool) {
@@ -69,7 +87,8 @@ class FriendsViewModel: ObservableObject {
             async let fetchedFollowing = fetchUsers(with: followingIds)
             async let fetchedFollowers = fetchUsers(with: followerIds)
 
-            let (following, followers) = try await (fetchedFollowing, fetchedFollowers)
+            let following = await fetchedFollowing
+            let followers = await fetchedFollowers
 
             self.followingUsers = Dictionary(grouping: following, by: \.documentId)
                 .compactMapValues { $0.first }
@@ -110,29 +129,32 @@ class FriendsViewModel: ObservableObject {
             }
     }
 
-    private func fetchUsers(with ids: [String]) async throws -> [UserModel] {
-        var users: [UserModel] = []
+    private func fetchUsers(with ids: [String]) async -> [UserModel] {
+        var results: [UserModel] = []
+        var missingIds: [String] = []
 
-        try await withThrowingTaskGroup(of: UserModel?.self) { group in
-            for id in ids {
-                group.addTask {
-                    let doc = try await self.db.collection("users").document(id).getDocument()
-                    if var user = try? doc.data(as: UserModel.self) {
-                        user.documentId = doc.documentID
-                        return user
-                    }
-                    return nil
-                }
-            }
-
-            for try await user in group {
-                if let user = user {
-                    users.append(user)
-                }
+        for id in ids where !id.isEmpty {
+            if let cached = cachedUser(for: id) {
+                results.append(cached)
+            } else {
+                missingIds.append(id)
             }
         }
 
-        return users
+        for id in missingIds {
+            do {
+                let doc = try await db.collection("users").document(id).getDocument()
+                if var user = try? doc.data(as: UserModel.self) {
+                    user.documentId = doc.documentID
+                    storeUser(user, for: id)
+                    results.append(user)
+                }
+            } catch {
+                print("[FriendsViewModel] Failed to fetch user \(id):", error.localizedDescription)
+            }
+        }
+
+        return results
     }
     
     func handleSearchChange() {
@@ -192,6 +214,7 @@ class FriendsViewModel: ObservableObject {
 
                 if var user = try? doc.data(as: UserModel.self) {
                     user.documentId = id
+                    storeUser(user, for: id)
                     results.append(user)
                     seenIds.insert(id)
                 }
@@ -234,13 +257,15 @@ class FriendsViewModel: ObservableObject {
 
         do {
             let snapshot = try await db.collection("users").getDocuments()
-            let users = snapshot.documents.compactMap { doc in
-                var user = try? doc.data(as: UserModel.self)
-                user?.documentId = doc.documentID
+            let users = snapshot.documents.compactMap { doc -> UserModel? in
+                guard var user = try? doc.data(as: UserModel.self) else { return nil }
+                user.documentId = doc.documentID
 
-                if user?.username == nil || user?.documentId == nil {
+                if user.username == nil || user.documentId == nil {
                     print("[FriendsViewModel] ⚠️ Skipped user with bad data: \(doc.data())")
                 }
+
+                storeUser(user, for: doc.documentID)
 
                 return user
             }
