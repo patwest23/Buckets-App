@@ -100,13 +100,13 @@ struct FeedRowView: View {
                 .background(
                     RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
                         .fill(
-                            isLikedByCurrentUser
-                            ? LinearGradient(
-                                colors: [BucketTheme.primary, BucketTheme.secondary],
+                            LinearGradient(
+                                colors: isLikedByCurrentUser
+                                ? [BucketTheme.primary, BucketTheme.secondary]
+                                : Array(repeating: BucketTheme.surface(for: colorScheme), count: 2),
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
-                            : BucketTheme.surface(for: colorScheme)
                         )
                 )
                 .overlay(

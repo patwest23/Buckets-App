@@ -167,22 +167,33 @@ struct FriendsView: View {
                 }
             }
             Spacer()
-            Button {
-                if viewModel.isUserFollowed(user) {
-                    Task { await viewModel.unfollow(user) }
-                } else {
-                    Task { await viewModel.follow(user) }
-                }
-            } label: {
-                Text(viewModel.isUserFollowed(user) ? "Unfollow" : "Follow")
-            }
-            .buttonStyle(viewModel.isUserFollowed(user) ? BucketSecondaryButtonStyle() : BucketPrimaryButtonStyle())
-            .frame(width: 110)
+            followButton(for: user)
         }
         .bucketCard()
         .listRowInsets(EdgeInsets(top: BucketTheme.smallSpacing, leading: BucketTheme.mediumSpacing, bottom: BucketTheme.smallSpacing, trailing: BucketTheme.mediumSpacing))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+    }
+
+    @ViewBuilder
+    private func followButton(for user: UserModel) -> some View {
+        if viewModel.isUserFollowed(user) {
+            Button {
+                Task { await viewModel.unfollow(user) }
+            } label: {
+                Text("Unfollow")
+            }
+            .frame(width: 110)
+            .buttonStyle(BucketSecondaryButtonStyle())
+        } else {
+            Button {
+                Task { await viewModel.follow(user) }
+            } label: {
+                Text("Follow")
+            }
+            .frame(width: 110)
+            .buttonStyle(BucketPrimaryButtonStyle())
+        }
     }
     
     @ViewBuilder
