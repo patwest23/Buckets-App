@@ -9,83 +9,133 @@ import SwiftUI
 
 struct ResetPasswordView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    @Environment(\.dismiss) private var dismiss
+
     @State private var email: String = ""
-    @State private var resetMessage: String = ""
-    @State private var showAlert: Bool = false
+    @State private var isSubmitting = false
+    @State private var alertMessage: String?
+    @State private var shouldDismissAfterAlert = false
+
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email
+    }
 
     var body: some View {
-        // 1) Use systemBackground so it’s white in Light, black in Dark
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 28) {
+                header
 
-                // MARK: - Email Input Field
-                TextField("✉️ Enter your email address", text: $email)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-
-                Spacer()
-
-                // MARK: - Send Reset Link Button
-                Button(action: {
-                    Task { await sendResetLink() }
-                }) {
-                    // a) If email is empty => gray text, else red
-                    Text("🔗 Send Reset Link")
-                        .foregroundColor(email.isEmpty ? .gray : .red)
-                        .frame(maxWidth: .infinity)
-                        .fontWeight(.bold)
-                        .padding()
-                        // b) Button background uses dynamic color
-                        .background(Color(uiColor: .systemBackground))
-                        // c) Button text color adapts to light/dark
-                        .foregroundColor(.primary)
-                        .cornerRadius(10)
-                        .shadow(radius: 5)
+                VStack(alignment: .leading, spacing: 18) {
+                    TextField("Email", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .focused($focusedField, equals: .email)
+                        .onboardingFieldStyle()
                 }
-                .disabled(email.isEmpty) // disable if no email
-                .padding(.horizontal)
+
+                Button(action: sendResetLink) {
+                    ZStack {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        } else {
+                            Text("Send reset link")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .background(primaryButtonBackground)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+                .disabled(isButtonDisabled)
             }
-            .padding()
-            // 2) Rely on system colors to adapt in both modes
-            .background(Color(uiColor: .systemBackground))
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text("Password Reset"),
-                    message: Text(resetMessage),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
+            .padding(28)
         }
-        .background(Color(uiColor: .systemBackground))
-        // If you want some extra spacing at the edges, you can keep `.padding()`
-        .padding()
+        .background(Color(.systemBackground))
+        .navigationTitle("Reset password")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Reset password", isPresented: alertBinding) {
+            Button("OK", role: .cancel) {
+                if shouldDismissAfterAlert {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage ?? "")
+        }
+        .onAppear {
+            email = viewModel.email
+            focusedField = .email
+        }
     }
 
-    // MARK: - Helper Functions
-    private func sendResetLink() async {
-        guard !email.isEmpty else {
-            showErrorMessage("Please enter a valid email address.")
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Forgot your password?")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text("Enter the email associated with your account and we'll send you a secure reset link.")
+                .foregroundColor(.secondary)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var primaryButtonBackground: Color {
+        isButtonDisabled ? Color.accentColor.opacity(0.4) : Color.accentColor
+    }
+
+    private var isButtonDisabled: Bool {
+        isSubmitting || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var alertBinding: Binding<Bool> {
+        Binding(
+            get: { alertMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    alertMessage = nil
+                    shouldDismissAfterAlert = false
+                }
+            }
+        )
+    }
+
+    private func sendResetLink() {
+        guard !isButtonDisabled else { return }
+
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty else {
+            alertMessage = "Please enter a valid email address."
             return
         }
-        let result = await viewModel.resetPassword(for: email)
-        switch result {
-        case .success(let message):
-            showSuccessMessage(message)
-        case .failure(let error):
-            showErrorMessage(error.localizedDescription)
+
+        isSubmitting = true
+        focusedField = nil
+
+        Task {
+            let result = await viewModel.resetPassword(for: trimmedEmail)
+            await MainActor.run {
+                isSubmitting = false
+
+                switch result {
+                case .success(let message):
+                    alertMessage = message
+                    shouldDismissAfterAlert = true
+                case .failure(let error):
+                    alertMessage = error.localizedDescription
+                }
+            }
         }
-    }
-
-    private func showErrorMessage(_ message: String) {
-        resetMessage = message
-        showAlert = true
-    }
-
-    private func showSuccessMessage(_ message: String) {
-        resetMessage = message
-        showAlert = true
     }
 }
 
@@ -97,14 +147,14 @@ struct ResetPasswordView_Previews: PreviewProvider {
 
         return Group {
             // Light Mode
-            NavigationView {
+            NavigationStack {
                 ResetPasswordView()
                     .environmentObject(mockViewModel)
             }
             .previewDisplayName("ResetPasswordView - Light Mode")
 
             // Dark Mode
-            NavigationView {
+            NavigationStack {
                 ResetPasswordView()
                     .environmentObject(mockViewModel)
                     .preferredColorScheme(.dark)

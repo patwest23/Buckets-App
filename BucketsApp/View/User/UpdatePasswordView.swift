@@ -9,98 +9,162 @@ import SwiftUI
 
 struct UpdatePasswordView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    @Environment(\.dismiss) private var dismiss
+
     @State private var currentPassword: String = ""
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
-    @State private var updateMessage: String = ""
-    @State private var showAlert: Bool = false
+    @State private var isSubmitting = false
+    @State private var alertMessage: String?
+    @State private var shouldDismissAfterAlert = false
+
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case current
+        case new
+        case confirm
+    }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                
-                // MARK: - Current Password
-                SecureField("🔒 Current Password", text: $currentPassword)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
+            VStack(alignment: .leading, spacing: 28) {
+                header
 
-                // MARK: - New Password
-                SecureField("🔑 New Password", text: $newPassword)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
+                VStack(alignment: .leading, spacing: 18) {
+                    SecureField("Current password", text: $currentPassword)
+                        .focused($focusedField, equals: .current)
+                        .onboardingFieldStyle()
 
-                // MARK: - Confirm New Password
-                SecureField("🔐 Confirm New Password", text: $confirmPassword)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-                
-                Spacer()
+                    SecureField("New password", text: $newPassword)
+                        .focused($focusedField, equals: .new)
+                        .onboardingFieldStyle()
 
-                // MARK: - Update Password Button
-                Button {
-                    Task { await updatePassword() }
-                } label: {
-                    Text("✅ Update Password")
-                        // If form valid => .accentColor, else .red
-                        .foregroundColor(isFormValid ? .accentColor : .red)
-                        .frame(maxWidth: .infinity)
-                        .fontWeight(.bold)
-                        .padding()
-                        // Use system color that adapts to Light/Dark
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(10)
-                        .shadow(radius: 5)
+                    SecureField("Confirm new password", text: $confirmPassword)
+                        .focused($focusedField, equals: .confirm)
+                        .onboardingFieldStyle()
                 }
-                .disabled(!isFormValid) // disable if not valid
-                .padding(.horizontal)
 
+                Button(action: updatePassword) {
+                    ZStack {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        } else {
+                            Text("Update password")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .background(primaryButtonBackground)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+                .disabled(isButtonDisabled)
+
+                Text("Use at least 6 characters with a mix of numbers, letters, and symbols for the strongest protection.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding()
-            // Overall background color - white in Light, black in Dark
-            .background(Color(uiColor: .systemBackground))
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text("Password Update"),
-                    message: Text(updateMessage),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
+            .padding(28)
         }
-        // Another layer of system background if desired
-        .background(Color(uiColor: .systemBackground))
-        .padding()
+        .background(Color(.systemBackground))
+        .navigationTitle("Update password")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Update password", isPresented: alertBinding) {
+            Button("OK", role: .cancel) {
+                if shouldDismissAfterAlert {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage ?? "")
+        }
+        .onAppear {
+            focusedField = .current
+        }
     }
 
-    // MARK: - Validation
-    private var isFormValid: Bool {
-        !currentPassword.isEmpty && !newPassword.isEmpty && !confirmPassword.isEmpty
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Strengthen your security")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text("Re-authenticate with your current password and choose a new one to keep your account protected.")
+                .font(.callout)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
-    // MARK: - Update Password Logic
-    private func updatePassword() async {
-        guard newPassword == confirmPassword else {
-            showError("Passwords do not match.")
+    private var primaryButtonBackground: Color {
+        isButtonDisabled ? Color.accentColor.opacity(0.4) : Color.accentColor
+    }
+
+    private var isButtonDisabled: Bool {
+        isSubmitting || currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty
+    }
+
+    private var alertBinding: Binding<Bool> {
+        Binding(
+            get: { alertMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    alertMessage = nil
+                    shouldDismissAfterAlert = false
+                }
+            }
+        )
+    }
+
+    private func updatePassword() {
+        guard !isButtonDisabled else { return }
+
+        let trimmedCurrent = currentPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNew = newPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedConfirm = confirmPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard trimmedNew == trimmedConfirm else {
+            alertMessage = "Passwords do not match."
             return
         }
-        do {
-            let message = try await viewModel.updatePassword(
-                currentPassword: currentPassword,
-                newPassword: newPassword
-            )
-            showSuccess(message)
-        } catch {
-            showError(error.localizedDescription)
+
+        guard trimmedNew.count >= 6 else {
+            alertMessage = "Passwords must be at least 6 characters long."
+            return
         }
-    }
 
-    private func showSuccess(_ message: String) {
-        updateMessage = message
-        showAlert = true
-    }
+        isSubmitting = true
+        focusedField = nil
 
-    private func showError(_ message: String) {
-        updateMessage = message
-        showAlert = true
+        Task {
+            do {
+                let message = try await viewModel.updatePassword(
+                    currentPassword: trimmedCurrent,
+                    newPassword: trimmedNew
+                )
+
+                await MainActor.run {
+                    isSubmitting = false
+                    alertMessage = message
+                    shouldDismissAfterAlert = true
+                    currentPassword = ""
+                    newPassword = ""
+                    confirmPassword = ""
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    alertMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }
 
@@ -112,14 +176,14 @@ struct UpdatePasswordView_Previews: PreviewProvider {
         
         return Group {
             // Light Mode
-            NavigationView {
+            NavigationStack {
                 UpdatePasswordView()
                     .environmentObject(mockViewModel)
             }
             .previewDisplayName("UpdatePasswordView - Light Mode")
-            
+
             // Dark Mode
-            NavigationView {
+            NavigationStack {
                 UpdatePasswordView()
                     .environmentObject(mockViewModel)
                     .preferredColorScheme(.dark)

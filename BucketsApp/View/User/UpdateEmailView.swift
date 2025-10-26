@@ -9,86 +9,138 @@ import SwiftUI
 
 struct UpdateEmailView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
-    
+    @Environment(\.dismiss) private var dismiss
+
     @State private var newEmail: String = ""
-    @State private var updateMessage: String = ""
-    @State private var showAlert: Bool = false
+    @State private var isSubmitting = false
+    @State private var alertMessage: String?
+    @State private var shouldDismissAfterAlert = false
+
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email
+    }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                
-                // MARK: - Email Input Field
-                TextField("✉️ Enter New Email Address", text: $newEmail)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding()
+            VStack(alignment: .leading, spacing: 28) {
+                header
 
-                Spacer()
-
-                // MARK: - Update Email Button
-                HStack {
-                    Button {
-                        Task { await updateEmail() }
-                    } label: {
-                        Text("✅ Update Email")
-                            // If email is empty => .gray, else .accentColor
-                            .foregroundColor(newEmail.isEmpty ? .gray : .accentColor)
-                            .frame(maxWidth: .infinity)
-                            .fontWeight(.bold)
-                            .padding()
-                            .background(Color(uiColor: .systemBackground))
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                    }
-                    .disabled(newEmail.isEmpty) // disable if email is empty
-                    .padding(.horizontal)
+                VStack(alignment: .leading, spacing: 18) {
+                    TextField("New email", text: $newEmail)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .focused($focusedField, equals: .email)
+                        .onboardingFieldStyle()
                 }
 
+                Button(action: updateEmail) {
+                    ZStack {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        } else {
+                            Text("Update email")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .background(primaryButtonBackground)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+                .disabled(isButtonDisabled)
+
+                Text("We'll send a verification link to your new email. Confirm it to finish the update.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding()
-            // Use system background for the entire screen
-            .background(Color(uiColor: .systemBackground))
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text("Email Update"),
-                    message: Text(updateMessage),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
+            .padding(28)
         }
-        .background(Color(uiColor: .systemBackground)) // Another layer if you prefer
-        .padding()
+        .background(Color(.systemBackground))
+        .navigationTitle("Update email")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Update email", isPresented: alertBinding) {
+            Button("OK", role: .cancel) {
+                if shouldDismissAfterAlert {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text(alertMessage ?? "")
+        }
+        .onAppear {
+            newEmail = viewModel.email
+            focusedField = .email
+        }
     }
 
-    // MARK: - Helper Functions
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Keep your inbox current")
+                .font(.largeTitle)
+                .fontWeight(.bold)
 
-    private func updateEmail() async {
-        guard !newEmail.isEmpty else {
-            showError("Please enter a valid email address.")
+            Text("Enter the address you'd like to use for account notifications and security alerts.")
+                .font(.callout)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var primaryButtonBackground: Color {
+        isButtonDisabled ? Color.accentColor.opacity(0.4) : Color.accentColor
+    }
+
+    private var isButtonDisabled: Bool {
+        isSubmitting || newEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var alertBinding: Binding<Bool> {
+        Binding(
+            get: { alertMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    alertMessage = nil
+                    shouldDismissAfterAlert = false
+                }
+            }
+        )
+    }
+
+    private func updateEmail() {
+        guard !isButtonDisabled else { return }
+
+        let trimmedEmail = newEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty else {
+            alertMessage = "Please enter a valid email address."
             return
         }
 
-        let result = await viewModel.updateEmail(newEmail: newEmail)
-        DispatchQueue.main.async {
-            switch result {
-            case .success(let message):
-                showSuccess(message)
-            case .failure(let error):
-                showError(error.localizedDescription)
+        isSubmitting = true
+        focusedField = nil
+
+        Task {
+            let result = await viewModel.updateEmail(newEmail: trimmedEmail)
+            await MainActor.run {
+                isSubmitting = false
+
+                switch result {
+                case .success(let message):
+                    alertMessage = message
+                    shouldDismissAfterAlert = true
+                case .failure(let error):
+                    alertMessage = error.localizedDescription
+                }
             }
         }
-    }
-
-    private func showError(_ message: String) {
-        updateMessage = message
-        showAlert = true
-    }
-
-    private func showSuccess(_ message: String) {
-        updateMessage = message
-        showAlert = true
     }
 }
 
@@ -100,14 +152,14 @@ struct UpdateEmailView_Previews: PreviewProvider {
         
         return Group {
             // Light Mode
-            NavigationView {
+            NavigationStack {
                 UpdateEmailView()
                     .environmentObject(mockViewModel)
             }
             .previewDisplayName("UpdateEmailView - Light")
-            
+
             // Dark Mode
-            NavigationView {
+            NavigationStack {
                 UpdateEmailView()
                     .environmentObject(mockViewModel)
                     .preferredColorScheme(.dark)
