@@ -24,6 +24,7 @@ class UserViewModel: ObservableObject {
     // MARK: - Firestore
     private let db = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
+    private let userCache = UserCache.shared
     
     // MARK: - Initialization
     init() {
@@ -68,8 +69,10 @@ class UserViewModel: ObservableObject {
             
             do {
                 let updatedUser = try snapshot.data(as: UserModel.self)
-                self.user = updatedUser
-                self.user?.documentId = userId
+                var cachedUser = updatedUser
+                cachedUser.documentId = userId
+                self.user = cachedUser
+                self.userCache.cache(user: cachedUser, for: userId)
                 print("[UserViewModel] user set =>", updatedUser)
                 print("[UserViewModel] Real-time update for /users/\(userId). user.id =", updatedUser.id)
             } catch {
@@ -109,8 +112,11 @@ class UserViewModel: ObservableObject {
                 }
             }
             
-            // self.user = updatedUser  // Commented out to avoid overriding listener-driven user data
-            
+            var cachedUser = updatedUser
+            cachedUser.documentId = cachedUser.documentId ?? userId
+            userCache.cache(user: cachedUser, for: userId)
+            userCache.cacheProfileImageData(profileImageData, for: userId)
+
             print("[UserViewModel] updateUserProfile: User doc updated for /users/\(userId). user.id =", updatedUser.id)
             
         } catch {
@@ -162,11 +168,16 @@ class UserViewModel: ObservableObject {
             // 7) Commit the batch
             try await batch.commit()
             print("[UserViewModel] updateUserName: Batch updated user doc + \(itemsSnapshot.documents.count) item docs.")
-            
+
             // 8) Update local user object
             user?.name = newName
             user?.username = newName
-            
+            if var cachedUser = user {
+                cachedUser.documentId = userId
+                userCache.cache(user: cachedUser, for: userId)
+                userCache.cacheProfileImageData(profileImageData, for: userId)
+            }
+
         } catch {
             handleError(error, prefix: "updateUserName")
         }
@@ -214,6 +225,11 @@ class UserViewModel: ObservableObject {
             // Update local state
             profileImageData = data
             user?.profileImageUrl = downloadURL.absoluteString
+            if var cachedUser = user {
+                cachedUser.documentId = userId
+                userCache.cache(user: cachedUser, for: userId)
+            }
+            userCache.cacheProfileImageData(data, for: userId)
             print("[UserViewModel] updateProfileImage: Image uploaded and user doc updated.")
 
         } catch {
@@ -231,10 +247,12 @@ class UserViewModel: ObservableObject {
         do {
             let data = try await storageRef.data(maxSize: 5 * 1024 * 1024)
             profileImageData = data
+            userCache.cacheProfileImageData(data, for: userId)
             print("[UserViewModel] Profile image loaded.")
         } catch {
             print("[UserViewModel] Failed to load profile image:", error.localizedDescription)
             profileImageData = nil
+            userCache.cacheProfileImageData(nil, for: userId)
         }
     }
     
@@ -293,11 +311,22 @@ class UserViewModel: ObservableObject {
     @MainActor
     func loadCurrentUser() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
+
+        if let cachedUser = userCache.cachedUser(for: userId) {
+            self.user = cachedUser
+            self.isUserLoaded = true
+            self.profileImageData = userCache.cachedProfileImageData(for: userId)
+        }
+
         do {
             let snapshot = try await db.collection("users").document(userId).getDocument()
             self.user = try snapshot.data(as: UserModel.self)
             self.user?.documentId = userId
             self.isUserLoaded = true
+            if var cachedUser = self.user {
+                cachedUser.documentId = userId
+                userCache.cache(user: cachedUser, for: userId)
+            }
 
             // Reset any cached profile image when switching accounts or when
             // the stored URL is empty so that brand new users see the default
@@ -308,6 +337,7 @@ class UserViewModel: ObservableObject {
                 }
             } else {
                 self.profileImageData = nil
+                userCache.cacheProfileImageData(nil, for: userId)
             }
             print("[UserViewModel] loadCurrentUser: Refreshed user document.")
         } catch {
@@ -363,6 +393,12 @@ class UserViewModel: ObservableObject {
     @MainActor
     func initializeUserSession(for uid: String, email: String) async {
         print("[UserViewModel] Initializing session for \(uid)")
+
+        if let cachedUser = userCache.cachedUser(for: uid) {
+            self.user = cachedUser
+            self.isUserLoaded = true
+            self.profileImageData = userCache.cachedProfileImageData(for: uid)
+        }
         do {
             let snapshot = try await db.collection("users").document(uid).getDocument()
             if !snapshot.exists {
