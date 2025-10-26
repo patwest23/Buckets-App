@@ -18,34 +18,22 @@ struct ItemRowView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var postViewModel: PostViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showFullScreenGallery = false
 
-    private let cardCornerRadius: CGFloat = 12
-    private let cardPadding: CGFloat = 8
-    private let cardShadowRadius: CGFloat = 4
-    private let spacing: CGFloat = 6
-    private let imageHeight: CGFloat = 240
-    private let controlCornerRadius: CGFloat = 10
-    private let controlHeight: CGFloat = 44
+    private let imageHeight: CGFloat = 220
 
     var body: some View {
-        VStack(alignment: .leading, spacing: spacing) {
+        VStack(alignment: .leading, spacing: BucketTheme.mediumSpacing) {
             topRow
             carouselView
             iconsRow
             captionRow
         }
-        .padding(cardPadding)
-        .background(
-            RoundedRectangle(cornerRadius: cardCornerRadius)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: .black.opacity(0.1), radius: cardShadowRadius, x: 0, y: 2)
-        )
-        // Removed blue outline overlay when selected
+        .bucketCard()
         .contentShape(Rectangle())
         .onAppear {
             print("[ItemRowView] onAppear: \(item.name) (id: \(item.id)) wasShared: \(item.wasShared)")
-            // Autofocus if this is the newly created item
             if item.id == newlyCreatedItemID {
                 focusedItemID.wrappedValue = item.id
             }
@@ -61,57 +49,47 @@ struct ItemRowView: View {
     }
 
     private var topRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: BucketTheme.mediumSpacing) {
             Button(action: toggleCompleted) {
                 Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                    .imageScale(.large)
-                    .foregroundColor(item.completed ? .accentColor : .gray)
-                    .frame(width: controlHeight, height: controlHeight)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(item.completed ? BucketTheme.primary : BucketTheme.subtleText(for: colorScheme))
+                    .frame(width: 44, height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: controlCornerRadius)
-                            .fill(Color(UIColor.systemBackground))
+                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                            .fill(BucketTheme.surface(for: colorScheme))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: controlCornerRadius)
-                            .stroke(item.completed ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: 1.5)
+                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                            .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
                     )
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.completed ? "Mark item as incomplete" : "Mark item as complete")
 
-            TextField("", text: bindingForName(), onCommit: handleOnSubmit)
-                .font(.subheadline)
+            TextField("Name your bucket dream", text: bindingForName(), onCommit: handleOnSubmit)
+                .font(.headline)
                 .foregroundColor(.primary)
                 .focused(focusedItemID, equals: item.id)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: controlCornerRadius)
-                        .fill(Color(UIColor.systemBackground))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: controlCornerRadius)
-                        .stroke(Color.gray.opacity(0.25), lineWidth: 1)
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .submitLabel(.done)
+                .bucketTextField(systemImage: item.completed ? "checkmark.seal.fill" : "sparkles")
 
             Button {
                 onNavigateToDetail?()
             } label: {
                 Image(systemName: "chevron.right")
-                    .imageScale(.medium)
-                    .foregroundColor(.accentColor)
-                    .frame(width: controlHeight, height: controlHeight)
+                    .font(.headline)
+                    .foregroundStyle(BucketTheme.primary)
+                    .frame(width: 44, height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: controlCornerRadius)
-                            .fill(Color(UIColor.systemBackground))
+                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                            .fill(BucketTheme.surface(for: colorScheme))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: controlCornerRadius)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                            .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
                     )
                     .contentShape(Rectangle())
-
             }
             .accessibilityLabel("Open item details")
             .buttonStyle(.plain)
@@ -137,8 +115,12 @@ struct ItemRowView: View {
                     }
                     .tabViewStyle(.page)
                     .frame(height: imageHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.top, 4)
+                    .clipShape(RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                            .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                    )
+                    .shadow(color: BucketTheme.shadow(for: colorScheme), radius: 8, x: 0, y: 6)
                 }
             }
         }
@@ -147,44 +129,33 @@ struct ItemRowView: View {
     private var iconsRow: some View {
         Group {
             if item.completed {
-                HStack(spacing: 12) {
+                HStack(spacing: BucketTheme.mediumSpacing) {
                     if item.wasShared {
                         Image(systemName: "megaphone.fill")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundStyle(BucketTheme.secondary)
                     }
 
                     if item.likedBy.count > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "heart.fill")
-                                .foregroundColor(.red)
-                                .font(.caption)
-                            Text("\(item.likedBy.count)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Label("\(item.likedBy.count)", systemImage: "heart.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.red)
                     }
 
-                    // Checkmark badge with formatted dueDate
                     if item.completed {
                         Label {
                             Text(formatDate(item.dueDate ?? Date()))
                                 .font(.caption)
-                                .foregroundColor(.green)
+                                .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
                         } icon: {
                             Image(systemName: "checkmark.seal")
                                 .foregroundColor(.green)
                         }
                     }
                     if let location = item.location?.address, !location.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "mappin.and.ellipse")
-                                .foregroundColor(.purple)
-                                .font(.caption)
-                            Text(location)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Label(location, systemImage: "mappin.and.ellipse")
+                            .font(.caption)
+                            .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
                     }
                 }
                 .padding(.top, 2)
@@ -195,14 +166,17 @@ struct ItemRowView: View {
     private var captionRow: some View {
         Group {
             if item.completed, let caption = item.caption, !caption.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    let username = bucketListViewModel.getUser(for: item.userId)?.username
-                    Text("\(username ?? "@\(item.userId.prefix(6))") \(caption)")
-                        .font(.caption)
-                        .fontWeight(.regular)
+                HStack(alignment: .firstTextBaseline, spacing: BucketTheme.smallSpacing) {
+                    let username = bucketListViewModel.getUser(for: item.userId)?.username ?? "@\(item.userId.prefix(6))"
+                    Text(username)
+                        .font(.callout.weight(.semibold))
+                        .foregroundColor(.primary)
+                    Text(caption)
+                        .font(.callout)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .foregroundColor(.primary)
-                .padding(.top, 2)
+                .padding(.top, 4)
             }
         }
     }
@@ -270,7 +244,7 @@ struct ItemRowView: View {
         formatter.dateFormat = "MM/dd/yyyy"
         return formatter.string(from: date)
     }
-    // MARK: - Init
+
     init(
         item: Binding<ItemModel>,
         newlyCreatedItemID: UUID?,
@@ -291,7 +265,6 @@ struct ItemRowView_Previews: PreviewProvider {
     @FocusState static var previewFocusID: UUID?
 
     static var previews: some View {
-
         let sampleItem = ItemModel(
             userId: "testUser",
             name: "Sample Bucket List Item",
@@ -356,33 +329,3 @@ struct ItemRowView_Previews: PreviewProvider {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

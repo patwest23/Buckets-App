@@ -15,27 +15,38 @@ struct FeedView: View {
     @EnvironmentObject var friendsViewModel: FriendsViewModel
     @State private var isRefreshing = false
     @State private var showsInlineSpinner = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 16) {
+                LazyVStack(spacing: BucketTheme.largeSpacing, pinnedViews: []) {
                     if isRefreshing && showsInlineSpinner {
                         ProgressView("Loading Feed...")
-                            .padding(.top, 12)
+                            .padding(.top, BucketTheme.largeSpacing)
+                            .padding(.bottom, BucketTheme.smallSpacing)
+                            .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
                     }
 
                     if feedViewModel.posts.isEmpty && !isRefreshing {
-                        Text("No posts yet.")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                            .padding()
+                        VStack(spacing: BucketTheme.smallSpacing) {
+                            Text("🪣")
+                                .font(.largeTitle)
+                            Text("No posts yet")
+                                .font(.headline)
+                            Text("Complete a bucket and share it with friends!")
+                                .font(.callout)
+                                .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, BucketTheme.largeSpacing)
+                        .bucketCard()
                     } else {
                         ForEach($feedViewModel.posts) { $post in
                             let postValue = $post.wrappedValue
                             let summary = resolvedSummary(for: postValue)
 
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: BucketTheme.smallSpacing) {
                                 FeedRowView(
                                     post: $post,
                                     itemSummary: summary,
@@ -45,16 +56,18 @@ struct FeedView: View {
                                 )
 
                                 Text(timeAgoString(for: postValue.timestamp))
-                                    .font(.caption2)
-                                    .foregroundColor(.gray)
+                                    .font(.caption)
+                                    .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                                    .padding(.leading, BucketTheme.mediumSpacing)
                             }
-                            .padding(.horizontal)
-                            .padding(.top, 8)
+                            .padding(.horizontal, BucketTheme.mediumSpacing)
                         }
                     }
                 }
-                .padding(.bottom, 24)
+                .padding(.vertical, BucketTheme.largeSpacing)
             }
+            .background { BucketTheme.backgroundGradient(for: colorScheme).ignoresSafeArea() }
+            .bucketToolbarBackground()
             .navigationTitle("Feed")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
