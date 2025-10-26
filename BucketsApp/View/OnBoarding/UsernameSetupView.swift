@@ -11,6 +11,8 @@ struct UsernameSetupView: View {
     @EnvironmentObject var userViewModel: UserViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+
     @State private var username: String = "@"
     @State private var isUsernameValid: Bool = false
     @State private var isCheckingAvailability: Bool = false
@@ -20,64 +22,73 @@ struct UsernameSetupView: View {
     @State private var hasInteracted = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("Create a Username")
-                .font(.largeTitle)
-                .bold()
+        ScrollView {
+            VStack(spacing: BucketTheme.largeSpacing) {
+                VStack(spacing: BucketTheme.smallSpacing) {
+                    Text("Claim your playful handle")
+                        .font(.largeTitle.weight(.bold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text("Pick a unique handle to represent you in Buckets. We'll use this on your profile and posts.")
-                .multilineTextAlignment(.center)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                    Text("Pick a unique username so friends can find you and celebrate your wins.")
+                        .multilineTextAlignment(.leading)
+                        .font(.callout)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                }
 
-            TextField("Enter a unique username", text: $username)
-                .autocapitalization(.none)
-                .disableAutocorrection(true)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .onChange(of: username, initial: false) { _, newValue in
-                    hasInteracted = true
-                    validationTask?.cancel()
-                    validationTask = Task {
-                        await validateUsername(newValue)
+                VStack(spacing: BucketTheme.mediumSpacing) {
+                    TextField("@username", text: $username)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .bucketTextField(systemImage: "at")
+                        .onChange(of: username, initial: false) { _, newValue in
+                            hasInteracted = true
+                            validationTask?.cancel()
+                            validationTask = Task {
+                                await validateUsername(newValue)
+                            }
+                        }
+
+                    if let error = errorMessage {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(Color.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
+
+                    if isCheckingAvailability {
+                        ProgressView("Checking availability…")
+                            .progressViewStyle(.circular)
+                    }
+
+                    Button {
+                        Task {
+                            await submitUsername()
+                        }
+                    } label: {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Label("Continue", systemImage: "arrow.right.circle.fill")
+                                .symbolVariant(.fill)
+                        }
+                    }
+                    .buttonStyle(BucketPrimaryButtonStyle())
+                    .disabled(!isUsernameValid || isSubmitting)
                 }
+                .bucketCard()
 
-            if let error = errorMessage {
-                Text(error)
-                    .foregroundColor(.red)
-                    .font(.caption)
+                Text("Tip: keep it short, sweet, and unmistakably you. 🌟")
+                    .font(.footnote)
+                    .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                    .multilineTextAlignment(.center)
             }
-
-            if isCheckingAvailability {
-                ProgressView("Checking availability…")
-                    .progressViewStyle(.circular)
-            }
-
-            Button(action: {
-                Task {
-                    await submitUsername()
-                }
-            }) {
-                if isSubmitting {
-                    ProgressView()
-                        .tint(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                } else {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                }
-            }
-            .background(isUsernameValid ? Color.accentColor : Color.gray.opacity(0.4))
-            .foregroundColor(.white)
-            .cornerRadius(10)
-            .disabled(!isUsernameValid || isSubmitting)
-            .padding(.top)
-
-            Spacer()
+            .padding(.vertical, BucketTheme.largeSpacing)
+            .padding(.horizontal, BucketTheme.largeSpacing)
+            .bucketBackground()
         }
-        .padding()
+        .bucketBackground()
         .onAppear {
             hasInteracted = false
             if let existing = userViewModel.user?.username,

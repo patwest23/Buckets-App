@@ -11,123 +11,115 @@ import FirebaseAuth
 struct LogInView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
-    
+
     @State private var isLoading = false
     @State private var showWrongPasswordAlert = false
-    
+
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                Spacer()
-                
-                // MARK: - Email Input
-                TextField("✉️ Email Address", text: $onboardingViewModel.email)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-                
-                // MARK: - Password Input
-                SecureField("🔑 Password", text: $onboardingViewModel.password)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-                
-                Spacer()
-                
-                // MARK: - Log In Button
-                Button {
-                    if validateInput() {
-                        isLoading = true
+            VStack(spacing: BucketTheme.largeSpacing) {
+                VStack(spacing: BucketTheme.mediumSpacing) {
+                    Text("👋 Welcome back")
+                        .font(.title.weight(.bold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text("Let's tick another dream off your list.")
+                        .font(.callout)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                VStack(spacing: BucketTheme.mediumSpacing) {
+                    TextField("Email Address", text: $onboardingViewModel.email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .bucketTextField(systemImage: "envelope.fill")
+
+                    SecureField("Password", text: $onboardingViewModel.password)
+                        .bucketTextField(systemImage: "lock.fill")
+
+                    Button {
+                        if validateInput() {
+                            isLoading = true
+                            Task {
+                                await onboardingViewModel.signIn()
+                                if Auth.auth().currentUser != nil {
+                                    await userViewModel.loadCurrentUser()
+                                }
+                                isLoading = false
+
+                                if let errMsg = onboardingViewModel.errorMessage?.lowercased(),
+                                   errMsg.contains("password is invalid") || errMsg.contains("wrong-password") {
+                                    showWrongPasswordAlert = true
+                                }
+                            }
+                        }
+                    } label: {
+                        if isLoading {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Label("Log In", systemImage: "arrow.forward.circle.fill")
+                                .symbolVariant(.fill)
+                        }
+                    }
+                    .buttonStyle(BucketPrimaryButtonStyle())
+                    .disabled(onboardingViewModel.email.isEmpty || onboardingViewModel.password.isEmpty || isLoading)
+
+                    Button {
                         Task {
-                            await onboardingViewModel.signIn()
-                            if Auth.auth().currentUser != nil {
-                                await userViewModel.loadCurrentUser()
+                            guard !onboardingViewModel.email.isEmpty else {
+                                onboardingViewModel.errorMessage = "Please enter your email above."
+                                onboardingViewModel.showErrorAlert = true
+                                return
                             }
-                            isLoading = false
-                            
-                            // 1) Detect if the error is specifically "wrong password"
-                            if let errMsg = onboardingViewModel.errorMessage?.lowercased(),
-                               errMsg.contains("password is invalid") || errMsg.contains("wrong-password") {
-                                // Show alert offering to reset the password
-                                showWrongPasswordAlert = true
+                            let result = await onboardingViewModel.resetPassword(for: onboardingViewModel.email)
+                            switch result {
+                            case .success(let successMsg):
+                                onboardingViewModel.errorMessage = successMsg
+                                onboardingViewModel.showErrorAlert = true
+                            case .failure(let error):
+                                onboardingViewModel.errorMessage = error.localizedDescription
+                                onboardingViewModel.showErrorAlert = true
                             }
                         }
+                    } label: {
+                        Label("Forgot password?", systemImage: "questionmark.circle")
+                            .font(.footnote.weight(.semibold))
                     }
-                } label: {
-                    if isLoading {
-                        ProgressView()
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    } else {
-                        Text("Log In")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(uiColor: .secondarySystemBackground))
-                            .foregroundColor(
-                                onboardingViewModel.email.isEmpty || onboardingViewModel.password.isEmpty
-                                ? .red
-                                : .primary
-                            )
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                    }
-                }
-                .disabled(onboardingViewModel.email.isEmpty || onboardingViewModel.password.isEmpty || isLoading)
-                .padding(.horizontal)
-                .padding(.top, 20)
-                
-                // MARK: - Forgot Password
-                Button("Forgot Password?") {
-                    Task {
-                        guard !onboardingViewModel.email.isEmpty else {
-                            // Show error or prompt to enter email
-                            onboardingViewModel.errorMessage = "Please enter your email above."
-                            onboardingViewModel.showErrorAlert = true
-                            return
+                    .buttonStyle(BucketSecondaryButtonStyle())
+
+                    Button {
+                        Task {
+                            await onboardingViewModel.loginWithBiometrics()
                         }
-                        let result = await onboardingViewModel.resetPassword(for: onboardingViewModel.email)
-                        switch result {
-                        case .success(let successMsg):
-                            onboardingViewModel.errorMessage = successMsg
-                            onboardingViewModel.showErrorAlert = true
-                        case .failure(let error):
-                            onboardingViewModel.errorMessage = error.localizedDescription
-                            onboardingViewModel.showErrorAlert = true
-                        }
+                    } label: {
+                        Label("Use Face ID", systemImage: "faceid")
+                            .font(.footnote.weight(.semibold))
                     }
+                    .buttonStyle(BucketSecondaryButtonStyle())
+                    .disabled(isLoading)
                 }
-                .padding(.top, 10)
-                
-                // MARK: - Use Face ID / Touch ID
-                Button("Use Face ID") {
-                    Task {
-                        // This calls OnboardingViewModel.loginWithBiometrics()
-                        // which fetches stored credentials from Keychain
-                        // and tries to sign in
-                        await onboardingViewModel.loginWithBiometrics()
-                    }
-                }
-                .padding(.top, 5)
-                .disabled(isLoading)
+                .bucketCard()
+
+                Text("Pro tip: save your favorite adventures to revisit them anytime. 📸")
+                    .font(.footnote)
+                    .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                    .multilineTextAlignment(.center)
             }
-            .padding()
-            .background(Color(uiColor: .systemBackground))
-            
-            // MARK: - General Error Alert
+            .padding(.vertical, BucketTheme.largeSpacing)
+            .padding(.horizontal, BucketTheme.largeSpacing)
+            .bucketBackground()
             .alert("Error", isPresented: $onboardingViewModel.showErrorAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(onboardingViewModel.errorMessage ?? "Unknown error")
             }
         }
-        // Additional .padding() or styling as you see fit
-        .background(Color(uiColor: .systemBackground))
-        
-        // MARK: - Wrong Password Alert
+        .bucketBackground()
         .alert(
             "Wrong Password?",
             isPresented: $showWrongPasswordAlert
@@ -147,7 +139,7 @@ struct LogInView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("It looks like the password might be wrong. Would you like to reset it?")
+            Text("It looks like the password might be wrong. Want to reset it?")
         }
     }
     
