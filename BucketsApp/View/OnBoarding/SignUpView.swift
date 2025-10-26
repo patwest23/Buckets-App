@@ -1,214 +1,270 @@
-//
-//  RegistrationView.swift
-//  BucketsApp
-//
-//  Created by Patrick Westerkamp on 4/8/23.
-//
-
 import SwiftUI
 import UIKit
 
-enum SignUpNavigationDestination {
-    case listView
-}
-
 struct SignUpView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
+    @Environment(\.dismiss) private var dismiss
 
     @State private var username: String = ""
     @State private var confirmPassword: String = ""
     @State private var agreedToTerms = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-    @State private var navigationPath = NavigationPath()
+    @State private var isSubmitting = false
+
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case username
+        case email
+        case password
+        case confirmPassword
+    }
+
+    private var usernameBinding: Binding<String> {
+        Binding(
+            get: { username },
+            set: { newValue in
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: " ", with: "")
+
+                if trimmed.isEmpty {
+                    username = ""
+                } else {
+                    let sanitized = trimmed.replacingOccurrences(of: "@", with: "")
+                    username = "@" + sanitized
+                }
+            }
+        )
+    }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 28) {
+                    header
 
-                    Spacer()  // Removed the image/logo, just a spacer now
+                    VStack(alignment: .leading, spacing: 18) {
+                        TextField("@username", text: usernameBinding)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .focused($focusedField, equals: .username)
+                            .onboardingFieldStyle()
 
-                    // MARK: - Input Fields
-                    usernameTextField  // <--- Updated
-                    emailTextField
-                    passwordSecureField
-                    confirmPasswordSecureField
-                    termsAndConditionsSection
+                        TextField("Email", text: $viewModel.email)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .focused($focusedField, equals: .email)
+                            .onboardingFieldStyle()
 
-                    // MARK: - Sign Up Button
-                    signUpButton
-                        .padding(.top, 20)
+                        SecureField("Password", text: $viewModel.password)
+                            .focused($focusedField, equals: .password)
+                            .onboardingFieldStyle()
 
-                    Spacer()
+                        SecureField("Confirm password", text: $confirmPassword)
+                            .focused($focusedField, equals: .confirmPassword)
+                            .onboardingFieldStyle()
+                    }
+
+                    termsSection
+
+                    Button(action: signUp) {
+                        ZStack {
+                            if isSubmitting {
+                                ProgressView()
+                                    .tint(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                            } else {
+                                Text("Create account")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .background(signUpButtonBackground)
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                    .disabled(!agreedToTerms || isSubmitting)
+
+                    divider
+
+                    googleButton
                 }
-                .padding()
-                // Base background that adapts to Light/Dark
-                .background(Color(uiColor: .systemBackground))
-                .alert("Error", isPresented: $showErrorAlert) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(errorMessage)
-                }
+                .padding(28)
             }
-            .padding(.horizontal)
-            // Another background layer if you want
-            .background(Color(uiColor: .systemBackground))
-            .navigationDestination(for: SignUpNavigationDestination.self) { destination in
-                switch destination {
-                case .listView:
-                    // Navigate to ListView after successful sign-up
-                    ListView()
-                        .environmentObject(viewModel)
-                }
+            .background(Color(.systemBackground))
+            .navigationTitle("Create account")
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Sign Up", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
+        }
+        .onAppear {
+            username = viewModel.username
+        }
+        .onChange(of: viewModel.isAuthenticated) { isAuthenticated in
+            if isAuthenticated {
+                dismiss()
             }
         }
     }
 
-    // MARK: - Text Fields
-    
-    /// Username field with a custom Binding to always enforce "@" at the start
-    var usernameTextField: some View {
-        TextField("📛 Username", text: Binding(
-            get: {
-                // If empty, return blank. Otherwise ensure it starts with "@"
-                username.isEmpty
-                    ? ""
-                    : (username.hasPrefix("@") ? username : "@" + username)
-            },
-            set: { newVal in
-                // If user clears everything, we allow blank
-                if newVal.isEmpty {
-                    username = ""
-                }
-                // Otherwise enforce a single "@" at the start
-                else if !newVal.hasPrefix("@") {
-                    // Remove any existing "@" to avoid @@
-                    let rawVal = newVal.replacingOccurrences(of: "@", with: "")
-                    username = "@" + rawVal
-                } else {
-                    // Already has @ at start, so just update
-                    username = newVal
-                }
-            }
-        ))
-        .textFieldModifiers()
-    }
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Welcome to Buckets")
+                .font(.largeTitle)
+                .fontWeight(.bold)
 
-    /// Email address field (stored in OnboardingViewModel)
-    var emailTextField: some View {
-        TextField("✉️ Email Address", text: $viewModel.email)
-            .textFieldModifiers()
-    }
-
-    /// Password field (stored in OnboardingViewModel)
-    var passwordSecureField: some View {
-        SecureField("🔑 Password", text: $viewModel.password)
-            .textFieldModifiers()
-    }
-
-    /// Confirm password field (local state in this view)
-    var confirmPasswordSecureField: some View {
-        SecureField("🔐 Confirm Password", text: $confirmPassword)
-            .textFieldModifiers()
-    }
-
-    // MARK: - Terms and Conditions
-    
-    /// A row with a link to T&C and a toggle
-    var termsAndConditionsSection: some View {
-        HStack {
-            Text("I agree to the")
-                .foregroundColor(.primary)
-            Button("Terms and Conditions") {
-                openTermsAndConditions()
-            }
-            .foregroundColor(.blue)
-            .underline()
-
-            Toggle("", isOn: $agreedToTerms)
+            Text("Create an account to build your bucket list, add photos, and track your personal achievements.")
+                .foregroundColor(.secondary)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.caption)
     }
 
-    // MARK: - Sign Up Button
-    var signUpButton: some View {
+    private var termsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $agreedToTerms) {
+                HStack(spacing: 4) {
+                    Text("I agree to the")
+                    Button(action: openTermsAndConditions) {
+                        Text("Terms and Conditions")
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+            .font(.footnote)
+            .foregroundColor(.secondary)
+        }
+    }
+
+    private var googleButton: some View {
         Button {
-            Task {
-                if validateInput() {
-                    // Just do normal sign-up (no username check)
-                    await signUpUser()
-                } else {
+            viewModel.signInWithGoogle()
+        } label: {
+            HStack(spacing: 12) {
+                Image("google_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+
+                Text("Continue with Google")
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+
+                Spacer()
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var signUpButtonBackground: Color {
+        (!agreedToTerms || isSubmitting) ? Color.accentColor.opacity(0.4) : Color.accentColor
+    }
+
+    private var divider: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(.systemGray4))
+
+            Text("or")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(.systemGray4))
+        }
+    }
+
+    private func signUp() {
+        guard validateInput() else {
+            showErrorAlert = true
+            return
+        }
+
+        isSubmitting = true
+        Task {
+            viewModel.username = username
+            await viewModel.createUser()
+
+            await MainActor.run {
+                isSubmitting = false
+                if viewModel.isAuthenticated {
+                    dismiss()
+                } else if let message = viewModel.errorMessage {
+                    errorMessage = message
                     showErrorAlert = true
                 }
             }
-        } label: {
-            Text("Sign Up")
-                .fontWeight(.bold)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(uiColor: .secondarySystemBackground))
-                .foregroundColor(agreedToTerms ? .primary : .red)
-                .cornerRadius(10)
-                .shadow(radius: 5)
         }
-        .disabled(!agreedToTerms)
     }
 
-    // MARK: - Validation
-    
-    /// Validates username, email, password, terms, etc.
     private func validateInput() -> Bool {
-        // Check final trimmed username
         let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedUsername.isEmpty else {
-            errorMessage = "Please enter a username."
+            errorMessage = "Please choose a username."
             return false
         }
+
+        let withoutPrefix: String
+        if trimmedUsername.hasPrefix("@") {
+            withoutPrefix = String(trimmedUsername.dropFirst())
+        } else {
+            withoutPrefix = trimmedUsername
+        }
+
+        let allowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        guard !withoutPrefix.isEmpty,
+              withoutPrefix.rangeOfCharacter(from: allowedCharacters.inverted) == nil else {
+            errorMessage = "Usernames must start with @ and include only letters, numbers, periods, underscores, or hyphens."
+            return false
+        }
+
+        username = "@" + withoutPrefix
+
         guard !viewModel.email.isEmpty, isValidEmail(viewModel.email) else {
             errorMessage = "Please enter a valid email address."
             return false
         }
+
         guard !viewModel.password.isEmpty, viewModel.password.count >= 6 else {
-            errorMessage = "Password must be at least 6 characters long."
+            errorMessage = "Passwords must be at least 6 characters long."
             return false
         }
+
         guard viewModel.password == confirmPassword else {
             errorMessage = "Passwords do not match."
             return false
         }
+
         guard agreedToTerms else {
-            errorMessage = "You must agree to the terms and conditions."
+            errorMessage = "Please agree to the terms and conditions."
             return false
         }
+
         return true
     }
 
-    /// Simple regex check
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Z0-9a-z.-]+\\.[A-Za-z]{2,}"
-        let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        let emailPred = NSPredicate(format: "SELF MATCHES %@", emailRegEx)
         return emailPred.evaluate(with: email)
-    }
-
-    private func showError(_ message: String) {
-        errorMessage = message
-        showErrorAlert = true
-    }
-
-    // MARK: - Sign Up Logic
-    
-    /// Actually performs the sign-up in OnboardingViewModel after storing typed username
-    private func signUpUser() async {
-        // Transfer the final username (with "@") to the ViewModel
-        viewModel.username = username
-        await viewModel.createUser()
-        
-        if viewModel.isAuthenticated {
-            navigationPath.append(SignUpNavigationDestination.listView)
-        } else if let msg = viewModel.errorMessage {
-            showError(msg)
-        }
     }
 
     private func openTermsAndConditions() {
@@ -218,41 +274,11 @@ struct SignUpView: View {
     }
 }
 
-// MARK: - View Modifiers
-private extension View {
-    func textFieldModifiers() -> some View {
-        self
-            .padding()
-            .background(Color(uiColor: .systemGray6))
-            .cornerRadius(8)
-            .autocapitalization(.none)
-            .disableAutocorrection(true)
-    }
-}
-
-// MARK: - Preview
 #if DEBUG
 struct SignUpView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockViewModel = OnboardingViewModel()
-        
-        return Group {
-            // Light Mode
-            NavigationStack {
-                SignUpView()
-                    .environmentObject(mockViewModel)
-            }
-            .previewDisplayName("SignUpView - Light Mode")
-            
-            // Dark Mode
-            NavigationStack {
-                SignUpView()
-                    .environmentObject(mockViewModel)
-                    .preferredColorScheme(.dark)
-            }
-            .previewDisplayName("SignUpView - Dark Mode")
-        }
+        SignUpView()
+            .environmentObject(OnboardingViewModel())
     }
 }
 #endif
-

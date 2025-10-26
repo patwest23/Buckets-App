@@ -27,6 +27,13 @@ struct BucketsApp: App {
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
+            } else if onboardingViewModel.user == nil {
+                ProgressView("Loading your profile…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground))
+            } else if onboardingViewModel.requiresUsernameSetup {
+                UsernameSetupView()
+                    .environmentObject(onboardingViewModel)
             } else {
                 // 2) Authenticated => Main content
                 NavigationStack {

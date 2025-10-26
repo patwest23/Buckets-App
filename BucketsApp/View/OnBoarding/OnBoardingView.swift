@@ -11,117 +11,144 @@ struct OnboardingView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @State private var showSignUp = false
     @State private var showLogIn = false
-    
-    // Detect whether we’re in Light or Dark mode
-    @Environment(\.colorScheme) private var colorScheme
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
-                VStack(spacing: 40) {
-                    
-                    // MARK: - App Icon or Logo
-                    Image(systemName: "checkmark.circle.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 60, maxHeight: 60)
-                        .foregroundColor(.accentColor)
-                        .padding()
-                    
-                    Spacer()
-                    
-                    // MARK: - Main Title
-                    Text("What do you want to do before you die?")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.primary) // adapt to Light/Dark
-                        .padding(.horizontal, 40.0)
-                    
-                    Spacer()
-                    
-                    // MARK: - Buttons (Sign Up & Log In)
-                    VStack(spacing: 20) {
-                        
-                        // Sign Up Button
-                        Button(action: {
-                            showSignUp.toggle()
-                        }) {
-                            Text("✍️ Sign Up")
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                // Condition: White in light mode, .secondarySystemBackground in dark mode
-                                .background(buttonBackgroundColor)
-                                .foregroundColor(.primary)
-                                .cornerRadius(10)
-                                .shadow(radius: 5)
-                        }
-                        .sheet(isPresented: $showSignUp) {
-                            SignUpView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                        
-                        // Log In Button
-                        Button(action: {
-                            showLogIn.toggle()
-                        }) {
-                            Text("🪵 Log In")
-                                .fontWeight(.bold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                // Same dynamic background
-                                .background(buttonBackgroundColor)
-                                .foregroundColor(.primary)
-                                .cornerRadius(10)
-                                .shadow(radius: 5)
-                        }
-                        .sheet(isPresented: $showLogIn) {
-                            LogInView()
-                                .environmentObject(onboardingViewModel)
-                        }
-                        
-                        /*
-                        // MARK: - Google Sign-In Button (Commented Out)
-                        Button(action: {
-                            onboardingViewModel.signInWithGoogle()
-                        }) {
-                            HStack {
-                                Image("google_logo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 24, height: 24)
+                Color(.systemBackground)
+                    .ignoresSafeArea()
 
-                                Text("Sign in with Google")
-                                    .fontWeight(.bold)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(buttonBackgroundColor)
-                            .foregroundColor(.primary)
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                        }
-                        */
+                VStack(alignment: .leading, spacing: 32) {
+                    Spacer(minLength: 24)
+
+                    header
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        primaryButton
+                        secondaryButton
                     }
-                    .padding(.horizontal)
-                    
+
+                    dividerWithLabel
+
+                    googleButton
+
                     Spacer()
+
+                    Text("By continuing you agree to our Terms and Privacy Policy.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
-                .padding()
+                .padding(.horizontal, 28)
+                .padding(.top, 32)
+                .padding(.bottom, 24)
             }
-            // Overall background color adapts to Light/Dark
-            .background(Color(uiColor: .systemBackground))
             .navigationBarHidden(true)
         }
+        .sheet(isPresented: $showSignUp) {
+            SignUpView()
+                .environmentObject(onboardingViewModel)
+        }
+        .sheet(isPresented: $showLogIn) {
+            LogInView()
+                .environmentObject(onboardingViewModel)
+        }
     }
-    
-    /// Computed property to pick the button background color:
-    /// White in Light Mode, .secondarySystemBackground in Dark Mode
-    private var buttonBackgroundColor: Color {
-        colorScheme == .dark
-        ? Color(uiColor: .secondarySystemBackground)
-        : Color.white
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("BUCKETS")
+                .font(.footnote)
+                .fontWeight(.semibold)
+                .foregroundColor(.accentColor)
+                .tracking(2)
+
+            Text("Plan a life well lived")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Curate your bucket list, attach memories, and track your personal milestones in one simple place.")
+                .foregroundColor(.secondary)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var primaryButton: some View {
+        Button {
+            showSignUp = true
+        } label: {
+            Text("Create an account")
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color.accentColor)
+                .foregroundColor(.white)
+                .cornerRadius(14)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("createAccountButton")
+    }
+
+    private var secondaryButton: some View {
+        Button {
+            showLogIn = true
+        } label: {
+            Text("I already have an account")
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.accentColor, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(.accentColor)
+        .accessibilityIdentifier("loginButton")
+    }
+
+    private var dividerWithLabel: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(.systemGray4))
+
+            Text("or")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(.systemGray4))
+        }
+    }
+
+    private var googleButton: some View {
+        Button {
+            onboardingViewModel.signInWithGoogle()
+        } label: {
+            HStack(spacing: 12) {
+                Image("google_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+
+                Text("Continue with Google")
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+
+                Spacer()
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("googleSignInButton")
     }
 }
 
