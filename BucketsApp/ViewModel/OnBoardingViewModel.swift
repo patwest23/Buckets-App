@@ -49,6 +49,9 @@ final class OnboardingViewModel: ObservableObject {
     /// Error messaging for UI alerts.
     @Published var errorMessage: String?
     @Published var showErrorAlert: Bool = false
+
+    /// An identifier that allows the onboarding flow to reset its navigation state.
+    @Published var onboardingViewID = UUID()
     
     // MARK: - Firebase
     private let storage = Storage.storage()
@@ -330,7 +333,8 @@ final class OnboardingViewModel: ObservableObject {
     private func processedDeleteAccountError(_ error: Error) -> Error {
         let nsError = error as NSError
         if nsError.domain == AuthErrorDomain,
-           AuthErrorCode.Code(rawValue: nsError.code) == .requiresRecentLogin {
+           let errorCode = AuthErrorCode(rawValue: nsError.code)?.code,
+           errorCode == .requiresRecentLogin {
             return NSError(
                 domain: nsError.domain,
                 code: nsError.code,
@@ -583,6 +587,7 @@ final class OnboardingViewModel: ObservableObject {
         showErrorAlert = false
         isAuthenticated = false
         requiresUsernameSetup = false
+        onboardingViewID = UUID()
     }
 
     private func evaluateUsernameRequirement(userId: String) {

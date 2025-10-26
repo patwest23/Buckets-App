@@ -44,6 +44,7 @@ struct OnboardingView: View {
             }
             .navigationBarHidden(true)
         }
+        .id(onboardingViewModel.onboardingViewID)
         .sheet(isPresented: $showSignUp) {
             SignUpView()
                 .environmentObject(onboardingViewModel)
