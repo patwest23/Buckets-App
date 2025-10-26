@@ -59,9 +59,64 @@ struct ListView: View {
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
-                ZStack(alignment: .top) {
-                    BucketTheme.backgroundGradient(for: colorScheme)
-                        .ignoresSafeArea()
+                VStack(spacing: 0) {
+                    ZStack(alignment: .top) {
+                        ZStack {
+                            BucketTheme.backgroundGradient(for: colorScheme)
+                                .ignoresSafeArea()
+
+                            ScrollViewReader { proxy in
+                                contentView
+                                    .onAppear {
+                                        self.scrollProxy = proxy
+                                    }
+                                    .refreshable {
+                                        await loadItems()
+                                        await syncCoordinator.refreshFeedAndSyncLikes()
+                                        showRefreshConfirmation = true
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                            showRefreshConfirmation = false
+                                        }
+                                    }
+                                    .task {
+                                        bucketListViewModel.registerDefaultPostViewModel(postViewModel)
+                                        bucketListViewModel.restoreCachedItems()
+                                        await loadItems()
+                                        await syncCoordinator.refreshFeedAndSyncLikes()
+                                        startTextFieldListeners()
+                                        friendsViewModel.startListeningToFriendChanges()
+                                    }
+                                    .navigationBarTitleDisplayMode(.inline)
+                                    .onDisappear {
+                                        newlyCreatedItemID = nil
+                                        UIApplication.shared.endEditing()
+                                        isAnyTextFieldActive = false
+                                        stopTextFieldListeners()
+                                    }
+                                    // Navigate to Profile
+                                    .navigationDestination(isPresented: $showProfileView) {
+                                        ProfileView(onboardingViewModel: onboardingViewModel)
+                                            .environmentObject(userViewModel)
+                                            .environmentObject(bucketListViewModel)
+                                            .environmentObject(postViewModel)
+                                    }
+                                    // Navigate to Feed
+                                    .navigationDestination(isPresented: $showFeed) {
+                                        /// Use the existing environment object `feedViewModel`
+                                        FeedView()
+                                            .environmentObject(userViewModel)
+                                            .environmentObject(feedViewModel)
+                                            .environmentObject(postViewModel)
+                                            .environmentObject(bucketListViewModel)
+                                            .environmentObject(friendsViewModel)
+                                            .environmentObject(syncCoordinator)
+                                    }
+                                    // Navigate to the User Search View
+                                    .navigationDestination(isPresented: $showUserSearch) {
+                                        FriendsView()
+                                            .environmentObject(userViewModel)
+                                            .environmentObject(friendsViewModel)
+                                            .environmentObject(syncCoordinator) // ✅ Add this line
 
                     ScrollViewReader { proxy in
                         contentView
