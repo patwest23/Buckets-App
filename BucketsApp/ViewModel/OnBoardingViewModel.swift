@@ -229,14 +229,117 @@ final class OnboardingViewModel: ObservableObject {
             isAuthenticated = false
             userDocListener?.remove()
             clearState()
-            
+
             // Optionally remove from Keychain
             KeychainHelper.shared.deleteValue(for: "email")
             KeychainHelper.shared.deleteValue(for: "password")
-            
+
         } catch {
             handleError(error)
         }
+    }
+
+    // MARK: - Account Deletion
+
+    func deleteAccount() async -> Result<String, Error> {
+        guard let currentUser = Auth.auth().currentUser else {
+            let error = NSError(
+                domain: "AuthError",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No user is logged in."]
+            )
+            handleError(error)
+            return .failure(error)
+        }
+
+        let userId = currentUser.uid
+
+        do {
+            userDocListener?.remove()
+            userDocListener = nil
+
+            try await deleteUserRelatedData(for: userId)
+
+            do {
+                try await currentUser.delete()
+            } catch {
+                let processedError = processedDeleteAccountError(error)
+                handleError(processedError)
+                return .failure(processedError)
+            }
+
+            KeychainHelper.shared.deleteValue(for: "email")
+            KeychainHelper.shared.deleteValue(for: "password")
+
+            clearState()
+            clearErrorState()
+
+            return .success("Your account has been deleted.")
+        } catch {
+            let processedError = processedDeleteAccountError(error)
+            handleError(processedError)
+            return .failure(processedError)
+        }
+    }
+
+    private func deleteUserRelatedData(for userId: String) async throws {
+        try await deleteUserItemsCollection(for: userId)
+        try await firestore.collection("users").document(userId).delete()
+        try await deleteProfileImage(for: userId)
+    }
+
+    private func deleteUserItemsCollection(for userId: String) async throws {
+        let itemsCollection = firestore
+            .collection("users")
+            .document(userId)
+            .collection("items")
+
+        while true {
+            let snapshot = try await itemsCollection.limit(to: 100).getDocuments()
+            guard !snapshot.isEmpty else { break }
+
+            let batch = firestore.batch()
+            for document in snapshot.documents {
+                batch.deleteDocument(document.reference)
+            }
+
+            try await batch.commit()
+
+            if snapshot.documents.count < 100 {
+                break
+            }
+        }
+    }
+
+    private func deleteProfileImage(for userId: String) async throws {
+        let profileImageRef = storage.reference()
+            .child("users/\(userId)/profile_images/\(userId).jpg")
+
+        do {
+            try await profileImageRef.delete()
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == StorageErrorDomain,
+               StorageErrorCode(rawValue: nsError.code) == .objectNotFound {
+                return
+            }
+            throw error
+        }
+    }
+
+    private func processedDeleteAccountError(_ error: Error) -> Error {
+        let nsError = error as NSError
+        if nsError.domain == AuthErrorDomain,
+           AuthErrorCode.Code(rawValue: nsError.code) == .requiresRecentLogin {
+            return NSError(
+                domain: nsError.domain,
+                code: nsError.code,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "For security reasons, please sign in again before deleting your account."
+                ]
+            )
+        }
+        return error
     }
     
     // MARK: - Create User

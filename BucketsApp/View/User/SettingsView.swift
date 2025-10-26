@@ -17,7 +17,9 @@ struct SettingsView: View {
     @State private var showUpdatePasswordSheet = false
 
     @State private var isSigningOut = false
+    @State private var isDeletingAccount = false
     @State private var alertMessage: String?
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         ScrollView {
@@ -37,6 +39,7 @@ struct SettingsView: View {
                                 .environmentObject(userViewModel)
                         }
                     }
+                    .disabled(isDeletingAccount)
 
                     settingsActionButton(
                         title: "Update email",
@@ -50,6 +53,7 @@ struct SettingsView: View {
                                 .environmentObject(onboardingViewModel)
                         }
                     }
+                    .disabled(isDeletingAccount)
 
                     settingsActionButton(
                         title: "Reset password",
@@ -63,6 +67,7 @@ struct SettingsView: View {
                                 .environmentObject(onboardingViewModel)
                         }
                     }
+                    .disabled(isDeletingAccount)
 
                     settingsActionButton(
                         title: "Update password",
@@ -76,6 +81,28 @@ struct SettingsView: View {
                                 .environmentObject(onboardingViewModel)
                         }
                     }
+                    .disabled(isDeletingAccount)
+
+                    settingsActionButton(
+                        title: isDeletingAccount ? "Deleting account…" : "Delete account",
+                        subtitle: "Permanently remove your data. This action cannot be undone.",
+                        role: .destructive,
+                        titleColor: .red,
+                        subtitleColor: Color.red.opacity(0.7),
+                        chevronColor: isDeletingAccount ? .clear : .red,
+                        borderColor: Color.red.opacity(0.25)
+                    ) {
+                        guard !isDeletingAccount else { return }
+                        showDeleteConfirmation = true
+                    }
+                    .disabled(isDeletingAccount)
+                    .overlay(alignment: .trailing) {
+                        if isDeletingAccount {
+                            ProgressView()
+                                .tint(.red)
+                                .padding(.trailing, 24)
+                        }
+                    }
                 }
 
                 signOutButton
@@ -85,6 +112,16 @@ struct SettingsView: View {
         .background(Color(.systemBackground))
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Are you sure you want to delete account?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete account", role: .destructive) {
+                performAccountDeletion()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .alert("Account", isPresented: alertBinding) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -112,17 +149,27 @@ struct SettingsView: View {
         }
     }
 
-    private func settingsActionButton(title: String, subtitle: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func settingsActionButton(
+        title: String,
+        subtitle: String,
+        role: ButtonRole? = nil,
+        titleColor: Color = .primary,
+        subtitleColor: Color = .secondary,
+        chevronColor: Color = .secondary,
+        backgroundColor: Color = Color(.systemBackground),
+        borderColor: Color = Color(.systemGray4),
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(titleColor)
 
                     Text(subtitle)
                         .font(.footnote)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(subtitleColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -130,17 +177,17 @@ struct SettingsView: View {
 
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(chevronColor)
             }
             .padding(.vertical, 18)
             .padding(.horizontal, 20)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemBackground))
+                    .fill(backgroundColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(.systemGray4), lineWidth: 1)
+                    .stroke(borderColor, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -166,11 +213,11 @@ struct SettingsView: View {
         .background(signOutButtonBackground)
         .foregroundColor(.white)
         .cornerRadius(14)
-        .disabled(isSigningOut)
+        .disabled(isSigningOut || isDeletingAccount)
     }
 
     private var signOutButtonBackground: Color {
-        isSigningOut ? Color.accentColor.opacity(0.4) : Color.accentColor
+        (isSigningOut || isDeletingAccount) ? Color.accentColor.opacity(0.4) : Color.accentColor
     }
 
     private var alertBinding: Binding<Bool> {
@@ -185,7 +232,7 @@ struct SettingsView: View {
     }
 
     private func signOut() {
-        guard !isSigningOut else { return }
+        guard !isSigningOut && !isDeletingAccount else { return }
 
         isSigningOut = true
         Task {
@@ -194,6 +241,26 @@ struct SettingsView: View {
                 isSigningOut = false
                 if onboardingViewModel.isAuthenticated {
                     alertMessage = onboardingViewModel.errorMessage
+                }
+            }
+        }
+    }
+
+    private func performAccountDeletion() {
+        guard !isDeletingAccount else { return }
+
+        isDeletingAccount = true
+        Task {
+            let result = await onboardingViewModel.deleteAccount()
+            await MainActor.run {
+                isDeletingAccount = false
+
+                switch result {
+                case .success(let message):
+                    userViewModel.clearCachedData()
+                    alertMessage = message
+                case .failure(let error):
+                    alertMessage = error.localizedDescription
                 }
             }
         }
