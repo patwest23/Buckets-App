@@ -21,72 +21,46 @@ struct FriendsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack {
-                let trimmedQuery = viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-                let explore = viewModel.exploreUsers
-                let following = viewModel.filteredFollowing
-                let followers = viewModel.filteredFollowers
-                let isQueryEmpty = trimmedQuery.isEmpty
+            ZStack {
+                BucketTheme.backgroundGradient(for: colorScheme)
+                    .ignoresSafeArea()
 
-                Picker("", selection: $selectedTab) {
-                    ForEach(FriendTab.allCases) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding([.horizontal, .top])
+                VStack(spacing: BucketTheme.mediumSpacing) {
+                    let trimmedQuery = viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let explore = viewModel.exploreUsers
+                    let following = viewModel.filteredFollowing
+                    let followers = viewModel.filteredFollowers
+                    let isQueryEmpty = trimmedQuery.isEmpty
 
-                List {
-                    switch selectedTab {
-                    case .explore:
-                        if explore.isEmpty {
-                            if !isQueryEmpty && viewModel.isSearchingRemotely {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .progressViewStyle(.circular)
-                                        .padding(.vertical)
-                                    Spacer()
-                                }
-                            } else if !viewModel.isLoading && !viewModel.isSearchingRemotely {
-                                Text(isQueryEmpty ? "No users to explore." : "No users found.")
-                                    .foregroundColor(.secondary)
-                            }
-                        } else {
-                            ForEach(explore) { user in
-                                userRow(for: user)
-                            }
-                        }
-                    case .following:
-                        if following.isEmpty {
-                            if !viewModel.isLoading {
-                                Text(isQueryEmpty ? "You're not following anyone yet." : "No matches in your following.")
-                                    .foregroundColor(.secondary)
-                            }
-                        } else {
-                            ForEach(following) { user in
-                                userRow(for: user)
-                            }
-                        }
-                    case .followers:
-                        if followers.isEmpty {
-                            if !viewModel.isLoading {
-                                Text(isQueryEmpty ? "You don't have any followers yet." : "No matches in your followers.")
-                                    .foregroundColor(.secondary)
-                            }
-                        } else {
-                            ForEach(followers) { user in
-                                userRow(for: user)
-                            }
+                    Picker("", selection: $selectedTab) {
+                        ForEach(FriendTab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
                         }
                     }
-                }
-                .listStyle(.insetGrouped)
-                .searchable(text: $viewModel.searchText, prompt: "Search users")
-                .onChange(of: viewModel.searchText, initial: false) {
-                    viewModel.handleSearchChange()
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, BucketTheme.mediumSpacing)
+                    .padding(.top, BucketTheme.mediumSpacing)
+
+                    List {
+                        switch selectedTab {
+                        case .explore:
+                            exploreSection(explore, isQueryEmpty: isQueryEmpty)
+                        case .following:
+                            followingSection(following, isQueryEmpty: isQueryEmpty)
+                        case .followers:
+                            followersSection(followers, isQueryEmpty: isQueryEmpty)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .listRowBackground(Color.clear)
+                    .searchable(text: $viewModel.searchText, prompt: "Search users")
+                    .onChange(of: viewModel.searchText, initial: false) {
+                        viewModel.handleSearchChange()
+                    }
                 }
             }
+            .bucketToolbarBackground()
             .navigationTitle("Friends")
             .refreshable {
                 await viewModel.loadFriendsData(showLoadingIndicator: false)
@@ -95,9 +69,14 @@ struct FriendsView: View {
             .overlay {
                 if viewModel.isLoading {
                     ProgressView("Loading users...")
-                        .padding(16)
-                        .background(.thinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(BucketTheme.mediumSpacing)
+                        .background(BucketTheme.surface(for: colorScheme))
+                        .clipShape(RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                                .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                        )
+                        .shadow(color: BucketTheme.shadow(for: colorScheme), radius: 10, x: 0, y: 6)
                         .allowsHitTesting(false)
                 }
             }
@@ -119,29 +98,99 @@ struct FriendsView: View {
             }
         }
     }
-    
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    @ViewBuilder
+    private func exploreSection(_ users: [UserModel], isQueryEmpty: Bool) -> some View {
+        if users.isEmpty {
+            emptyState(message: isQueryEmpty ? "No users to explore." : "No users found.", showSpinner: viewModel.isSearchingRemotely)
+        } else {
+            ForEach(users) { user in
+                userRow(for: user)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func followingSection(_ users: [UserModel], isQueryEmpty: Bool) -> some View {
+        if users.isEmpty {
+            emptyState(message: isQueryEmpty ? "You're not following anyone yet." : "No matches in your following.", showSpinner: false)
+        } else {
+            ForEach(users) { user in
+                userRow(for: user)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func followersSection(_ users: [UserModel], isQueryEmpty: Bool) -> some View {
+        if users.isEmpty {
+            emptyState(message: isQueryEmpty ? "You don't have any followers yet." : "No matches in your followers.", showSpinner: false)
+        } else {
+            ForEach(users) { user in
+                userRow(for: user)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func emptyState(message: String, showSpinner: Bool) -> some View {
+        VStack(spacing: BucketTheme.smallSpacing) {
+            if showSpinner {
+                ProgressView()
+            }
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, BucketTheme.largeSpacing)
+        .bucketCard()
+        .listRowInsets(EdgeInsets(top: BucketTheme.smallSpacing, leading: BucketTheme.mediumSpacing, bottom: BucketTheme.smallSpacing, trailing: BucketTheme.mediumSpacing))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+    }
+
     @ViewBuilder
     private func userRow(for user: UserModel) -> some View {
-        HStack {
+        let isFollowing = viewModel.isUserFollowed(user)
+        HStack(spacing: BucketTheme.mediumSpacing) {
             userProfileImage(for: user)
-            Text(user.username ?? user.name ?? "Unknown")
-            Spacer()
-            Button {
-                if viewModel.isUserFollowed(user) {
-                    Task {
-                        await viewModel.unfollow(user)
-                    }
-                } else {
-                    Task {
-                        await viewModel.follow(user)
-                    }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.username ?? user.name ?? "Unknown")
+                    .font(.headline)
+                if let name = user.name, !(user.username ?? "").contains(name) {
+                    Text(name)
+                        .font(.caption)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
                 }
-            } label: {
-                Text(viewModel.isUserFollowed(user) ? "Unfollow" : "Follow")
-                    .foregroundColor(viewModel.isUserFollowed(user) ? .red : .blue)
             }
-            .buttonStyle(BorderlessButtonStyle())
+            Spacer()
+            Group {
+                if isFollowing {
+                    Button {
+                        Task { await viewModel.unfollow(user) }
+                    } label: {
+                        Text("Unfollow")
+                    }
+                    .buttonStyle(BucketSecondaryButtonStyle())
+                } else {
+                    Button {
+                        Task { await viewModel.follow(user) }
+                    } label: {
+                        Text("Follow")
+                    }
+                    .buttonStyle(BucketPrimaryButtonStyle())
+                }
+            }
+            .frame(width: 110)
         }
+        .bucketCard()
+        .listRowInsets(EdgeInsets(top: BucketTheme.smallSpacing, leading: BucketTheme.mediumSpacing, bottom: BucketTheme.smallSpacing, trailing: BucketTheme.mediumSpacing))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
     
     @ViewBuilder

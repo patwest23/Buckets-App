@@ -14,31 +14,13 @@ struct FeedRowView: View {
     @Binding var post: PostModel
     let itemSummary: ItemSummary?
 
-    /// Callback for "like"
     let onLike: @MainActor (PostModel) async -> Void
 
-    /// Dynamically choose text color based on light/dark mode
-    private var dynamicTextColor: Color {
-        colorScheme == .light ? .black : .white
-    }
-    
     private var isLikedByCurrentUser: Bool {
         guard let currentUserId = userViewModel.user?.id else { return false }
         return post.likedBy.contains(currentUserId)
     }
 
-    private var likeButtonBackground: Color {
-        if isLikedByCurrentUser {
-            return Color.red.opacity(colorScheme == .light ? 0.85 : 0.75)
-        }
-        return colorScheme == .light ? Color.black.opacity(0.08) : Color.white.opacity(0.16)
-    }
-
-    private var likeButtonForeground: Color {
-        isLikedByCurrentUser ? .white : dynamicTextColor
-    }
-
-    /// If item is completed, format the due date for display
     private var completedDateString: String? {
         guard let summary = itemSummary, summary.completed, let date = summary.dueDate else { return nil }
         let formatter = DateFormatter()
@@ -47,126 +29,165 @@ struct FeedRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // List item name
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.accentColor)
-                Text(itemSummary?.name ?? post.itemName ?? "Untitled Post")
-                    .font(.headline)
-                    .bold()
-                    .foregroundColor(dynamicTextColor)
-            }
+        VStack(alignment: .leading, spacing: BucketTheme.mediumSpacing) {
+            header
+            mediaCarousel
+            interactionRow
+            authorRow
+        }
+        .bucketCard()
+    }
 
-            // Image carousel
-            if !post.itemImageUrls.isEmpty {
-                TabView {
-                    ForEach(post.itemImageUrls, id: \.self) { urlStr in
-                        FeedRowImageView(urlStr: urlStr)
-                            .frame(height: 300)
-                            .clipped()
+    private var header: some View {
+        HStack(spacing: BucketTheme.smallSpacing) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(BucketTheme.secondary)
+            Text(itemSummary?.name ?? post.itemName ?? "Untitled Post")
+                .font(.headline.weight(.semibold))
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private var mediaCarousel: some View {
+        if !post.itemImageUrls.isEmpty {
+            TabView {
+                ForEach(post.itemImageUrls, id: \.self) { urlStr in
+                    FeedRowImageView(urlStr: urlStr)
+                        .clipShape(RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                                .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                        )
+                }
+            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+            .frame(height: 280)
+        } else {
+            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                .fill(BucketTheme.surface(for: colorScheme))
+                .frame(height: 220)
+                .overlay(
+                    VStack(spacing: BucketTheme.smallSpacing) {
+                        Image(systemName: "photo")
+                        Text("No images shared yet")
+                            .font(.caption)
+                            .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                        .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                )
+        }
+    }
+
+    private var interactionRow: some View {
+        HStack(spacing: BucketTheme.mediumSpacing) {
+            Button(action: {
+                let currentPost = post
+                Task { @MainActor in await onLike(currentPost) }
+            }) {
+                HStack(spacing: BucketTheme.smallSpacing) {
+                    Image(systemName: isLikedByCurrentUser ? "heart.fill" : "heart")
+                        .font(.headline)
+                    Text("\(post.likedBy.count)")
+                        .font(.headline)
+                }
+                .foregroundStyle(isLikedByCurrentUser ? Color.white : .primary)
+                .padding(.horizontal, BucketTheme.mediumSpacing)
+                .padding(.vertical, BucketTheme.smallSpacing + 2)
+                .background(
+                    RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: isLikedByCurrentUser
+                                ? [BucketTheme.primary, BucketTheme.secondary]
+                                : [
+                                    BucketTheme.surface(for: colorScheme),
+                                    BucketTheme.surface(for: colorScheme)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                        .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                )
+            }
+            .buttonStyle(.plain)
+
+            if let completed = completedDateString {
+                Label(completed, systemImage: "checkmark.seal")
+                    .font(.footnote)
+                    .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+            }
+            Spacer()
+        }
+    }
+
+    private var authorRow: some View {
+        HStack(alignment: .center, spacing: BucketTheme.smallSpacing) {
+            if let profileUrl = post.authorProfileImageUrl, let url = URL(string: profileUrl) {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else if phase.error != nil {
+                        Image(systemName: "person.crop.circle.badge.exclamationmark")
+                            .resizable().scaledToFit()
+                            .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                    } else {
+                        ProgressView()
                     }
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                .frame(height: 300)
-            } else {
-                Rectangle()
-                    .fill(Color.secondary.opacity(0.2))
-                    .frame(height: 300)
-                    .overlay(
-                        Text("No images")
-                            .foregroundColor(.gray)
-                    )
+                .frame(width: 28, height: 28)
+                .clipShape(Circle())
+                .overlay(
+                    Circle().stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                )
             }
-
-            // Like row with tappable heart and count
-            HStack(spacing: 12) {
-                Button(action: {
-                    print("[FeedRowView] Tapping like on post: \(post.id ?? "nil")")
-                    let currentPost = post
-                    Task { @MainActor in await onLike(currentPost) }
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: isLikedByCurrentUser ? "heart.fill" : "heart")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)
-                        Text("\(post.likedBy.count)")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                    }
-                    .foregroundColor(likeButtonForeground)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(likeButtonBackground)
-                    )
-                }
-                .buttonStyle(.plain)
-                .contentShape(Capsule())
-                .accessibilityLabel(isLikedByCurrentUser ? "Unlike" : "Like")
-                .accessibilityValue("\(post.likedBy.count) likes")
-
-                if let completed = completedDateString {
-                    Label(completed, systemImage: "checkmark.seal")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                }
-                Spacer()
-            }
-
-            // Username, optional profile image, and optional caption
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                if let profileUrl = post.authorProfileImageUrl, let url = URL(string: profileUrl) {
-                    AsyncImage(url: url) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFill()
-                        } else if phase.error != nil {
-                            Image(systemName: "person.crop.circle.badge.exclamationmark")
-                                .resizable().scaledToFit()
-                                .foregroundColor(.gray)
-                        } else {
-                            ProgressView()
-                        }
-                    }
-                    .frame(width: 24, height: 24)
-                    .clipShape(Circle())
-                }
-                Text(post.authorUsername ?? "@\(post.authorId)")
-                    .fontWeight(.bold)
-                    .foregroundColor(dynamicTextColor)
-                if let caption = post.caption, !caption.isEmpty {
-                    Text(caption)
-                        .foregroundColor(dynamicTextColor)
-                }
+            Text(post.authorUsername ?? "@\(post.authorId)")
+                .font(.callout.weight(.semibold))
+            if let caption = post.caption, !caption.isEmpty {
+                Text(caption)
+                    .font(.callout)
+                    .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
             }
         }
     }
 }
 
-// MARK: - Helper for loading images
 struct FeedRowImageView: View {
     let urlStr: String
-    
+
     var body: some View {
         AsyncImage(url: URL(string: urlStr)) { phase in
             switch phase {
             case .empty:
-                ProgressView()
+                ZStack {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.1))
+                    ProgressView()
+                }
             case .success(let image):
                 image
                     .resizable()
                     .scaledToFill()
             case .failure(_):
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundColor(.gray)
+                ZStack {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.1))
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                }
             @unknown default:
                 EmptyView()
             }
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 280)
         .clipped()
     }
 }
@@ -176,8 +197,7 @@ struct FeedRowImageView: View {
 struct FeedRowView_Previews: PreviewProvider {
     static var previews: some View {
         let postVM = PostViewModel()
-        
-        // Sample mock post
+
         let samplePost = PostModel(
             id: "post_001",
             authorId: "userABC",
@@ -194,54 +214,18 @@ struct FeedRowView_Previews: PreviewProvider {
             visibility: nil,
             likedBy: ["user123", "user456"]
         )
-        
+
         let mockUserVM = UserViewModel()
         mockUserVM.user = UserModel(documentId: "user123", email: "test@example.com", username: "@patrick")
-        
-        return Group {
-            NavigationStack {
-                FeedRowView(
-                    post: .constant(samplePost),
-                    itemSummary: nil,
-                    onLike: { updatedPost in
-                        print("[Preview] Liked post \(updatedPost.id ?? "nil")")
-                    }
-                )
-                .environmentObject(postVM)
-                .environmentObject(mockUserVM)
-                .environmentObject(ListViewModel())
-            }
-            .previewDisplayName("FeedRowView - MVP Completed Item w/ Multiple Images")
 
-            NavigationStack {
-                // A variant with no images, incomplete item
-                let noImagesPost = PostModel(
-                    id: "post_002",
-                    authorId: "userXYZ",
-                    authorUsername: "@samantha",
-                    itemId: "item_202",
-                    itemImageUrls: [],
-                    type: .added,
-                    timestamp: Date(),
-                    caption: "No photos yet, but can't wait!",
-                    taggedUserIds: [],
-                    visibility: nil,
-                    likedBy: []
-                )
-
-                FeedRowView(
-                    post: .constant(noImagesPost),
-                    itemSummary: nil,
-                    onLike: { updatedPost in
-                        print("[Preview] Liked post \(updatedPost.id ?? "nil")")
-                    }
-                )
-                .environmentObject(postVM)
-                .environmentObject(mockUserVM)
-                .environmentObject(ListViewModel())
-            }
-            .previewDisplayName("FeedRowView - MVP Incomplete Item, No Images")
-        }
+        return FeedRowView(
+            post: .constant(samplePost),
+            itemSummary: nil,
+            onLike: { _ in }
+        )
+        .environmentObject(mockUserVM)
+        .previewLayout(.sizeThatFits)
+        .padding()
     }
 }
 #endif

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+               1FAAABBB2F6C1D2300123451 /* BucketTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAABBB2F6C1D2300123450 /* BucketTheme.swift */; };
 		1F0911282E1B00D800A7D996 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0911272E1B00D800A7D996 /* SyncCoordinator.swift */; };
 		1F107EDA2E2C3D9700B692C8 /* LocationSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */; };
 		1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */; };
@@ -67,6 +68,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+               1FAAABBB2F6C1D2300123450 /* BucketTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketTheme.swift; sourceTree = "<group>"; };
 		1F0911272E1B00D800A7D996 /* SyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinator.swift; sourceTree = "<group>"; };
 		1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSearchViewModel.swift; sourceTree = "<group>"; };
 		1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenCarouselView.swift; sourceTree = "<group>"; };
@@ -206,18 +208,27 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		1FED1A1A29E20B4D00868BAC /* View */ = {
-			isa = PBXGroup;
-			children = (
-				1FE7B0D72D7E29A900D7BDC1 /* Social */,
-				1F62F07729E27ABA00C107CD /* User */,
-				1FED1A2429E210A400868BAC /* List */,
-				1FED1A1D29E20BF800868BAC /* OnBoarding */,
-			);
-			path = View;
-			sourceTree = "<group>";
-		};
-		1FED1A1B29E20B5700868BAC /* ViewModel */ = {
+               1FED1A1A29E20B4D00868BAC /* View */ = {
+                       isa = PBXGroup;
+                       children = (
+                               1FAAABBB2F6C1D2300123452 /* Components */,
+                               1FE7B0D72D7E29A900D7BDC1 /* Social */,
+                               1F62F07729E27ABA00C107CD /* User */,
+                               1FED1A2429E210A400868BAC /* List */,
+                               1FED1A1D29E20BF800868BAC /* OnBoarding */,
+                       );
+                       path = View;
+                       sourceTree = "<group>";
+               };
+               1FAAABBB2F6C1D2300123452 /* Components */ = {
+                       isa = PBXGroup;
+                       children = (
+                               1FAAABBB2F6C1D2300123450 /* BucketTheme.swift */,
+                       );
+                       path = Components;
+                       sourceTree = "<group>";
+               };
+               1FED1A1B29E20B5700868BAC /* ViewModel */ = {
 			isa = PBXGroup;
 			children = (
 				1F234B222D21DAE7000DF507 /* UserViewModel.swift */,
@@ -434,11 +445,12 @@
 				1F5D42B52E356D38004182FB /* LocationSearchFieldView.swift in Sources */,
 				1FED1A2129E20C2300868BAC /* SignUpView.swift in Sources */,
 				1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */,
-				1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
-				1F5D42BB2E357BA5004182FB /* FocusState+UUIDBinding.swift in Sources */,
-				1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
-                                1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
-                        );
+                               1F70BCB729E350D5000B3BB9 /* OnBoardingView.swift in Sources */,
+                               1F5D42BB2E357BA5004182FB /* FocusState+UUIDBinding.swift in Sources */,
+                               1F815C8E29ECA08B000063D3 /* HomeView.swift in Sources */,
+                               1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */,
+                               1FAAABBB2F6C1D2300123451 /* BucketTheme.swift in Sources */,
+                       );
                         runOnlyForDeploymentPostprocessing = 0;
                 };
                 AA0000000000000000000210 /* Sources */ = {
