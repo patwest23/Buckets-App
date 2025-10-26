@@ -360,6 +360,20 @@ class ListViewModel: ObservableObject {
         self.showDeleteAlert = true
     }
 
+    func applyLocalEdits(_ updatedItem: ItemModel) {
+        if let index = items.firstIndex(where: { $0.id == updatedItem.id }) {
+            if items[index] != updatedItem {
+                items[index] = updatedItem
+            }
+        }
+
+        if let editingItem = currentEditingItem,
+           editingItem.id == updatedItem.id,
+           editingItem != updatedItem {
+            currentEditingItem = updatedItem
+        }
+    }
+
     // MARK: - User Cache Helpers
     func getUser(for userId: String) -> UserModel? {
         return userCache[userId]

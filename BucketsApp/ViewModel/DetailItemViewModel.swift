@@ -8,47 +8,78 @@
 import Foundation
 import SwiftUI
 import MapKit
+import Combine
 
 @MainActor
 final class DetailItemViewModel: ObservableObject {
     @Published var name: String {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var caption: String {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var locationText: String {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var completed: Bool {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var wasShared: Bool {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var imageUrls: [String] {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var dueDate: Date? {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
     @Published var location: Location? {
-        didSet { startDebouncedSave() }
+        didSet { registerChangeIfNeeded() }
     }
 
     let itemID: UUID
     private let listViewModel: ListViewModel
     private let postViewModel: PostViewModel
 
-    private var saveTask: Task<Void, Never>? = nil
-    private let debounceInterval: UInt64 = 1_200_000_000 // 1.2s debounce
+    private var localSyncTask: Task<Void, Never>? = nil
+    private var autosaveTask: Task<Void, Never>? = nil
+    private var hasPendingChanges = false
+    private var isApplyingExternalUpdate = false
+    private var lastSyncedItem: ItemModel
+    private var cancellables: Set<AnyCancellable> = []
 
-    private func startDebouncedSave() {
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(nanoseconds: debounceInterval)
-            await save()
+    private let localSyncInterval: UInt64 = 150_000_000 // 0.15s for local UI updates
+    private let autosaveInterval: UInt64 = 4_000_000_000 // 4s for background autosave
+
+    private func registerChangeIfNeeded() {
+        guard !isApplyingExternalUpdate else { return }
+        hasPendingChanges = true
+        scheduleLocalSync()
+        scheduleAutosave()
+    }
+
+    private func scheduleLocalSync() {
+        localSyncTask?.cancel()
+        let draft = applyingEdits(to: listViewModel.currentEditingItem ?? lastSyncedItem)
+        localSyncTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: localSyncInterval)
+            await self.listViewModel.applyLocalEdits(draft)
         }
+    }
+
+    private func scheduleAutosave() {
+        autosaveTask?.cancel()
+        autosaveTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: autosaveInterval)
+            await self.saveIfNeeded()
+        }
+    }
+
+    private func saveIfNeeded() async {
+        guard hasPendingChanges else { return }
+        await save()
     }
 
     init(item: ItemModel, listViewModel: ListViewModel, postViewModel: PostViewModel) {
@@ -64,10 +95,15 @@ final class DetailItemViewModel: ObservableObject {
 
         self.listViewModel = listViewModel
         self.postViewModel = postViewModel
+        self.lastSyncedItem = item
+
+        observeEditingItemUpdates()
     }
 
     deinit {
-        saveTask?.cancel()
+        localSyncTask?.cancel()
+        autosaveTask?.cancel()
+        cancellables.forEach { $0.cancel() }
     }
 
 
@@ -89,15 +125,22 @@ final class DetailItemViewModel: ObservableObject {
     }
 
     func save() async {
-        guard let current = listViewModel.currentEditingItem else { return }
-        let updatedItem = applyingEdits(to: current)
+        let updatedItem = applyingEdits(to: lastSyncedItem)
+        guard updatedItem != lastSyncedItem else {
+            hasPendingChanges = false
+            return
+        }
+
         postViewModel.caption = caption
         await listViewModel.addOrUpdateItem(updatedItem, postViewModel: postViewModel)
+        lastSyncedItem = updatedItem
+        hasPendingChanges = false
     }
 
     func commitPendingChanges() async {
-        saveTask?.cancel()
-        await save()
+        localSyncTask?.cancel()
+        autosaveTask?.cancel()
+        await saveIfNeeded()
     }
 
     var canPost: Bool {
@@ -114,5 +157,35 @@ final class DetailItemViewModel: ObservableObject {
         updated.dueDate = dueDate
         updated.location = location
         return updated
+    }
+
+    private func observeEditingItemUpdates() {
+        listViewModel.$currentEditingItem
+            .compactMap { $0 }
+            .filter { [weak self] in
+                guard let self else { return false }
+                return $0.id == self.itemID
+            }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] item in
+                self?.handleExternalUpdate(item)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleExternalUpdate(_ item: ItemModel) {
+        guard !hasPendingChanges else { return }
+        lastSyncedItem = item
+        isApplyingExternalUpdate = true
+        if name != item.name { name = item.name }
+        if caption != (item.caption ?? "") { caption = item.caption ?? "" }
+        let itemLocationText = item.location?.address ?? ""
+        if locationText != itemLocationText { locationText = itemLocationText }
+        if completed != item.completed { completed = item.completed }
+        if wasShared != item.wasShared { wasShared = item.wasShared }
+        if imageUrls != item.imageUrls { imageUrls = item.imageUrls }
+        if dueDate != item.dueDate { dueDate = item.dueDate }
+        if location != item.location { location = item.location }
+        isApplyingExternalUpdate = false
     }
 }
