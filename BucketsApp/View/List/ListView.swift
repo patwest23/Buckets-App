@@ -53,14 +53,16 @@ struct ListView: View {
 
     // Show refresh confirmation overlay
     @State private var showRefreshConfirmation = false
-    
+
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
                 VStack(spacing: 0) {
                     ZStack(alignment: .top) {
                         ZStack {
-                            Color(uiColor: .systemBackground)
+                            BucketTheme.backgroundGradient(for: colorScheme)
                                 .ignoresSafeArea()
 
                             ScrollViewReader { proxy in
