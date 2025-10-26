@@ -196,7 +196,8 @@ struct ItemRowView: View {
         Group {
             if item.completed, let caption = item.caption, !caption.isEmpty {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(bucketListViewModel.userCache[item.userId]?.username ?? "@\(item.userId.prefix(6))") \(caption)")
+                    let username = bucketListViewModel.getUser(for: item.userId)?.username
+                    Text("\(username ?? "@\(item.userId.prefix(6))") \(caption)")
                         .font(.caption)
                         .fontWeight(.regular)
                 }
@@ -312,7 +313,8 @@ struct ItemRowView_Previews: PreviewProvider {
         )
 
         let mockListVM = ListViewModel()
-        mockListVM.userCache["testUser"] = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
+        let previewUser = UserModel(documentId: "testUser", email: "test@example.com", username: "@patrick1")
+        mockListVM.seedCachedUser(previewUser, for: "testUser")
 
         for url in sampleItem.imageUrls {
             if let image = UIImage(systemName: "photo") {

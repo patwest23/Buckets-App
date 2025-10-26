@@ -61,7 +61,7 @@ class ListViewModel: ObservableObject {
     }
     @Published var showDeleteAlert: Bool = false
     @Published var itemToDelete: ItemModel?
-    @Published var userCache: [String: UserModel] = [:]
+    @Published private(set) var cachedUsers: [String: UserModel] = [:]
     
     // @Published var imageCache: [String : UIImage] = [:]
     
@@ -69,6 +69,7 @@ class ListViewModel: ObservableObject {
     private lazy var db = Firestore.firestore()
     private var listenerRegistration: ListenerRegistration?
     private var userListener: ListenerRegistration?
+    private let userCacheStore = UserCache.shared
     private weak var defaultPostViewModel: PostViewModel?
 
     var userIdProvider: () -> String? = {
@@ -104,16 +105,21 @@ class ListViewModel: ObservableObject {
     }
     
     func fetchUserIfNeeded(for userId: String) async {
-        guard userCache[userId] == nil else { return }
+        if cachedUsers[userId] != nil { return }
+
+        if let persisted = userCacheStore.cachedUser(for: userId) {
+            cachedUsers[userId] = persisted
+            print("[ListViewModel] Restored cached user \(persisted.username ?? "") for ID: \(userId)")
+            return
+        }
 
         do {
             let doc = try await db.collection("users").document(userId).getDocument()
             if var user = try? doc.data(as: UserModel.self) {
                 user.documentId = doc.documentID
-                await MainActor.run {
-                    self.userCache[userId] = user
-                    print("[ListViewModel] Cached user \(user.username ?? "") for ID: \(userId)")
-                }
+                cachedUsers[userId] = user
+                userCacheStore.cache(user: user, for: userId)
+                print("[ListViewModel] Cached user \(user.username ?? "") for ID: \(userId)")
             }
         } catch {
             print("[ListViewModel] Failed to fetch user \(userId):", error.localizedDescription)
@@ -376,7 +382,20 @@ class ListViewModel: ObservableObject {
 
     // MARK: - User Cache Helpers
     func getUser(for userId: String) -> UserModel? {
-        return userCache[userId]
+        if let user = cachedUsers[userId] {
+            return user
+        }
+        if let persisted = userCacheStore.cachedUser(for: userId) {
+            cachedUsers[userId] = persisted
+            return persisted
+        }
+        return nil
+    }
+
+    /// Allows tests and previews to inject deterministic user data.
+    func seedCachedUser(_ user: UserModel, for userId: String) {
+        cachedUsers[userId] = user
+        userCacheStore.cache(user: user, for: userId)
     }
     
     // func getItem(by id: UUID) -> ItemModel? {
