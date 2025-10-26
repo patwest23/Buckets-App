@@ -155,7 +155,6 @@ struct FriendsView: View {
 
     @ViewBuilder
     private func userRow(for user: UserModel) -> some View {
-        let isFollowing = viewModel.isUserFollowed(user)
         HStack(spacing: BucketTheme.mediumSpacing) {
             userProfileImage(for: user)
             VStack(alignment: .leading, spacing: 4) {
@@ -168,23 +167,16 @@ struct FriendsView: View {
                 }
             }
             Spacer()
-            Group {
-                if isFollowing {
-                    Button {
-                        Task { await viewModel.unfollow(user) }
-                    } label: {
-                        Text("Unfollow")
-                    }
-                    .buttonStyle(BucketSecondaryButtonStyle())
+            Button {
+                if viewModel.isUserFollowed(user) {
+                    Task { await viewModel.unfollow(user) }
                 } else {
-                    Button {
-                        Task { await viewModel.follow(user) }
-                    } label: {
-                        Text("Follow")
-                    }
-                    .buttonStyle(BucketPrimaryButtonStyle())
+                    Task { await viewModel.follow(user) }
                 }
+            } label: {
+                Text(viewModel.isUserFollowed(user) ? "Unfollow" : "Follow")
             }
+            .buttonStyle(viewModel.isUserFollowed(user) ? BucketSecondaryButtonStyle() : BucketPrimaryButtonStyle())
             .frame(width: 110)
         }
         .bucketCard()
