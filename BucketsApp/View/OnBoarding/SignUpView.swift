@@ -24,42 +24,54 @@ struct SignUpView: View {
     @State private var errorMessage = ""
     @State private var navigationPath = NavigationPath()
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: BucketTheme.largeSpacing) {
+                    VStack(spacing: BucketTheme.smallSpacing) {
+                        Text("Create your ✨ Buckets ✨ account")
+                            .font(.title.weight(.bold))
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer()  // Removed the image/logo, just a spacer now
+                        Text("Just a few quick fields before we start exploring.")
+                            .font(.callout)
+                            .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
-                    // MARK: - Input Fields
-                    usernameTextField  // <--- Updated
-                    emailTextField
-                    passwordSecureField
-                    confirmPasswordSecureField
-                    termsAndConditionsSection
+                    VStack(spacing: BucketTheme.mediumSpacing) {
+                        usernameTextField
+                        emailTextField
+                        passwordSecureField
+                        confirmPasswordSecureField
+                        termsAndConditionsSection
 
-                    // MARK: - Sign Up Button
-                    signUpButton
-                        .padding(.top, 20)
+                        signUpButton
+                            .padding(.top, BucketTheme.mediumSpacing)
+                    }
+                    .bucketCard()
 
-                    Spacer()
+                    Text("We use your email only for login and important updates. No spam, just adventures. 🧭")
+                        .font(.footnote)
+                        .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, BucketTheme.largeSpacing)
                 }
-                .padding()
-                // Base background that adapts to Light/Dark
-                .background(Color(uiColor: .systemBackground))
+                .padding(.vertical, BucketTheme.largeSpacing)
+                .padding(.horizontal, BucketTheme.largeSpacing)
+                .bucketBackground()
                 .alert("Error", isPresented: $showErrorAlert) {
                     Button("OK", role: .cancel) {}
                 } message: {
                     Text(errorMessage)
                 }
             }
-            .padding(.horizontal)
-            // Another background layer if you want
-            .background(Color(uiColor: .systemBackground))
+            .bucketBackground()
             .navigationDestination(for: SignUpNavigationDestination.self) { destination in
                 switch destination {
                 case .listView:
-                    // Navigate to ListView after successful sign-up
                     ListView()
                         .environmentObject(userViewModel)
                 }
@@ -71,7 +83,7 @@ struct SignUpView: View {
     
     /// Username field with a custom Binding to always enforce "@" at the start
     var usernameTextField: some View {
-        TextField("📛 Username", text: Binding(
+        TextField("Username", text: Binding(
             get: {
                 // If empty, return blank. Otherwise ensure it starts with "@"
                 username.isEmpty
@@ -94,43 +106,49 @@ struct SignUpView: View {
                 }
             }
         ))
-        .textFieldModifiers()
+        .bucketTextField(systemImage: "at")
     }
 
     /// Email address field (stored in OnboardingViewModel)
     var emailTextField: some View {
-        TextField("✉️ Email Address", text: $viewModel.email)
-            .textFieldModifiers()
+        TextField("Email Address", text: $viewModel.email)
+            .textInputAutocapitalization(.never)
+            .disableAutocorrection(true)
+            .keyboardType(.emailAddress)
+            .bucketTextField(systemImage: "envelope.fill")
     }
 
     /// Password field (stored in OnboardingViewModel)
     var passwordSecureField: some View {
-        SecureField("🔑 Password", text: $viewModel.password)
-            .textFieldModifiers()
+        SecureField("Password", text: $viewModel.password)
+            .bucketTextField(systemImage: "lock.fill")
     }
 
     /// Confirm password field (local state in this view)
     var confirmPasswordSecureField: some View {
-        SecureField("🔐 Confirm Password", text: $confirmPassword)
-            .textFieldModifiers()
+        SecureField("Confirm Password", text: $confirmPassword)
+            .bucketTextField(systemImage: "lock.rotation")
     }
 
     // MARK: - Terms and Conditions
     
     /// A row with a link to T&C and a toggle
     var termsAndConditionsSection: some View {
-        HStack {
-            Text("I agree to the")
-                .foregroundColor(.primary)
-            Button("Terms and Conditions") {
-                openTermsAndConditions()
+        VStack(alignment: .leading, spacing: BucketTheme.smallSpacing) {
+            Toggle(isOn: $agreedToTerms) {
+                Text("I agree to the Terms & Conditions")
+                    .font(.footnote.weight(.medium))
             }
-            .foregroundColor(.blue)
-            .underline()
+            .toggleStyle(SwitchToggleStyle(tint: BucketTheme.primary))
 
-            Toggle("", isOn: $agreedToTerms)
+            Button {
+                openTermsAndConditions()
+            } label: {
+                Label("Read the playful fine print", systemImage: "doc.text.magnifyingglass")
+                    .font(.caption)
+            }
+            .buttonStyle(BucketSecondaryButtonStyle())
         }
-        .font(.caption)
     }
 
     // MARK: - Sign Up Button
@@ -138,22 +156,16 @@ struct SignUpView: View {
         Button {
             Task {
                 if validateInput() {
-                    // Just do normal sign-up (no username check)
                     await signUpUser()
                 } else {
                     showErrorAlert = true
                 }
             }
         } label: {
-            Text("Sign Up")
-                .fontWeight(.bold)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(uiColor: .secondarySystemBackground))
-                .foregroundColor(agreedToTerms ? .primary : .red)
-                .cornerRadius(10)
-                .shadow(radius: 5)
+            Label("Sign Up", systemImage: "sparkles")
+                .symbolVariant(.fill)
         }
+        .buttonStyle(BucketPrimaryButtonStyle())
         .disabled(!agreedToTerms)
     }
 
@@ -227,16 +239,7 @@ struct SignUpView: View {
 }
 
 // MARK: - View Modifiers
-private extension View {
-    func textFieldModifiers() -> some View {
-        self
-            .padding()
-            .background(Color(uiColor: .systemGray6))
-            .cornerRadius(8)
-            .autocapitalization(.none)
-            .disableAutocorrection(true)
-    }
-}
+
 
 // MARK: - Preview
 #if DEBUG
