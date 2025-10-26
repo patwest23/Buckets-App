@@ -44,6 +44,7 @@ final class OnboardingViewModel: ObservableObject {
     private let storage = Storage.storage()
     private let firestore = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
+    private let userCache = UserCache.shared
     
     
     // MARK: - Initialization
@@ -214,15 +215,20 @@ final class OnboardingViewModel: ObservableObject {
     
     func signOut() async {
         do {
+            let currentUid = Auth.auth().currentUser?.uid
             try Auth.auth().signOut()
             isAuthenticated = false
             userDocListener?.remove()
             clearState()
-            
+
+            if let currentUid {
+                userCache.clearCache(for: currentUid)
+            }
+
             // Optionally remove from Keychain
             KeychainHelper.shared.deleteValue(for: "email")
             KeychainHelper.shared.deleteValue(for: "password")
-            
+
         } catch {
             handleError(error)
         }

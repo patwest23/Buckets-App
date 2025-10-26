@@ -11,7 +11,8 @@
 		1F107EDA2E2C3D9700B692C8 /* LocationSearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */; };
 		1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */; };
 		1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B222D21DAE7000DF507 /* UserViewModel.swift */; };
-		1F234B252D21DC85000DF507 /* UserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B242D21DC7E000DF507 /* UserModel.swift */; };
+                1F234B252D21DC85000DF507 /* UserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B242D21DC7E000DF507 /* UserModel.swift */; };
+                1FA123452F12345000AAA111 /* UserCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA123442F12345000AAA111 /* UserCache.swift */; };
 		1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */; };
 		1F33EDBF2DF4C7A000994EC2 /* UsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F33EDBE2DF4C7A000994EC2 /* UsernameSetupView.swift */; };
 		1F357F582D0D3A0A003F121A /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1F357F572D0D3A0A003F121A /* FirebaseStorage */; };
@@ -56,7 +57,8 @@
 		1F107ED92E2C3D9700B692C8 /* LocationSearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSearchViewModel.swift; sourceTree = "<group>"; };
 		1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenCarouselView.swift; sourceTree = "<group>"; };
 		1F234B222D21DAE7000DF507 /* UserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserViewModel.swift; sourceTree = "<group>"; };
-		1F234B242D21DC7E000DF507 /* UserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserModel.swift; sourceTree = "<group>"; };
+                1F234B242D21DC7E000DF507 /* UserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserModel.swift; sourceTree = "<group>"; };
+                1FA123442F12345000AAA111 /* UserCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserCache.swift; sourceTree = "<group>"; };
 		1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerViewModel.swift; sourceTree = "<group>"; };
 		1F33EDBE2DF4C7A000994EC2 /* UsernameSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsernameSetupView.swift; sourceTree = "<group>"; };
 		1F357F592D0D3F06003F121A /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
@@ -207,9 +209,10 @@
 		1FED1A1C29E20B6000868BAC /* Model */ = {
 			isa = PBXGroup;
 			children = (
-				1F64774B29E5023600B66F63 /* ItemModel.swift */,
-				1F234B242D21DC7E000DF507 /* UserModel.swift */,
-				1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */,
+                                1F64774B29E5023600B66F63 /* ItemModel.swift */,
+                                1F234B242D21DC7E000DF507 /* UserModel.swift */,
+                                1FA123442F12345000AAA111 /* UserCache.swift */,
+                                1FE7B0E32D7E2A8400D7BDC1 /* PostModel.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -342,7 +345,8 @@
 				1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */,
 				1FCD29342D6284A70022E4CB /* SettingsView.swift in Sources */,
 				1F5D42B92E3579F7004182FB /* ListContainerView.swift in Sources */,
-				1F234B252D21DC85000DF507 /* UserModel.swift in Sources */,
+                                1F234B252D21DC85000DF507 /* UserModel.swift in Sources */,
+                                1FA123452F12345000AAA111 /* UserCache.swift in Sources */,
 				1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
 				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
 				1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
