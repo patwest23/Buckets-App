@@ -12,6 +12,7 @@ class MockOnboardingViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published var isAuthenticated: Bool = false
+    @Published var requiresUsernameSetup: Bool = false
     @Published var email: String = "mockuser@example.com"
     @Published var password: String = "password"
     @Published var profileImageData: Data? = nil

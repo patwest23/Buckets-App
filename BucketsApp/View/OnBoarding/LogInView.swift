@@ -1,187 +1,231 @@
-//
-//  LoginView.swift
-//  BucketsApp
-//
-//  Created by Patrick Westerkamp on 4/8/23.
-//
-
 import SwiftUI
 
 struct LogInView: View {
     @EnvironmentObject var viewModel: OnboardingViewModel
-    
+    @Environment(\.dismiss) private var dismiss
+
     @State private var isLoading = false
-    @State private var showWrongPasswordAlert = false
-    
+    @State private var alertMessage: String?
+    @State private var showResetPrompt = false
+
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email
+        case password
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Spacer()
-                
-                // MARK: - Email Input
-                TextField("✉️ Email Address", text: $viewModel.email)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-                
-                // MARK: - Password Input
-                SecureField("🔑 Password", text: $viewModel.password)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-                
-                Spacer()
-                
-                // MARK: - Log In Button
-                Button {
-                    if validateInput() {
-                        isLoading = true
-                        Task {
-                            await viewModel.signIn()
-                            isLoading = false
-                            
-                            // 1) Detect if the error is specifically "wrong password"
-                            if let errMsg = viewModel.errorMessage?.lowercased(),
-                               errMsg.contains("password is invalid") || errMsg.contains("wrong-password") {
-                                // Show alert offering to reset the password
-                                showWrongPasswordAlert = true
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    header
+
+                    VStack(alignment: .leading, spacing: 18) {
+                        TextField("Email", text: $viewModel.email)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .focused($focusedField, equals: .email)
+                            .onboardingFieldStyle()
+
+                        SecureField("Password", text: $viewModel.password)
+                            .focused($focusedField, equals: .password)
+                            .onboardingFieldStyle()
+                    }
+
+                    Button(action: signIn) {
+                        ZStack {
+                            if isLoading {
+                                ProgressView()
+                                    .tint(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                            } else {
+                                Text("Sign in")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
                             }
                         }
                     }
-                } label: {
-                    if isLoading {
-                        ProgressView()
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    } else {
-                        Text("Log In")
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(uiColor: .secondarySystemBackground))
-                            .foregroundColor(
-                                viewModel.email.isEmpty || viewModel.password.isEmpty
-                                ? .red
-                                : .primary
-                            )
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                    }
-                }
-                .disabled(viewModel.email.isEmpty || viewModel.password.isEmpty || isLoading)
-                .padding(.horizontal)
-                .padding(.top, 20)
-                
-                // MARK: - Forgot Password
-                Button("Forgot Password?") {
-                    Task {
-                        guard !viewModel.email.isEmpty else {
-                            // Show error or prompt to enter email
-                            viewModel.errorMessage = "Please enter your email above."
-                            viewModel.showErrorAlert = true
-                            return
+                    .buttonStyle(.plain)
+                    .background(primaryButtonBackground)
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                    .disabled(isLoading || viewModel.email.isEmpty || viewModel.password.isEmpty)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Button("Forgot password?") {
+                            Task { await resetPassword() }
                         }
-                        let result = await viewModel.resetPassword(for: viewModel.email)
-                        switch result {
-                        case .success(let successMsg):
-                            viewModel.errorMessage = successMsg
-                            viewModel.showErrorAlert = true
-                        case .failure(let error):
-                            viewModel.errorMessage = error.localizedDescription
-                            viewModel.showErrorAlert = true
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
+
+                        Button("Use Face ID / Touch ID") {
+                            Task { await viewModel.loginWithBiometrics() }
                         }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
                     }
+                    .font(.footnote)
+
+                    divider
+
+                    googleButton
                 }
-                .padding(.top, 10)
-                
-                // MARK: - Use Face ID / Touch ID
-                Button("Use Face ID") {
-                    Task {
-                        // This calls OnboardingViewModel.loginWithBiometrics()
-                        // which fetches stored credentials from Keychain
-                        // and tries to sign in
-                        await viewModel.loginWithBiometrics()
-                    }
-                }
-                .padding(.top, 5)
-                .disabled(isLoading)
+                .padding(28)
             }
-            .padding()
-            .background(Color(uiColor: .systemBackground))
-            
-            // MARK: - General Error Alert
-            .alert("Error", isPresented: $viewModel.showErrorAlert) {
+            .background(Color(.systemBackground))
+            .navigationTitle("Sign in")
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Sign in", isPresented: alertBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown error")
+                Text(alertMessage ?? "")
+            }
+            .alert("Reset password", isPresented: $showResetPrompt) {
+                Button("Send reset link", role: .destructive) {
+                    Task { await resetPassword() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("It looks like the password is incorrect. Would you like to receive a reset link?"
+                )
             }
         }
-        // Additional .padding() or styling as you see fit
-        .background(Color(uiColor: .systemBackground))
-        
-        // MARK: - Wrong Password Alert
-        .alert(
-            "Wrong Password?",
-            isPresented: $showWrongPasswordAlert
-        ) {
-            Button("Reset Password", role: .destructive) {
-                Task {
-                    let result = await viewModel.resetPassword(for: viewModel.email)
-                    switch result {
-                    case .success(let successMsg):
-                        viewModel.errorMessage = successMsg
-                        viewModel.showErrorAlert = true
-                    case .failure(let err):
-                        viewModel.errorMessage = err.localizedDescription
-                        viewModel.showErrorAlert = true
+        .onChange(of: viewModel.isAuthenticated) { isAuthenticated in
+            if isAuthenticated {
+                dismiss()
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Welcome back")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text("Sign in to review your bucket list, check off progress, and stay motivated.")
+                .foregroundColor(.secondary)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var divider: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(.systemGray4))
+
+            Text("or")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(.systemGray4))
+        }
+    }
+
+    private var googleButton: some View {
+        Button {
+            viewModel.signInWithGoogle()
+        } label: {
+            HStack(spacing: 12) {
+                Image("google_logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+
+                Text("Continue with Google")
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+
+                Spacer()
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(.systemGray4), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var primaryButtonBackground: Color {
+        (isLoading || viewModel.email.isEmpty || viewModel.password.isEmpty)
+            ? Color.accentColor.opacity(0.4)
+            : Color.accentColor
+    }
+
+    private var alertBinding: Binding<Bool> {
+        Binding(
+            get: { alertMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    alertMessage = nil
+                }
+            }
+        )
+    }
+
+    private func signIn() {
+        guard !viewModel.email.isEmpty, !viewModel.password.isEmpty else {
+            alertMessage = "Please enter your email and password."
+            return
+        }
+
+        isLoading = true
+        Task {
+            await viewModel.signIn()
+            await MainActor.run {
+                isLoading = false
+
+                if viewModel.isAuthenticated {
+                    dismiss()
+                } else if let message = viewModel.errorMessage {
+                    let lowercased = message.lowercased()
+                    if lowercased.contains("wrong password") || lowercased.contains("invalid password") {
+                        alertMessage = nil
+                        showResetPrompt = true
+                    } else {
+                        alertMessage = message
                     }
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("It looks like the password might be wrong. Would you like to reset it?")
         }
     }
-    
-    // MARK: - Input Validation
-    private func validateInput() -> Bool {
-        guard !viewModel.email.isEmpty, !viewModel.password.isEmpty else {
-            viewModel.errorMessage = "Please fill in all fields."
-            viewModel.showErrorAlert = true
-            return false
+
+    private func resetPassword() async {
+        guard !viewModel.email.isEmpty else {
+            await MainActor.run {
+                alertMessage = "Enter your email address above and try again."
+            }
+            return
         }
-        viewModel.showErrorAlert = false
-        return true
+
+        let result = await viewModel.resetPassword(for: viewModel.email)
+        await MainActor.run {
+            switch result {
+            case .success(let message):
+                alertMessage = message
+            case .failure(let error):
+                alertMessage = error.localizedDescription
+            }
+            showResetPrompt = false
+        }
     }
 }
 
-// MARK: - Preview
 #if DEBUG
 struct LogInView_Previews: PreviewProvider {
     static var previews: some View {
-        let mockViewModel = OnboardingViewModel()
-        
-        return Group {
-            // Light Mode
-            NavigationView {
-                LogInView()
-                    .environmentObject(mockViewModel)
-            }
-            .previewDisplayName("LogInView - Light Mode")
-            
-            // Dark Mode
-            NavigationView {
-                LogInView()
-                    .environmentObject(mockViewModel)
-                    .preferredColorScheme(.dark)
-            }
-            .previewDisplayName("LogInView - Dark Mode")
-        }
+        LogInView()
+            .environmentObject(OnboardingViewModel())
     }
 }
 #endif
-
-

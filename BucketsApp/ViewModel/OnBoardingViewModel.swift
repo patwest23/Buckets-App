@@ -35,6 +35,10 @@ final class OnboardingViewModel: ObservableObject {
     
     /// Whether the user is currently signed in.
     @Published var isAuthenticated: Bool = false
+
+    /// Indicates that the authenticated user must create a username before
+    /// proceeding to the main experience (used for Google sign-in flows).
+    @Published var requiresUsernameSetup: Bool = false
     
     /// Holds the user’s profile image data (loaded from or to Firebase Storage).
     @Published var profileImageData: Data?
@@ -163,20 +167,30 @@ final class OnboardingViewModel: ObservableObject {
                 self.clearErrorState()
                 
                 Task {
-                    if let userEmail = authUser.email {
-                        let userDocRef = self.firestore.collection("users").document(authUser.uid)
-                        do {
-                            // Merge the user's email if doc doesn't exist
-                            try await userDocRef.setData(["email": userEmail], merge: true)
-                        } catch {
-                            self.handleError(error)
+                    let userDocRef = self.firestore.collection("users").document(authUser.uid)
+
+                    do {
+                        let snapshot = try await userDocRef.getDocument()
+
+                        if snapshot.exists {
+                            if let userEmail = authUser.email {
+                                try await userDocRef.setData(["email": userEmail], merge: true)
+                            }
+                        } else {
+                            let email = authUser.email ?? self.email
+                            await self.createUserDocument(
+                                userId: authUser.uid,
+                                emailOverride: email,
+                                usernameOverride: nil
+                            )
                         }
+                    } catch {
+                        self.handleError(error)
                     }
-                    
-                    // Fetch user doc (then optionally load more data)
+
                     await self.fetchUserDocument(userId: authUser.uid)
                     await self.loadProfileImage()
-                    
+
                     print("[OnboardingViewModel] Google sign-in success. UID:", authUser.uid)
                 }
             }
@@ -203,7 +217,7 @@ final class OnboardingViewModel: ObservableObject {
             
             await fetchUserDocument(userId: authResult.user.uid)
             await loadProfileImage()
-            
+
         } catch {
             handleError(error)
         }
@@ -240,7 +254,7 @@ final class OnboardingViewModel: ObservableObject {
             
             await createUserDocument(userId: authResult.user.uid)
             await fetchUserDocument(userId: authResult.user.uid)
-            
+
         } catch {
             handleError(error)
         }
@@ -268,6 +282,8 @@ final class OnboardingViewModel: ObservableObject {
             do {
                 self.user = try snapshot.data(as: UserModel.self)
                 print("[OnboardingViewModel] Real-time update. user.id =", self.user?.id ?? "nil")
+                self.username = self.user?.username ?? ""
+                self.evaluateUsernameRequirement(userId: userId)
             } catch {
                 self.handleError(error)
             }
@@ -383,34 +399,50 @@ final class OnboardingViewModel: ObservableObject {
     
     // MARK: - Firestore Integration
     
-    func createUserDocument(userId: String) async {
+    func createUserDocument(
+        userId: String,
+        emailOverride: String? = nil,
+        usernameOverride: String? = nil
+    ) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
-            let docData: [String: Any] = [
-                "email": email,
-                "createdAt": Date(), // or FieldValue.serverTimestamp()
-                "username": username
+            var docData: [String: Any] = [
+                "email": emailOverride ?? email,
+                "createdAt": Date()
             ]
+
+            if let normalized = normalizedUsername(from: usernameOverride ?? username) {
+                docData["username"] = normalized
+                username = normalized
+                requiresUsernameSetup = false
+            }
+
             try await userDoc.setData(docData)
             print("[OnboardingViewModel] User document created at /users/\(userId).")
         } catch {
             handleError(error)
         }
     }
-    
+
     func fetchUserDocument(userId: String) async {
         let userDoc = firestore.collection("users").document(userId)
         do {
             let snapshot = try await userDoc.getDocument()
             guard snapshot.exists else {
                 print("[OnboardingViewModel] No user document found at /users/\(userId). Creating new doc.")
-                await createUserDocument(userId: userId)
+                let emailOverride = Auth.auth().currentUser?.email ?? email
+                await createUserDocument(userId: userId, emailOverride: emailOverride, usernameOverride: nil)
+                requiresUsernameSetup = true
+                await fetchUserDocument(userId: userId)
                 return
             }
-            
+
             self.user = try snapshot.data(as: UserModel.self)
             print("[OnboardingViewModel] User doc fetched. user?.id =", self.user?.id ?? "nil")
-            
+            username = self.user?.username ?? ""
+            evaluateUsernameRequirement(userId: userId)
+            startListeningToUserDocument(userId: userId)
+
             if self.user?.id == userId {
                 print("[OnboardingViewModel] Matches Auth UID:", userId)
             } else {
@@ -436,7 +468,7 @@ final class OnboardingViewModel: ObservableObject {
         errorMessage = nil
         showErrorAlert = false
     }
-    
+
     private func clearState() {
         print("[OnboardingViewModel] Clearing state...")
         email = ""
@@ -447,6 +479,95 @@ final class OnboardingViewModel: ObservableObject {
         errorMessage = nil
         showErrorAlert = false
         isAuthenticated = false
+        requiresUsernameSetup = false
+    }
+
+    private func evaluateUsernameRequirement(userId: String) {
+        if let existingUsername = user?.username,
+           !existingUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            requiresUsernameSetup = false
+        } else {
+            requiresUsernameSetup = true
+            print("[OnboardingViewModel] User \(userId) requires username setup.")
+        }
+    }
+
+    private func normalizedUsername(from rawValue: String?) -> String? {
+        guard let rawValue = rawValue else { return nil }
+
+        var trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("@") {
+            trimmed.removeFirst()
+        }
+
+        // Remove spaces inside the username
+        trimmed = trimmed.replacingOccurrences(of: " ", with: "")
+
+        guard !trimmed.isEmpty else { return nil }
+
+        let allowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        if trimmed.rangeOfCharacter(from: allowedCharacters.inverted) != nil {
+            return nil
+        }
+
+        return "@" + trimmed
+    }
+
+    private func isUsernameAvailable(_ username: String, excluding userId: String) async throws -> Bool {
+        let snapshot = try await firestore
+            .collection("users")
+            .whereField("username", isEqualTo: username)
+            .getDocuments()
+
+        return snapshot.documents.allSatisfy { $0.documentID == userId }
+    }
+
+    func saveUsername(_ proposedUsername: String) async -> Result<Void, Error> {
+        guard let normalized = normalizedUsername(from: proposedUsername) else {
+            return .failure(NSError(
+                domain: "InvalidUsername",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Please choose a username that begins with @ and contains only letters, numbers, periods, underscores, or hyphens."]
+            ))
+        }
+
+        guard let currentUser = Auth.auth().currentUser else {
+            return .failure(NSError(
+                domain: "AuthError",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "You must be signed in to save a username."]
+            ))
+        }
+
+        do {
+            let isAvailable = try await isUsernameAvailable(normalized, excluding: currentUser.uid)
+            guard isAvailable else {
+                return .failure(NSError(
+                    domain: "UsernameUnavailable",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "That username is already taken. Please try a different one."]
+                ))
+            }
+
+            try await firestore
+                .collection("users")
+                .document(currentUser.uid)
+                .setData([
+                    "username": normalized,
+                    "updatedAt": Date()
+                ], merge: true)
+
+            username = normalized
+            if user != nil {
+                user?.username = normalized
+            }
+            requiresUsernameSetup = false
+            clearErrorState()
+
+            return .success(())
+        } catch {
+            return .failure(error)
+        }
     }
 }
 
