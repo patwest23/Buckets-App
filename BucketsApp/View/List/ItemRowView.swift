@@ -23,6 +23,10 @@ struct ItemRowView: View {
 
     private let imageHeight: CGFloat = 220
 
+    private var isEditing: Bool {
+        focusedItemID.wrappedValue == item.id
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: BucketTheme.mediumSpacing) {
             topRow
@@ -49,50 +53,74 @@ struct ItemRowView: View {
     }
 
     private var topRow: some View {
-        HStack(spacing: BucketTheme.mediumSpacing) {
-            Button(action: toggleCompleted) {
-                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(item.completed ? BucketTheme.primary : BucketTheme.subtleText(for: colorScheme))
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
-                            .fill(BucketTheme.surface(for: colorScheme))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
-                            .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
-                    )
+        HStack(alignment: .center, spacing: BucketTheme.mediumSpacing) {
+            Toggle(isOn: completionBinding) {
+                EmptyView()
             }
-            .buttonStyle(.plain)
+            .labelsHidden()
+            .toggleStyle(ChecklistToggleStyle(colorScheme: colorScheme))
             .accessibilityLabel(item.completed ? "Mark item as incomplete" : "Mark item as complete")
 
-            TextField("Name your bucket dream", text: bindingForName(), onCommit: handleOnSubmit)
-                .font(.headline)
-                .foregroundColor(.primary)
-                .focused(focusedItemID, equals: item.id)
-                .submitLabel(.done)
-                .bucketTextField(systemImage: item.completed ? "checkmark.seal.fill" : "sparkles")
-
-            Button {
-                onNavigateToDetail?()
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.headline)
-                    .foregroundStyle(BucketTheme.primary)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
-                            .fill(BucketTheme.surface(for: colorScheme))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
-                            .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
-                    )
-                    .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: BucketTheme.smallSpacing) {
+                if isEditing {
+                    TextField("Name your bucket dream", text: bindingForName(), onCommit: handleOnSubmit)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .focused(focusedItemID, equals: item.id)
+                        .submitLabel(.done)
+                        .bucketTextField(systemImage: item.completed ? "checkmark.seal.fill" : "sparkles")
+                } else {
+                    Text(item.name.isEmpty ? "Name your bucket dream" : item.name)
+                        .font(.headline)
+                        .foregroundStyle(item.name.isEmpty ? BucketTheme.subtleText(for: colorScheme) : .primary)
+                        .bucketTextField(systemImage: item.completed ? "checkmark.seal.fill" : "sparkles")
+                        .onTapGesture {
+                            focusedItemID.wrappedValue = item.id
+                        }
+                }
             }
-            .accessibilityLabel("Open item details")
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isEditing {
+                Button {
+                    focusedItemID.wrappedValue = nil
+                    onNavigateToDetail?()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.headline)
+                        .foregroundStyle(BucketTheme.primary)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                                .fill(BucketTheme.surface(for: colorScheme))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                                .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                        )
+                }
+                .accessibilityLabel("Open item details")
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    onNavigateToDetail?()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.headline)
+                        .foregroundStyle(BucketTheme.primary)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                                .fill(BucketTheme.surface(for: colorScheme))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                                .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                        )
+                }
+                .accessibilityLabel("Open item details")
+                .buttonStyle(.plain)
+            }
         }
         .contentShape(Rectangle())
     }
@@ -195,16 +223,31 @@ struct ItemRowView: View {
     }
 
     // MARK: - Helpers
-    private func toggleCompleted() {
-        var updated = item
-        updated.completed.toggle()
+    private var completionBinding: Binding<Bool> {
+        Binding(
+            get: { item.completed },
+            set: { newValue in
+                applyCompletionChange(isCompleted: newValue)
+            }
+        )
+    }
 
-        if updated.completed {
+    private func toggleCompleted() {
+        applyCompletionChange(isCompleted: !item.completed)
+    }
+
+    private func applyCompletionChange(isCompleted: Bool) {
+        var updated = item
+        updated.completed = isCompleted
+
+        if isCompleted {
             updated.dueDate = Date()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         } else {
             updated.dueDate = nil
         }
+
+        item = updated
 
         Task {
             await bucketListViewModel.addOrUpdateItem(updated, postViewModel: postViewModel)
@@ -257,6 +300,34 @@ struct ItemRowView: View {
         self.onEmptyNameLostFocus = onEmptyNameLostFocus
         self.onNavigateToDetail = onNavigateToDetail
         self.focusedItemID = focusedItemID
+    }
+}
+
+// MARK: - Styles
+private struct ChecklistToggleStyle: ToggleStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    let colorScheme: ColorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(configuration.isOn ? BucketTheme.primary : BucketTheme.subtleText(for: colorScheme).opacity(isEnabled ? 1 : 0.4))
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                        .fill(BucketTheme.surface(for: colorScheme))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: BucketTheme.smallRadius, style: .continuous)
+                        .stroke(BucketTheme.border(for: colorScheme), lineWidth: BucketTheme.lineWidth)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
