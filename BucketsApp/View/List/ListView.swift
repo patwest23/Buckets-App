@@ -78,6 +78,7 @@ struct ListView: View {
                                     }
                                     .task {
                                         bucketListViewModel.registerDefaultPostViewModel(postViewModel)
+                                        bucketListViewModel.restoreCachedItems()
                                         await loadItems()
                                         await syncCoordinator.refreshFeedAndSyncLikes()
                                         startTextFieldListeners()

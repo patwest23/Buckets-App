@@ -48,7 +48,7 @@ struct DetailItemView: View {
     private var checkmarkAndTitleRow: some View {
         HStack(spacing: 8) {
             Button {
-                viewModel.completed.toggle()
+                Task { await viewModel.toggleCompleted() }
             } label: {
                 Image(systemName: viewModel.completed ? "checkmark.circle.fill" : "circle")
                     .imageScale(.large)
