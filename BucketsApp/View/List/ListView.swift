@@ -57,6 +57,14 @@ struct ListView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    private var activeItemIndices: [Int] {
+        bucketListViewModel.items.indices.filter { !bucketListViewModel.items[$0].completed }
+    }
+
+    private var completedItemIndices: [Int] {
+        bucketListViewModel.items.indices.filter { bucketListViewModel.items[$0].completed }
+    }
+
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
@@ -255,26 +263,73 @@ struct ListView: View {
     // MARK: - List of Items
     private var itemListView: some View {
         List {
-            Section {
-                ForEach($bucketListViewModel.items) { $item in
-                    rowView(for: $item)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(
-                            EdgeInsets(
-                                top: BucketTheme.smallSpacing,
-                                leading: BucketTheme.mediumSpacing,
-                                bottom: BucketTheme.smallSpacing,
-                                trailing: BucketTheme.mediumSpacing
-                            )
-                        )
+            if !activeItemIndices.isEmpty {
+                Section(header: sectionHeader(title: "Up Next")) {
+                    ForEach(activeItemIndices, id: \.self) { index in
+                        listRow(for: index)
+                    }
                 }
+                .listSectionSpacing(BucketTheme.smallSpacing)
             }
-            .listSectionSpacing(BucketTheme.smallSpacing)
+
+            if !completedItemIndices.isEmpty {
+                Section(header: sectionHeader(title: "Completed")) {
+                    ForEach(completedItemIndices, id: \.self) { index in
+                        listRow(for: index)
+                            .opacity(0.85)
+                    }
+                }
+                .listSectionSpacing(BucketTheme.smallSpacing)
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .animation(.easeInOut, value: bucketListViewModel.items)
+    }
+
+    @ViewBuilder
+    private func sectionHeader(title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(BucketTheme.subtleText(for: colorScheme))
+            .padding(.leading, BucketTheme.mediumSpacing)
+            .padding(.top, BucketTheme.mediumSpacing)
+    }
+
+    @ViewBuilder
+    private func listRow(for index: Int) -> some View {
+        let binding = $bucketListViewModel.items[index]
+        let item = bucketListViewModel.items[index]
+
+        rowView(for: binding)
+            .listRowBackground(Color.clear)
+            .listRowInsets(
+                EdgeInsets(
+                    top: BucketTheme.smallSpacing,
+                    leading: BucketTheme.mediumSpacing,
+                    bottom: BucketTheme.smallSpacing,
+                    trailing: BucketTheme.mediumSpacing
+                )
+            )
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button {
+                    markItem(item, completed: !item.completed)
+                } label: {
+                    Label(
+                        item.completed ? "Mark Incomplete" : "Complete",
+                        systemImage: item.completed ? "arrow.uturn.backward" : "checkmark.circle"
+                    )
+                }
+                .tint(item.completed ? BucketTheme.subtleText(for: colorScheme) : BucketTheme.primary)
+            }
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    itemToDelete = item
+                    bucketListViewModel.showDeleteAlert = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
     }
 
     // MARK: - UI States
@@ -390,7 +445,25 @@ struct ListView: View {
             }
         }
     }
-    
+
+    private func markItem(_ item: ItemModel, completed: Bool) {
+        var updated = item
+        updated.completed = completed
+        updated.dueDate = completed ? Date() : nil
+
+        if let index = bucketListViewModel.items.firstIndex(where: { $0.id == item.id }) {
+            bucketListViewModel.items[index] = updated
+        }
+
+        if completed {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+
+        Task {
+            await bucketListViewModel.addOrUpdateItem(updated, postViewModel: postViewModel)
+        }
+    }
+
     // MARK: - Deletion
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
