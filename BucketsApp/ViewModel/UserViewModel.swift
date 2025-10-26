@@ -114,6 +114,13 @@ class UserViewModel: ObservableObject {
         userDocListener = nil
         print("[UserViewModel] Stopped listening to user doc.")
     }
+
+    func clearCachedData() {
+        stopListeningToUserDoc()
+        user = nil
+        errorMessage = nil
+        showErrorAlert = false
+    }
     
     // MARK: - Update User Profile
     func updateUserProfile(_ updatedUser: UserModel) async {
