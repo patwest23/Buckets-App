@@ -32,13 +32,23 @@ struct DetailItemView: View {
     
     // Focus
     @FocusState private var isTitleFocused: Bool
-    @FocusState private var isNotesFocused: Bool
+    @FocusState private var isLocationFocused: Bool
+
+    @State private var titleText: String
+    @State private var locationText: String
+    @State private var lastSavedTitle: String
+    @State private var lastSavedLocation: String
     
     // MARK: - Init
     init(item: ItemModel) {
         // We'll store itemID for re-fetching, start with 'currentItem' = item
         self.itemID = item.id
         _currentItem = State(initialValue: item)
+        let initialLocation = item.location?.address ?? ""
+        _titleText = State(initialValue: item.name)
+        _locationText = State(initialValue: initialLocation)
+        _lastSavedTitle = State(initialValue: item.name)
+        _lastSavedLocation = State(initialValue: initialLocation)
     }
     
     var body: some View {
@@ -46,21 +56,23 @@ struct DetailItemView: View {
             // ===== SECTION 1: Title & Completed
             Section {
                 // Title
-                TextField("Title...", text: Binding(
-                    get: { currentItem.name },
-                    set: { newValue in
-                        // Update local & Firestore
-                        currentItem.name = newValue
-                        bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                ))
+                TextField("Title...", text: $titleText)
                 .focused($isTitleFocused)
                 .foregroundColor(currentItem.completed ? .gray : .primary)
-                
+                .submitLabel(.done)
+                .onSubmit { saveTitle() }
+                .onChange(of: titleText) { newValue in
+                    currentItem.name = newValue
+                }
+                .onChange(of: isTitleFocused) { isFocused in
+                    if !isFocused {
+                        saveTitle()
+                    }
+                }
+
                 // Completed Toggle
                 Toggle(isOn: bindingForCompletion) {
-                    Label("Completed",
-                          systemImage: currentItem.completed ? "checkmark.circle.fill" : "circle")
+                    Text("Completed")
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .accentColor))
             }
@@ -134,37 +146,29 @@ struct DetailItemView: View {
                 HStack {
                     Text("📍 Location").font(.headline)
                     Spacer()
-                    TextField("Enter location...", text: Binding(
-                        get: { currentItem.location?.address ?? "" },
-                        set: { newValue in
-                            var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: "")
-                            loc.address = newValue
-                            currentItem.location = loc
-                            bucketListViewModel.addOrUpdateItem(currentItem)
-                        }
-                    ))
-                    .disableAutocorrection(false)
-                    .autocapitalization(.none)
+                    TextField("Enter location...", text: $locationText)
+                    .focused($isLocationFocused)
+                    .autocorrectionDisabled(false)
+                    .textInputAutocapitalization(.words)
                     .multilineTextAlignment(.trailing)
+                    .submitLabel(.done)
+                    .onSubmit { saveLocation() }
+                    .onChange(of: locationText) { newValue in
+                        if currentItem.location != nil || !newValue.isEmpty {
+                            var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
+                            loc.address = newValue.isEmpty ? nil : newValue
+                            currentItem.location = newValue.isEmpty ? nil : loc
+                        }
+                    }
+                    .onChange(of: isLocationFocused) { isFocused in
+                        if !isFocused {
+                            saveLocation()
+                        }
+                    }
                 }
             }
-            
-            // ===== SECTION 5: Notes
-            Section {
-                TextEditor(
-                    text: Binding(
-                        get: { currentItem.description ?? "" },
-                        set: { newValue in
-                            currentItem.description = newValue
-                            bucketListViewModel.addOrUpdateItem(currentItem)
-                        }
-                    )
-                )
-                .frame(minHeight: 100)
-                .focused($isNotesFocused)
-            }
-            
-            // ===== SECTION 6: Delete
+
+            // ===== SECTION 5: Delete
             Section {
                 Button {
                     showDeleteAlert = true
@@ -181,10 +185,10 @@ struct DetailItemView: View {
         .navigationTitle("Detail")
         .navigationBarTitleDisplayMode(.inline)
         
-        // "Done" if title or notes are focused
+        // "Done" if title or location fields are focused
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                if isTitleFocused || isNotesFocused {
+                if isTitleFocused || isLocationFocused {
                     Button("Done") {
                         hideKeyboard()
                     }
@@ -252,6 +256,9 @@ struct DetailItemView: View {
         .onAppear {
             refreshCurrentItemFromList()
         }
+        .onChange(of: bucketListViewModel.items) { _ in
+            refreshCurrentItemFromList()
+        }
     }
 }
 
@@ -262,6 +269,15 @@ extension DetailItemView {
     private func refreshCurrentItemFromList() {
         if let updatedItem = bucketListViewModel.items.first(where: { $0.id == itemID }) {
             self.currentItem = updatedItem
+            lastSavedTitle = updatedItem.name
+            if !isTitleFocused {
+                titleText = updatedItem.name
+            }
+            let updatedAddress = updatedItem.location?.address ?? ""
+            lastSavedLocation = updatedAddress
+            if !isLocationFocused {
+                locationText = updatedAddress
+            }
         }
     }
     
@@ -297,7 +313,39 @@ extension DetailItemView {
         currentItem.imageUrls = newUrls
         bucketListViewModel.addOrUpdateItem(currentItem)
     }
-    
+
+    private func saveTitle() {
+        let newValue = titleText
+        guard newValue != lastSavedTitle else { return }
+        currentItem.name = newValue
+        bucketListViewModel.addOrUpdateItem(currentItem)
+        lastSavedTitle = newValue
+    }
+
+    private func saveLocation() {
+        let trimmed = locationText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.isEmpty {
+            if !lastSavedLocation.isEmpty {
+                currentItem.location = nil
+                bucketListViewModel.addOrUpdateItem(currentItem)
+                lastSavedLocation = ""
+            }
+            if locationText != trimmed {
+                locationText = ""
+            }
+            return
+        }
+
+        var existingLocation = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
+        if trimmed == lastSavedLocation { return }
+        existingLocation.address = trimmed
+        currentItem.location = existingLocation
+        locationText = trimmed
+        bucketListViewModel.addOrUpdateItem(currentItem)
+        lastSavedLocation = trimmed
+    }
+
     /// Binding for the completion toggle
     private var bindingForCompletion: Binding<Bool> {
         Binding(get: {
@@ -312,7 +360,7 @@ extension DetailItemView {
     /// Hide keyboard
     private func hideKeyboard() {
         isTitleFocused = false
-        isNotesFocused = false
+        isLocationFocused = false
     }
     
     /// Format date or “--”
