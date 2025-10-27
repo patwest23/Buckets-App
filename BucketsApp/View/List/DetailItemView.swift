@@ -8,6 +8,7 @@
 import SwiftUI
 import PhotosUI
 import FirebaseStorage
+import UIKit
 
 @MainActor
 struct DetailItemView: View {
@@ -56,25 +57,34 @@ struct DetailItemView: View {
             // ===== SECTION 1: Title & Completed
             Section {
                 // Title
-                TextField("Title...", text: $titleText)
-                .focused($isTitleFocused)
-                .foregroundColor(currentItem.completed ? .gray : .primary)
-                .submitLabel(.done)
-                .onSubmit { saveTitle() }
-                .onChange(of: titleText) { newValue in
-                    currentItem.name = newValue
-                }
-                .onChange(of: isTitleFocused) { isFocused in
-                    if !isFocused {
-                        saveTitle()
+                TextField("Title", text: $titleText)
+                    .focused($isTitleFocused)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled(false)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.done)
+                    .onSubmit { saveTitle() }
+                    .onChange(of: titleText) { newValue in
+                        currentItem.name = newValue
                     }
-                }
+                    .onChange(of: isTitleFocused) { isFocused in
+                        if !isFocused {
+                            saveTitle()
+                        }
+                    }
+            } header: {
+                Label("Title", systemImage: "pencil")
+                    .font(.headline)
+            }
 
-                // Completed Toggle
+            Section {
                 Toggle(isOn: bindingForCompletion) {
                     Text("Completed")
                 }
                 .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+            } header: {
+                Label("Status", systemImage: "checkmark.circle")
+                    .font(.headline)
             }
             
             // ===== SECTION 2: Photos
@@ -143,14 +153,12 @@ struct DetailItemView: View {
             
             // ===== SECTION 4: Location
             Section {
-                HStack {
-                    Text("📍 Location").font(.headline)
-                    Spacer()
-                    TextField("Enter location...", text: $locationText)
+                TextField("Enter a location", text: $locationText)
                     .focused($isLocationFocused)
+                    .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled(false)
                     .textInputAutocapitalization(.words)
-                    .multilineTextAlignment(.trailing)
+                    .textContentType(.fullStreetAddress)
                     .submitLabel(.done)
                     .onSubmit { saveLocation() }
                     .onChange(of: locationText) { newValue in
@@ -165,7 +173,9 @@ struct DetailItemView: View {
                             saveLocation()
                         }
                     }
-                }
+            } header: {
+                Label("Location", systemImage: "mappin.and.ellipse")
+                    .font(.headline)
             }
 
             // ===== SECTION 5: Delete
@@ -192,7 +202,15 @@ struct DetailItemView: View {
                     Button("Done") {
                         hideKeyboard()
                     }
+                    .font(.headline)
                 }
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    hideKeyboard()
+                }
+                .font(.headline)
             }
         }
         
@@ -291,27 +309,46 @@ extension DetailItemView {
         }
         
         var newUrls: [String] = []
+        var uploadedImagePairs: [(url: String, image: UIImage)] = []
         let storageRef = Storage.storage().reference()
             .child("users/\(userId)/item-\(currentItem.id.uuidString)")
-        
-        for (index, pickerItem) in selections.enumerated() {
+
+        for pickerItem in selections {
             do {
                 if let data = try await pickerItem.loadTransferable(type: Data.self),
                    let uiImage = UIImage(data: data),
                    let imageData = uiImage.jpegData(compressionQuality: 0.8) {
-                    
-                    let imageRef = storageRef.child("photo\(index + 1).jpg")
+
+                    let uniqueName = UUID().uuidString + ".jpg"
+                    let imageRef = storageRef.child(uniqueName)
                     try await imageRef.putDataAsync(imageData)
                     let downloadURL = try await imageRef.downloadURL()
-                    newUrls.append(downloadURL.absoluteString)
+                    let absoluteString = downloadURL.absoluteString
+                    newUrls.append(absoluteString)
+                    uploadedImagePairs.append((url: absoluteString, image: uiImage))
                 }
             } catch {
                 print("[DetailItemView] uploadPickedImages error:", error.localizedDescription)
             }
         }
-        
-        currentItem.imageUrls = newUrls
+
+        guard !newUrls.isEmpty else { return }
+
+        var updatedUrls = currentItem.imageUrls
+        for url in newUrls where !updatedUrls.contains(url) {
+            updatedUrls.append(url)
+        }
+
+        if updatedUrls.count > 3 {
+            updatedUrls = Array(updatedUrls.suffix(3))
+        }
+
+        currentItem.imageUrls = updatedUrls
         bucketListViewModel.addOrUpdateItem(currentItem)
+
+        for pair in uploadedImagePairs {
+            bucketListViewModel.imageCache[pair.url] = pair.image
+        }
     }
 
     private func saveTitle() {
@@ -359,6 +396,19 @@ extension DetailItemView {
     
     /// Hide keyboard
     private func hideKeyboard() {
+        let wasTitleFocused = isTitleFocused
+        let wasLocationFocused = isLocationFocused
+
+        UIApplication.shared.endEditing()
+
+        if wasTitleFocused {
+            saveTitle()
+        }
+
+        if wasLocationFocused {
+            saveLocation()
+        }
+
         isTitleFocused = false
         isLocationFocused = false
     }
