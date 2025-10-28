@@ -125,8 +125,9 @@ struct DetailItemView: View {
             isPresented: $showDeleteAlert,
             actions: {
                 Button("Delete", role: .destructive) {
-                    Task {
-                        await bucketListViewModel.deleteItem(currentItem)
+                    let item = currentItem
+                    Task { @MainActor in
+                        await bucketListViewModel.deleteItem(item)
                     }
                     skipSaveOnDisappear = true
                     dismiss()
@@ -137,20 +138,20 @@ struct DetailItemView: View {
                 Text("This cannot be undone. You will lose “\(currentItem.name)” permanently.")
             }
         )
-        .onChange(of: imagePickerVM.imageSelections) { _, newValue in
-            Task { await uploadPickedImages(newValue) }
+        .onChange(of: imagePickerVM.imageSelections, initial: false) { _, newValue in
+            Task { @MainActor in await uploadPickedImages(newValue) }
         }
         .onAppear {
             refreshCurrentItemFromList()
         }
-        .onChange(of: bucketListViewModel.items) { _ in
+        .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
             refreshCurrentItemFromList()
         }
         .onDisappear {
             guard !skipSaveOnDisappear else { return }
             commitEdits()
         }
-        .onChange(of: focusedField) { newValue in
+        .onChange(of: focusedField, initial: false) { _, newValue in
             if newValue != .title {
                 saveTitle()
             }
@@ -393,7 +394,7 @@ private extension DetailItemView {
                 .autocorrectionDisabled(false)
                 .submitLabel(.done)
                 .onSubmit { focusedField = nil }
-                .onChange(of: titleText) { newValue in
+                .onChange(of: titleText, initial: false) { _, newValue in
                     currentItem.name = newValue
                 }
                 .textFieldStyle(.plain)
@@ -500,7 +501,7 @@ private extension DetailItemView {
                 .textContentType(.fullStreetAddress)
                 .submitLabel(.done)
                 .onSubmit { focusedField = nil }
-                .onChange(of: locationText) { newValue in
+                .onChange(of: locationText, initial: false) { _, newValue in
                     if currentItem.location != nil || !newValue.isEmpty {
                         var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
                         loc.address = newValue.isEmpty ? nil : newValue

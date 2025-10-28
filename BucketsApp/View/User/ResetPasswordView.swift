@@ -122,18 +122,16 @@ struct ResetPasswordView: View {
         isSubmitting = true
         focusedField = nil
 
-        Task {
+        Task { @MainActor in
             let result = await viewModel.resetPassword(for: trimmedEmail)
-            await MainActor.run {
-                isSubmitting = false
+            isSubmitting = false
 
-                switch result {
-                case .success(let message):
-                    alertMessage = message
-                    shouldDismissAfterAlert = true
-                case .failure(let error):
-                    alertMessage = error.localizedDescription
-                }
+            switch result {
+            case .success(let message):
+                alertMessage = message
+                shouldDismissAfterAlert = true
+            case .failure(let error):
+                alertMessage = error.localizedDescription
             }
         }
     }

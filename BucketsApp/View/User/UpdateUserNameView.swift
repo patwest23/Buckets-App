@@ -177,20 +177,18 @@ struct UpdateUserNameView: View {
         isSubmitting = true
         focusedField = nil
 
-        Task {
+        Task { @MainActor in
             await userViewModel.updateUserName(to: trimmedUsername)
 
-            await MainActor.run {
-                isSubmitting = false
+            isSubmitting = false
 
-                if userViewModel.showErrorAlert, let error = userViewModel.errorMessage {
-                    alertMessage = error
-                    userViewModel.showErrorAlert = false
-                } else {
-                    userViewModel.errorMessage = nil
-                    alertMessage = "Username updated successfully."
-                    shouldDismissAfterAlert = true
-                }
+            if userViewModel.showErrorAlert, let error = userViewModel.errorMessage {
+                alertMessage = error
+                userViewModel.showErrorAlert = false
+            } else {
+                userViewModel.errorMessage = nil
+                alertMessage = "Username updated successfully."
+                shouldDismissAfterAlert = true
             }
         }
     }

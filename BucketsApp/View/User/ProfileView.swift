@@ -112,7 +112,7 @@ extension ProfileView {
                 selection: $selectedImageItem,
                 matching: .images
             )
-            .onChange(of: selectedImageItem) { oldValue, newValue in
+            .onChange(of: selectedImageItem, initial: false) { _, newValue in
                 loadProfileImage(newValue)
             }
             
@@ -271,7 +271,7 @@ extension ProfileView {
 extension ProfileView {
     private func loadProfileImage(_ newItem: PhotosPickerItem?) {
         guard let newItem = newItem else { return }
-        Task {
+        Task { @MainActor in
             do {
                 if let data = try await newItem.loadTransferable(type: Data.self) {
                     await onboardingViewModel.updateProfileImage(with: data)

@@ -143,26 +143,22 @@ struct UpdatePasswordView: View {
         isSubmitting = true
         focusedField = nil
 
-        Task {
+        Task { @MainActor in
             do {
                 let message = try await viewModel.updatePassword(
                     currentPassword: trimmedCurrent,
                     newPassword: trimmedNew
                 )
 
-                await MainActor.run {
-                    isSubmitting = false
-                    alertMessage = message
-                    shouldDismissAfterAlert = true
-                    currentPassword = ""
-                    newPassword = ""
-                    confirmPassword = ""
-                }
+                isSubmitting = false
+                alertMessage = message
+                shouldDismissAfterAlert = true
+                currentPassword = ""
+                newPassword = ""
+                confirmPassword = ""
             } catch {
-                await MainActor.run {
-                    isSubmitting = false
-                    alertMessage = error.localizedDescription
-                }
+                isSubmitting = false
+                alertMessage = error.localizedDescription
             }
         }
     }

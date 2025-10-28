@@ -142,7 +142,7 @@ struct ListView: View {
                                 }
                             }
                             // Scroll to changed ID
-                            .onChange(of: scrollToId) { _, newVal in
+                            .onChange(of: scrollToId, initial: false) { _, newVal in
                                 guard let newVal = newVal else { return }
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     proxy.scrollTo(newVal, anchor: .bottom)
@@ -255,10 +255,10 @@ struct ListView: View {
             // Mark newlyCreatedItemID => row auto-focus once in .onAppear
             newlyCreatedItemID = newItem.id
             
-            Task {
+            Task { @MainActor in
                 // Wait for SwiftUI to insert row
                 await Task.yield()
-                
+
                 // Then scroll to it
                 scrollToId = newItem.id
             }
@@ -282,7 +282,7 @@ struct ListView: View {
             $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         for blank in blanks {
-            Task {
+            Task { @MainActor in
                 await bucketListViewModel.deleteItem(blank)
             }
         }
@@ -291,14 +291,14 @@ struct ListView: View {
     // MARK: - Deletion
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Task {
+            Task { @MainActor in
                 await bucketListViewModel.deleteItem(item)
             }
         }
     }
-    
+
     private func deleteItem(_ item: ItemModel) {
-        Task {
+        Task { @MainActor in
             await bucketListViewModel.deleteItem(item)
         }
     }
@@ -314,7 +314,7 @@ struct ListView: View {
     
     // MARK: - Load
     private func loadItems() {
-        Task {
+        Task { @MainActor in
             isLoading = true
             try? await Task.sleep(nanoseconds: 500_000_000)
             isLoading = false
