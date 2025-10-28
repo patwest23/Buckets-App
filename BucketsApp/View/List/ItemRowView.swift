@@ -18,6 +18,11 @@ struct ItemRowView: View {
     
     /// Called if user finalizes editing with blank name => parent can delete
     let onEmptyNameLostFocus: (() -> Void)?
+
+    /// Notifies the parent when the inline text field gains or loses focus.
+    /// This lets screens such as `ListView` show contextual controls (e.g. a
+    /// “Done” button) only while a row is actively being edited.
+    let onFocusChange: ((Bool) -> Void)? = nil
     
     @EnvironmentObject var bucketListViewModel: ListViewModel
     
@@ -124,7 +129,7 @@ struct ItemRowView: View {
         .onAppear {
             // If we've not already auto-focused, and this is the newly created item => focus
             guard !hasAutoFocused else { return }
-            
+
             if item.id == newlyCreatedItemID {
                 // Defer focus to next runloop
                 DispatchQueue.main.async {
@@ -132,6 +137,9 @@ struct ItemRowView: View {
                 }
                 hasAutoFocused = true
             }
+        }
+        .onChange(of: isTextFieldFocused) { newValue in
+            onFocusChange?(newValue)
         }
     }
 }
