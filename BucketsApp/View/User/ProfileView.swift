@@ -25,18 +25,23 @@ struct ProfileView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                
-                // MARK: - Profile Image + Username
-                profileHeader
-                
-                // MARK: - Stats Dashboard
+            VStack(alignment: .leading, spacing: 32) {
+                header
+
+                VStack(spacing: 20) {
+                    profileHeader
+                    profileMeta
+                }
+                .padding(24)
+                .background(cardBackground)
+                .overlay(cardBorder)
+
                 statsDashboard
             }
-            .padding(.horizontal)
-            .padding(.top, 16)
+            .padding(28)
             .padding(.bottom, 24)
         }
+        .background(Color(.systemBackground))
         .navigationBarTitle("Profile", displayMode: .inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -59,10 +64,23 @@ struct ProfileView: View {
 
 // MARK: - Subviews
 extension ProfileView {
-    
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your profile")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+
+            Text("Update your avatar and keep an eye on how your bucket list is progressing.")
+                .font(.callout)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     // MARK: - Profile Header
     private var profileHeader: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 18) {
             // Tappable profile image
             Button {
                 isPickerPresented = true
@@ -72,19 +90,19 @@ extension ProfileView {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 150, height: 150)
+                        .frame(width: 140, height: 140)
                         .clipShape(Circle())
                         .overlay(
                             Circle()
-                                .stroke(Color.accentColor, lineWidth: 4)
+                                .stroke(Color.accentColor, lineWidth: 3)
                         )
                         .shadow(color: cardShadowColor, radius: 6, x: 0, y: 3)
                 } else {
                     Image(systemName: "person.crop.circle.badge.plus")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 150, height: 150)
-                        .foregroundColor(.gray)
+                        .frame(width: 140, height: 140)
+                        .foregroundColor(.secondary)
                 }
             }
             .buttonStyle(.plain)
@@ -99,19 +117,43 @@ extension ProfileView {
             }
             
             // Username or placeholder
-            if let handle = onboardingViewModel.user?.username, !handle.isEmpty {
-                Text(handle)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-            } else {
-                Text("Username")
-                    .font(.title2)
-                    .foregroundColor(.gray)
+            Group {
+                if let handle = onboardingViewModel.user?.username, !handle.isEmpty {
+                    Text(handle)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                } else {
+                    Text("Username")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                }
             }
+            .accessibilityLabel("Username")
         }
     }
-    
+
+    private var profileMeta: some View {
+        VStack(spacing: 8) {
+            if let email = onboardingViewModel.user?.email {
+                labeledDetail(title: "Email", value: email)
+            }
+
+            if let memberSince = onboardingViewModel.user?.createdAt {
+                let formatted = DateFormatter.localizedString(from: memberSince, dateStyle: .medium, timeStyle: .none)
+                labeledDetail(title: "Member since", value: formatted)
+            }
+
+            Button(action: { isPickerPresented = true }) {
+                Text("Update profile photo")
+                    .font(.callout.weight(.semibold))
+                    .foregroundColor(.accentColor)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 6)
+        }
+    }
+
     // MARK: - Stats Dashboard
     private var statsDashboard: some View {
         let totalCount = listViewModel.items.count
@@ -131,62 +173,97 @@ extension ProfileView {
             return max(0, components.day ?? 0)
         }()
         
-        return VStack(spacing: 20) {
-            
-            // Row: total, completed, incomplete
-            HStack(spacing: 16) {
-                statCard(emoji: "📦", title: "Total",
-                         value: "\(totalCount)", color: .blue)
-                statCard(emoji: "✅", title: "Completed",
-                         value: "\(completedCount)", color: .green)
-                statCard(emoji: "🚧", title: "Incomplete",
-                         value: "\(incompleteCount)", color: .orange)
-            }
-            
-            // If no completions yet, show message. Otherwise show "days since last complete."
-            if completedCount == 0 {
-                Text("No items completed yet!")
-                    .foregroundColor(.secondary)
-                    .italic()
-            } else {
-                HStack(spacing: 16) {
-                    statCard(emoji: "⏰",
-                             title: "Days Since Last Complete",
-                             value: "\(daysSinceLastCompletion)",
-                             color: .purple)
+        return VStack(alignment: .leading, spacing: 20) {
+            Text("Bucket list snapshot")
+                .font(.headline)
+                .foregroundColor(.secondary)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    metricBlock(title: "Total", value: totalCount)
+
+                    divider
+
+                    metricBlock(title: "Completed", value: completedCount)
+
+                    divider
+
+                    metricBlock(title: "Open", value: incompleteCount)
+                }
+
+                divider
+
+                if completedCount == 0 {
+                    Text("No items completed yet")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                } else {
+                    VStack(spacing: 4) {
+                        Text("Days since last completion")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+
+                        Text("\(daysSinceLastCompletion)")
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 }
             }
+            .background(cardBackground)
+            .overlay(cardBorder)
         }
-        .padding()
-        // "Card" style background
-        .background(
-            RoundedRectangle(cornerRadius: cardCornerRadius)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: cardShadowColor, radius: cardShadowRadius, x: 0, y: 2)
-        )
     }
-    
-    // MARK: - Single Stat Card
-    private func statCard(emoji: String,
-                          title: String,
-                          value: String,
-                          color: Color) -> some View {
-        VStack(spacing: 8) {
-            Text(emoji)
-                .font(.largeTitle)
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-            Text(title)
-                .font(.footnote)
+
+    private func metricBlock(title: String, value: Int) -> some View {
+        VStack(spacing: 6) {
+            Text("\(value)")
+                .font(.title2.weight(.semibold))
+                .foregroundColor(.primary)
+
+            Text(title.uppercased())
+                .font(.caption)
+                .fontWeight(.medium)
                 .foregroundColor(.secondary)
+                .kerning(1.2)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(color.opacity(0.15))
-        )
+        .padding(.vertical, 18)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color(.systemGray4))
+            .frame(width: 1)
+    }
+
+    private func labeledDetail(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Spacer(minLength: 16)
+
+            Text(value)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 20)
+            .fill(Color(.secondarySystemGroupedBackground))
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 20)
+            .stroke(Color(.systemGray4), lineWidth: 1)
     }
 }
 
