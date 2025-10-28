@@ -99,17 +99,14 @@ struct ListView: View {
                             }
                             .onAppear {
                                 loadItems()
-                                startTextFieldListeners()
                             }
                             .onDisappear {
                                 // ——— Fix #1: reset newlyCreatedItemID, so no auto-focus after coming back
                                 newlyCreatedItemID = nil
-                                
+
                                 // ——— Fix #2: end any active editing => no keyboard
                                 UIApplication.shared.endEditing()
                                 isAnyTextFieldActive = false
-                                
-                                stopTextFieldListeners()
                             }
                             // Navigate to Profile
                             .navigationDestination(isPresented: $showProfileView) {
@@ -196,6 +193,9 @@ struct ListView: View {
                     },
                     onEmptyNameLostFocus: {
                         deleteItemIfEmpty(currentItem)
+                    },
+                    onFocusChange: { isFocused in
+                        isAnyTextFieldActive = isFocused
                     }
                 )
                 .environmentObject(bucketListViewModel)
@@ -341,42 +341,6 @@ struct ListView: View {
                 .clipShape(Circle())
                 .foregroundColor(.accentColor)
         }
-    }
-}
-
-// MARK: - Keyboard / Text Field Observers
-extension ListView {
-    private func startTextFieldListeners() {
-        NotificationCenter.default.addObserver(
-            forName: UITextField.textDidBeginEditingNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            // A text field begins editing
-            isAnyTextFieldActive = true
-        }
-        
-        NotificationCenter.default.addObserver(
-            forName: UITextField.textDidEndEditingNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            // A text field ends editing
-            isAnyTextFieldActive = false
-        }
-    }
-    
-    private func stopTextFieldListeners() {
-        NotificationCenter.default.removeObserver(
-            self,
-            name: UITextField.textDidBeginEditingNotification,
-            object: nil
-        )
-        NotificationCenter.default.removeObserver(
-            self,
-            name: UITextField.textDidEndEditingNotification,
-            object: nil
-        )
     }
 }
 
