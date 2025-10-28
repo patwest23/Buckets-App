@@ -118,12 +118,15 @@ struct ListView: View {
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
                             }
-                            // Navigate to Detail => PASS A COPY of the item
-                            .navigationDestination(item: $selectedItem) { item in
-                                // The detail view will do local copy handling
-                                DetailItemView(item: item)
-                                    .environmentObject(bucketListViewModel)
-                                    .environmentObject(onboardingViewModel)
+                            // Detail sheet => matches the Reminders detail presentation
+                            .sheet(item: $selectedItem) { item in
+                                NavigationStack {
+                                    DetailItemView(item: item)
+                                        .environmentObject(bucketListViewModel)
+                                        .environmentObject(onboardingViewModel)
+                                }
+                                .presentationDetents([.medium, .large])
+                                .presentationDragIndicator(.visible)
                             }
                             // Delete confirmation
                             .alert(
