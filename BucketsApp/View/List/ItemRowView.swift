@@ -15,14 +15,14 @@ struct ItemRowView: View {
     
     /// Called when user taps the chevron (Detail nav)
     let onNavigateToDetail: (() -> Void)?
-    
+
     /// Called if user finalizes editing with blank name => parent can delete
     let onEmptyNameLostFocus: (() -> Void)?
 
     /// Notifies the parent when the inline text field gains or loses focus.
     /// This lets screens such as `ListView` show contextual controls (e.g. a
     /// “Done” button) only while a row is actively being edited.
-    let onFocusChange: ((Bool) -> Void)? = nil
+    let onFocusChange: ((Bool) -> Void)?
     
     @EnvironmentObject var bucketListViewModel: ListViewModel
     
@@ -138,9 +138,25 @@ struct ItemRowView: View {
                 hasAutoFocused = true
             }
         }
-        .onChange(of: isTextFieldFocused) { newValue in
+        .onChange(of: isTextFieldFocused, initial: false) { _, newValue in
             onFocusChange?(newValue)
         }
+    }
+}
+
+extension ItemRowView {
+    init(
+        item: Binding<ItemModel>,
+        newlyCreatedItemID: UUID?,
+        onNavigateToDetail: (() -> Void)? = nil,
+        onEmptyNameLostFocus: (() -> Void)? = nil,
+        onFocusChange: ((Bool) -> Void)? = nil
+    ) {
+        self._item = item
+        self.newlyCreatedItemID = newlyCreatedItemID
+        self.onNavigateToDetail = onNavigateToDetail
+        self.onEmptyNameLostFocus = onEmptyNameLostFocus
+        self.onFocusChange = onFocusChange
     }
 }
 

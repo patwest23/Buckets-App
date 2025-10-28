@@ -106,16 +106,14 @@ struct UsernameSetupView: View {
         }
 
         isSubmitting = true
-        Task {
+        Task { @MainActor in
             let result = await onboardingViewModel.saveUsername(username)
-            await MainActor.run {
-                isSubmitting = false
-                switch result {
-                case .success:
-                    break
-                case .failure(let error):
-                    alertMessage = error.localizedDescription
-                }
+            isSubmitting = false
+            switch result {
+            case .success:
+                break
+            case .failure(let error):
+                alertMessage = error.localizedDescription
             }
         }
     }

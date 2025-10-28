@@ -108,7 +108,7 @@ struct SignUpView: View {
         .onAppear {
             username = viewModel.username
         }
-        .onChange(of: viewModel.isAuthenticated) { isAuthenticated in
+        .onChange(of: viewModel.isAuthenticated, initial: false) { _, isAuthenticated in
             if isAuthenticated {
                 dismiss()
             }
@@ -199,18 +199,16 @@ struct SignUpView: View {
         }
 
         isSubmitting = true
-        Task {
+        Task { @MainActor in
             viewModel.username = username
             await viewModel.createUser()
 
-            await MainActor.run {
-                isSubmitting = false
-                if viewModel.isAuthenticated {
-                    dismiss()
-                } else if let message = viewModel.errorMessage {
-                    errorMessage = message
-                    showErrorAlert = true
-                }
+            isSubmitting = false
+            if viewModel.isAuthenticated {
+                dismiss()
+            } else if let message = viewModel.errorMessage {
+                errorMessage = message
+                showErrorAlert = true
             }
         }
     }

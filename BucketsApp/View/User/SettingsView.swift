@@ -130,7 +130,7 @@ struct SettingsView: View {
         .onAppear {
             onboardingViewModel.checkIfUserIsAuthenticated()
         }
-        .onChange(of: onboardingViewModel.errorMessage) { message in
+        .onChange(of: onboardingViewModel.errorMessage, initial: false) { _, message in
             guard let message else { return }
             alertMessage = message
         }
@@ -235,13 +235,11 @@ struct SettingsView: View {
         guard !isSigningOut && !isDeletingAccount else { return }
 
         isSigningOut = true
-        Task {
+        Task { @MainActor in
             await onboardingViewModel.signOut()
-            await MainActor.run {
-                isSigningOut = false
-                if onboardingViewModel.isAuthenticated {
-                    alertMessage = onboardingViewModel.errorMessage
-                }
+            isSigningOut = false
+            if onboardingViewModel.isAuthenticated {
+                alertMessage = onboardingViewModel.errorMessage
             }
         }
     }
@@ -250,18 +248,16 @@ struct SettingsView: View {
         guard !isDeletingAccount else { return }
 
         isDeletingAccount = true
-        Task {
+        Task { @MainActor in
             let result = await onboardingViewModel.deleteAccount()
-            await MainActor.run {
-                isDeletingAccount = false
+            isDeletingAccount = false
 
-                switch result {
-                case .success(let message):
-                    userViewModel.clearCachedData()
-                    alertMessage = message
-                case .failure(let error):
-                    alertMessage = error.localizedDescription
-                }
+            switch result {
+            case .success(let message):
+                userViewModel.clearCachedData()
+                alertMessage = message
+            case .failure(let error):
+                alertMessage = error.localizedDescription
             }
         }
     }

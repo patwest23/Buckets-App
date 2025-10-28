@@ -57,13 +57,13 @@ struct LogInView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Button("Forgot password?") {
-                            Task { await resetPassword() }
+                            Task { @MainActor in await resetPassword() }
                         }
                         .buttonStyle(.plain)
                         .foregroundColor(.accentColor)
 
                         Button("Use Face ID / Touch ID") {
-                            Task { await viewModel.loginWithBiometrics() }
+                            Task { @MainActor in await viewModel.loginWithBiometrics() }
                         }
                         .buttonStyle(.plain)
                         .foregroundColor(.accentColor)
@@ -86,7 +86,7 @@ struct LogInView: View {
             }
             .alert("Reset password", isPresented: $showResetPrompt) {
                 Button("Send reset link", role: .destructive) {
-                    Task { await resetPassword() }
+                    Task { @MainActor in await resetPassword() }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -94,7 +94,7 @@ struct LogInView: View {
                 )
             }
         }
-        .onChange(of: viewModel.isAuthenticated) { isAuthenticated in
+        .onChange(of: viewModel.isAuthenticated, initial: false) { _, isAuthenticated in
             if isAuthenticated {
                 dismiss()
             }
@@ -180,21 +180,19 @@ struct LogInView: View {
         }
 
         isLoading = true
-        Task {
+        Task { @MainActor in
             await viewModel.signIn()
-            await MainActor.run {
-                isLoading = false
+            isLoading = false
 
-                if viewModel.isAuthenticated {
-                    dismiss()
-                } else if let message = viewModel.errorMessage {
-                    let lowercased = message.lowercased()
-                    if lowercased.contains("wrong password") || lowercased.contains("invalid password") {
-                        alertMessage = nil
-                        showResetPrompt = true
-                    } else {
-                        alertMessage = message
-                    }
+            if viewModel.isAuthenticated {
+                dismiss()
+            } else if let message = viewModel.errorMessage {
+                let lowercased = message.lowercased()
+                if lowercased.contains("wrong password") || lowercased.contains("invalid password") {
+                    alertMessage = nil
+                    showResetPrompt = true
+                } else {
+                    alertMessage = message
                 }
             }
         }
