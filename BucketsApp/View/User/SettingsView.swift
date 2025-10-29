@@ -38,6 +38,8 @@ struct SettingsView: View {
                             UpdateUserNameView()
                                 .environmentObject(userViewModel)
                         }
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                     }
                     .disabled(isDeletingAccount)
 
@@ -52,6 +54,8 @@ struct SettingsView: View {
                             UpdateEmailView()
                                 .environmentObject(onboardingViewModel)
                         }
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                     }
                     .disabled(isDeletingAccount)
 
@@ -66,6 +70,8 @@ struct SettingsView: View {
                             ResetPasswordView()
                                 .environmentObject(onboardingViewModel)
                         }
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                     }
                     .disabled(isDeletingAccount)
 
@@ -80,6 +86,8 @@ struct SettingsView: View {
                             UpdatePasswordView()
                                 .environmentObject(onboardingViewModel)
                         }
+                        .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
                     }
                     .disabled(isDeletingAccount)
 
