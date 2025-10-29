@@ -69,6 +69,7 @@ struct ItemRowView: View {
                 // 3) Chevron => detail, only if user is focusing the text field
                 if isTextFieldFocused {
                     Button {
+                        isTextFieldFocused = false
                         onNavigateToDetail?()
                     } label: {
                         Image(systemName: "chevron.right")

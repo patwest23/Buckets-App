@@ -116,13 +116,13 @@ struct ListView: View {
                                     .environmentObject(bucketListViewModel)
                             }
                             // Detail sheet => matches the Reminders detail presentation
-                            .sheet(item: $selectedItem) { item in
+                            .sheet(item: $selectedItem, onDismiss: handleDetailDismiss) { item in
                                 NavigationStack {
                                     DetailItemView(item: item)
                                         .environmentObject(bucketListViewModel)
                                         .environmentObject(onboardingViewModel)
                                 }
-                                .presentationDetents([.medium, .large])
+                                .presentationDetents([.large])
                                 .presentationDragIndicator(.visible)
                             }
                             // Delete confirmation
@@ -188,6 +188,8 @@ struct ListView: View {
                     item: itemBinding,
                     newlyCreatedItemID: newlyCreatedItemID,
                     onNavigateToDetail: {
+                        UIApplication.shared.endEditing()
+                        isAnyTextFieldActive = false
                         // For detail: pass a *copy* via selectedItem
                         selectedItem = currentItem
                     },
@@ -287,7 +289,12 @@ struct ListView: View {
             }
         }
     }
-    
+
+    private func handleDetailDismiss() {
+        UIApplication.shared.endEditing()
+        isAnyTextFieldActive = false
+    }
+
     // MARK: - Deletion
     private func deleteItemIfEmpty(_ item: ItemModel) {
         if item.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
