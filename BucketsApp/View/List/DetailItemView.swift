@@ -68,113 +68,139 @@ struct DetailItemView: View {
     // MARK: - View
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                titleCard
-                statusCard
-                photosCard
-                datesCard
-                locationCard
-                deleteCard
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 24)
+            scrollContent
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("Details")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    cancelEdits()
-                }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") {
-                    commitAndDismiss()
-                }
-                .font(.headline)
-            }
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    focusedField = nil
-                }
-                .font(.headline)
-            }
+        .toolbar { navigationToolbar }
+        .sheet(isPresented: $showDateCreatedSheet) { creationDateSheet }
+        .sheet(isPresented: $showDateCompletedSheet) { completionDateSheet }
+        .alert("Delete Item?", isPresented: $showDeleteAlert, actions: deleteAlertActions, message: deleteAlertMessage)
+        .onChange(of: imagePickerVM.imageSelections, initial: false, perform: handleImageSelectionChange(_:))
+        .onChange(of: imagePickerVM.uiImages, initial: true, perform: handleUIImageChange(_:))
+        .onAppear(perform: refreshCurrentItemFromList)
+        .onChange(of: bucketListViewModel.items, initial: false) { _, _ in refreshCurrentItemFromList() }
+        .onChange(of: creationDate, initial: false, perform: handleCreationDateChange(_:))
+        .onChange(of: completionDate, initial: false, perform: handleCompletionDateChange(_:))
+        .onDisappear(perform: commitOnDisappear)
+        .onChange(of: focusedField, initial: false, perform: handleFocusChange(_:))
+    }
+
+    private var scrollContent: some View {
+        VStack(spacing: 20) {
+            titleCard
+            statusCard
+            photosCard
+            datesCard
+            locationCard
+            deleteCard
         }
-        .sheet(isPresented: $showDateCreatedSheet) {
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
+    }
+
+    @ToolbarContentBuilder
+    private var navigationToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) { cancelButton }
+        ToolbarItem(placement: .confirmationAction) { doneButton }
+        ToolbarItemGroup(placement: .keyboard) { keyboardToolbarContent }
+    }
+
+    private var cancelButton: some View {
+        Button("Cancel", action: cancelEdits)
+    }
+
+    private var doneButton: some View {
+        Button("Done", action: commitAndDismiss)
+            .font(.headline)
+    }
+
+    private var keyboardToolbarContent: some View {
+        Spacer()
+        Button("Done") {
+            focusedField = nil
+        }
+        .font(.headline)
+    }
+
+    @ViewBuilder
+    private var creationDateSheet: some View {
+        datePickerSheet(
+            title: "Set Created Date",
+            date: creationDateBinding
+        ) {
+            showDateCreatedSheet = false
+        }
+    }
+
+    @ViewBuilder
+    private var completionDateSheet: some View {
+        if currentItem.completed {
             datePickerSheet(
-                title: "Set Created Date",
-                date: creationDateBinding
+                title: "Set Completion Date",
+                date: completionDateBinding
             ) {
-                showDateCreatedSheet = false
+                showDateCompletedSheet = false
             }
         }
-        .sheet(isPresented: $showDateCompletedSheet) {
-            if currentItem.completed {
-                datePickerSheet(
-                    title: "Set Completion Date",
-                    date: completionDateBinding
-                ) {
-                    showDateCompletedSheet = false
-                }
-            }
+    }
+
+    private func deleteAlertActions() -> some View {
+        Group {
+            Button("Delete", role: .destructive, action: handleDelete)
+            Button("Cancel", role: .cancel, action: {})
         }
-        .alert(
-            "Delete Item?",
-            isPresented: $showDeleteAlert,
-            actions: {
-                Button("Delete", role: .destructive) {
-                    let item = currentItem
-                    Task { @MainActor in
-                        await bucketListViewModel.deleteItem(item)
-                    }
-                    skipSaveOnDisappear = true
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) {}
-            },
-            message: {
-                Text("This cannot be undone. You will lose “\(currentItem.name)” permanently.")
-            }
-        )
-        .onChange(of: imagePickerVM.imageSelections, initial: false) { _, newValue in
-            Task { @MainActor in await uploadPickedImages(newValue) }
+    }
+
+    private func deleteAlertMessage() -> some View {
+        Text("This cannot be undone. You will lose “\(currentItem.name)” permanently.")
+    }
+
+    private func handleDelete() {
+        let item = currentItem
+        Task { @MainActor in
+            await bucketListViewModel.deleteItem(item)
         }
-        .onChange(of: imagePickerVM.uiImages, initial: true) { _, newImages in
-            bucketListViewModel.updatePendingImages(newImages, for: currentItem.id)
+        skipSaveOnDisappear = true
+        dismiss()
+    }
+
+    private func handleImageSelectionChange(_ newSelections: [PhotosPickerItem]) {
+        Task { @MainActor in await uploadPickedImages(newSelections) }
+    }
+
+    private func handleUIImageChange(_ newImages: [UIImage]) {
+        bucketListViewModel.updatePendingImages(newImages, for: currentItem.id)
+    }
+
+    private func handleCreationDateChange(_ newValue: Date) {
+        guard currentItem.creationDate != newValue else { return }
+        currentItem.creationDate = newValue
+        lastSavedCreationDate = newValue
+        bucketListViewModel.addOrUpdateItem(currentItem)
+    }
+
+    private func handleCompletionDateChange(_ newValue: Date) {
+        guard currentItem.completed else { return }
+        guard currentItem.dueDate != newValue else { return }
+        currentItem.dueDate = newValue
+        lastSavedCompletionDate = newValue
+        bucketListViewModel.addOrUpdateItem(currentItem)
+    }
+
+    private func commitOnDisappear() {
+        guard !skipSaveOnDisappear else { return }
+        commitEdits()
+    }
+
+    private func handleFocusChange(_ newValue: Field?) {
+        if newValue != .title {
+            saveTitle()
         }
-        .onAppear {
-            refreshCurrentItemFromList()
-        }
-        .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
-            refreshCurrentItemFromList()
-        }
-        .onChange(of: creationDate, initial: false) { _, newValue in
-            guard currentItem.creationDate != newValue else { return }
-            currentItem.creationDate = newValue
-            lastSavedCreationDate = newValue
-            bucketListViewModel.addOrUpdateItem(currentItem)
-        }
-        .onChange(of: completionDate, initial: false) { _, newValue in
-            guard currentItem.completed else { return }
-            guard currentItem.dueDate != newValue else { return }
-            currentItem.dueDate = newValue
-            lastSavedCompletionDate = newValue
-            bucketListViewModel.addOrUpdateItem(currentItem)
-        }
-        .onDisappear {
-            guard !skipSaveOnDisappear else { return }
-            commitEdits()
-        }
-        .onChange(of: focusedField, initial: false) { _, newValue in
-            if newValue != .title {
-                saveTitle()
-            }
-            if newValue != .location {
-                saveLocation()
-            }
+        if newValue != .location {
+            saveLocation()
         }
     }
 }
