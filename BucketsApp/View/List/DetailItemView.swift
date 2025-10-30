@@ -93,13 +93,7 @@ struct DetailItemView: View {
         .sheet(isPresented: $showDateCreatedSheet) {
             datePickerSheet(
                 title: "Set Created Date",
-                date: Binding(
-                    get: { currentItem.creationDate },
-                    set: { newValue in
-                        currentItem.creationDate = newValue
-                        bucketListViewModel.addOrUpdateItem(currentItem)
-                    }
-                )
+                date: creationDateBinding
             ) {
                 showDateCreatedSheet = false
             }
@@ -108,13 +102,7 @@ struct DetailItemView: View {
             if currentItem.completed {
                 datePickerSheet(
                     title: "Set Completion Date",
-                    date: Binding(
-                        get: { currentItem.dueDate ?? Date() },
-                        set: { newValue in
-                            currentItem.dueDate = newValue
-                            bucketListViewModel.addOrUpdateItem(currentItem)
-                        }
-                    )
+                    date: completionDateBinding
                 ) {
                     showDateCompletedSheet = false
                 }
@@ -348,6 +336,26 @@ private extension DetailItemView {
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.height(350)])
+    }
+
+    var creationDateBinding: Binding<Date> {
+        Binding(
+            get: { currentItem.creationDate },
+            set: { newValue in
+                currentItem.creationDate = newValue
+                bucketListViewModel.addOrUpdateItem(currentItem)
+            }
+        )
+    }
+
+    var completionDateBinding: Binding<Date> {
+        Binding(
+            get: { currentItem.dueDate ?? Date() },
+            set: { newValue in
+                currentItem.dueDate = newValue
+                bucketListViewModel.addOrUpdateItem(currentItem)
+            }
+        )
     }
 
     @ViewBuilder
