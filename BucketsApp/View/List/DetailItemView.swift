@@ -141,6 +141,9 @@ struct DetailItemView: View {
         .onChange(of: imagePickerVM.imageSelections, initial: false) { _, newValue in
             Task { @MainActor in await uploadPickedImages(newValue) }
         }
+        .onChange(of: imagePickerVM.uiImages, initial: true) { _, newImages in
+            bucketListViewModel.updatePendingImages(newImages, for: currentItem.id)
+        }
         .onAppear {
             refreshCurrentItemFromList()
         }
@@ -224,12 +227,14 @@ private extension DetailItemView {
 
         currentItem.imageUrls = updatedUrls
         bucketListViewModel.addOrUpdateItem(currentItem)
+        bucketListViewModel.updatePendingImages([], for: currentItem.id)
 
         for pair in uploadedImagePairs {
             bucketListViewModel.imageCache[pair.url] = pair.image
         }
 
         imagePickerVM.imageSelections = []
+        imagePickerVM.uiImages = []
     }
 
     func saveTitle() {
@@ -272,6 +277,7 @@ private extension DetailItemView {
     func commitAndDismiss() {
         focusedField = nil
         commitEdits()
+        bucketListViewModel.updatePendingImages([], for: currentItem.id)
         skipSaveOnDisappear = true
         dismiss()
     }
@@ -279,6 +285,7 @@ private extension DetailItemView {
     func cancelEdits() {
         focusedField = nil
         revertToLastSavedState()
+        bucketListViewModel.updatePendingImages([], for: currentItem.id)
         skipSaveOnDisappear = true
         dismiss()
     }
@@ -304,6 +311,9 @@ private extension DetailItemView {
             currentItem.completed = newValue
             currentItem.dueDate = newValue ? Date() : nil
             bucketListViewModel.addOrUpdateItem(currentItem)
+            if !newValue {
+                bucketListViewModel.updatePendingImages([], for: currentItem.id)
+            }
         })
     }
 

@@ -32,6 +32,7 @@ class ListViewModel: ObservableObject {
     @Published var itemToDelete: ItemModel?
     
     @Published var imageCache: [String : UIImage] = [:]
+    @Published var pendingLocalImages: [UUID: [UIImage]] = [:]
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -190,6 +191,7 @@ class ListViewModel: ObservableObject {
             
             try await docRef.delete()
             items.removeAll { $0.id == item.id }
+            pendingLocalImages.removeValue(forKey: item.id)
             print("[ListViewModel] deleteItem: Deleted item \(item.id) from /users/\(userId)/items")
         } catch {
             print("[ListViewModel] deleteItem error:", error.localizedDescription)
@@ -273,6 +275,14 @@ class ListViewModel: ObservableObject {
             }
         } catch {
             print("[ListViewModel] loadImage(\(urlStr)) error:", error.localizedDescription)
+        }
+    }
+
+    func updatePendingImages(_ images: [UIImage], for itemID: UUID) {
+        if images.isEmpty {
+            pendingLocalImages.removeValue(forKey: itemID)
+        } else {
+            pendingLocalImages[itemID] = images
         }
     }
 }
