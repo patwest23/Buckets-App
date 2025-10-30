@@ -31,6 +31,10 @@ struct DetailItemView: View {
     @State private var showDateCompletedSheet = false
     @State private var showDeleteAlert = false
 
+    // MARK: - Dates
+    @State private var creationDate: Date
+    @State private var completionDate: Date
+
     // MARK: - Focus & text
     private enum Field: Hashable { case title, location }
     @FocusState private var focusedField: Field?
@@ -39,6 +43,9 @@ struct DetailItemView: View {
     @State private var locationText: String
     @State private var lastSavedTitle: String
     @State private var lastSavedLocation: String
+    @State private var lastSavedCreationDate: Date
+    @State private var lastSavedCompletionDate: Date?
+    @State private var lastSavedCompleted: Bool
     @State private var skipSaveOnDisappear = false
 
     // MARK: - Init
@@ -46,10 +53,16 @@ struct DetailItemView: View {
         self.itemID = item.id
         _currentItem = State(initialValue: item)
         let initialLocation = item.location?.address ?? ""
+        let initialCompletionDate = item.dueDate ?? item.creationDate
         _titleText = State(initialValue: item.name)
         _locationText = State(initialValue: initialLocation)
         _lastSavedTitle = State(initialValue: item.name)
         _lastSavedLocation = State(initialValue: initialLocation)
+        _creationDate = State(initialValue: item.creationDate)
+        _completionDate = State(initialValue: initialCompletionDate)
+        _lastSavedCreationDate = State(initialValue: item.creationDate)
+        _lastSavedCompletionDate = State(initialValue: item.dueDate)
+        _lastSavedCompleted = State(initialValue: item.completed)
     }
 
     // MARK: - View
@@ -138,6 +151,19 @@ struct DetailItemView: View {
         .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
             refreshCurrentItemFromList()
         }
+        .onChange(of: creationDate, initial: false) { _, newValue in
+            guard currentItem.creationDate != newValue else { return }
+            currentItem.creationDate = newValue
+            lastSavedCreationDate = newValue
+            bucketListViewModel.addOrUpdateItem(currentItem)
+        }
+        .onChange(of: completionDate, initial: false) { _, newValue in
+            guard currentItem.completed else { return }
+            guard currentItem.dueDate != newValue else { return }
+            currentItem.dueDate = newValue
+            lastSavedCompletionDate = newValue
+            bucketListViewModel.addOrUpdateItem(currentItem)
+        }
         .onDisappear {
             guard !skipSaveOnDisappear else { return }
             commitEdits()
@@ -167,6 +193,20 @@ private extension DetailItemView {
             if focusedField != .location {
                 locationText = updatedAddress
             }
+            if creationDate != updatedItem.creationDate {
+                creationDate = updatedItem.creationDate
+            }
+            lastSavedCreationDate = updatedItem.creationDate
+
+            if let dueDate = updatedItem.dueDate {
+                if completionDate != dueDate {
+                    completionDate = dueDate
+                }
+            } else if completionDate != updatedItem.creationDate {
+                completionDate = updatedItem.creationDate
+            }
+            lastSavedCompletionDate = updatedItem.dueDate
+            lastSavedCompleted = updatedItem.completed
         }
     }
 
@@ -290,6 +330,18 @@ private extension DetailItemView {
             currentItem.location = location
         }
         locationText = lastSavedLocation
+
+        currentItem.creationDate = lastSavedCreationDate
+        creationDate = lastSavedCreationDate
+
+        currentItem.completed = lastSavedCompleted
+        if let savedCompletionDate = lastSavedCompletionDate {
+            currentItem.dueDate = savedCompletionDate
+            completionDate = savedCompletionDate
+        } else {
+            currentItem.dueDate = nil
+            completionDate = lastSavedCreationDate
+        }
     }
 
     var bindingForCompletion: Binding<Bool> {
@@ -297,7 +349,23 @@ private extension DetailItemView {
             currentItem.completed
         }, set: { newValue in
             currentItem.completed = newValue
-            currentItem.dueDate = newValue ? Date() : nil
+            lastSavedCompleted = newValue
+            if newValue {
+                let resolvedDate: Date
+                if let savedCompletionDate = lastSavedCompletionDate {
+                    resolvedDate = savedCompletionDate
+                } else if completionDate != lastSavedCreationDate {
+                    resolvedDate = completionDate
+                } else {
+                    resolvedDate = Date()
+                }
+                currentItem.dueDate = resolvedDate
+                completionDate = resolvedDate
+                lastSavedCompletionDate = resolvedDate
+            } else {
+                currentItem.dueDate = nil
+                lastSavedCompletionDate = nil
+            }
             bucketListViewModel.addOrUpdateItem(currentItem)
             if !newValue {
                 bucketListViewModel.updatePendingImages([], for: currentItem.id)
@@ -478,7 +546,7 @@ private extension DetailItemView {
                     HStack {
                         Text("Created")
                         Spacer()
-                        Text(formatDate(currentItem.creationDate))
+                        Text(formatDate(creationDate))
                             .foregroundColor(.accentColor)
                     }
                     .font(.body)
@@ -496,7 +564,7 @@ private extension DetailItemView {
                         Text("Completed")
                         Spacer()
                         let dateStr = currentItem.completed
-                            ? formatDate(currentItem.dueDate)
+                            ? formatDate(completionDate)
                             : "--"
                         Text(dateStr)
                             .foregroundColor(currentItem.completed ? .accentColor : .secondary)
