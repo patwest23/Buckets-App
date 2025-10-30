@@ -42,8 +42,13 @@ struct ItemRowView: View {
     @State private var showFullScreenGallery = false
     
     var body: some View {
+        let pendingImages = bucketListViewModel.pendingLocalImages[item.id] ?? []
+        let pendingToDisplay = Array(pendingImages.prefix(3))
+        let remainingSlots = max(0, 3 - pendingToDisplay.count)
+        let remoteUrls = Array(item.imageUrls.prefix(remainingSlots))
+
         VStack(alignment: .leading, spacing: 8) {
-            
+
             // MARK: - Top Row
             HStack(spacing: 8) {
                 // 1) Checkmark => toggles completion
@@ -79,15 +84,23 @@ struct ItemRowView: View {
                     .buttonStyle(.borderless)
                 }
             }
-            
+
             // MARK: - Images (only if completed + has images)
-            if item.completed, !item.imageUrls.isEmpty {
+            if item.completed, (!remoteUrls.isEmpty || !pendingToDisplay.isEmpty) {
                 let columns = Array(
                     repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
                     count: 3
                 )
                 LazyVGrid(columns: columns, spacing: spacing) {
-                    ForEach(item.imageUrls, id: \.self) { urlStr in
+                    ForEach(Array(pendingToDisplay.enumerated()), id: \.offset) { _, uiImage in
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: imageCellSize, height: imageCellSize)
+                            .cornerRadius(8)
+                            .clipped()
+                    }
+                    ForEach(remoteUrls, id: \.self) { urlStr in
                         if let uiImage = bucketListViewModel.imageCache[urlStr] {
                             Image(uiImage: uiImage)
                                 .resizable()
@@ -175,8 +188,9 @@ extension ItemRowView {
             generator.notificationOccurred(.success)
         } else {
             updated.dueDate = nil
+            bucketListViewModel.updatePendingImages([], for: updated.id)
         }
-        
+
         bucketListViewModel.addOrUpdateItem(updated)
     }
     
