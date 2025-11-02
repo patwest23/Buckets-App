@@ -142,11 +142,13 @@ struct DetailItemView: View {
     }
 
     private var keyboardToolbarContent: some View {
-        Spacer()
-        Button("Done") {
-            focusedField = nil
+        HStack {
+            Spacer()
+            Button("Done") {
+                focusedField = nil
+            }
+            .font(.headline)
         }
-        .font(.headline)
     }
 
     @ViewBuilder
