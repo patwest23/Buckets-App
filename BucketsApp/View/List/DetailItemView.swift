@@ -171,13 +171,12 @@ struct DetailItemView: View {
         }
     }
 
+    @ViewBuilder
     private func deleteAlertActions() -> some View {
-        Group {
-            Button("Delete", role: .destructive) {
-                viewModel.handleDelete(dismiss: dismiss)
-            }
-            Button("Cancel", role: .cancel, action: {})
+        Button("Delete", role: .destructive) {
+            viewModel.handleDelete(dismiss: dismiss)
         }
+        Button("Cancel", role: .cancel, action: {})
     }
 
     private func deleteAlertMessage() -> some View {
