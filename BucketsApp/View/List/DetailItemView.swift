@@ -10,6 +10,11 @@ import PhotosUI
 import FirebaseStorage
 import UIKit
 
+enum DetailItemField: Hashable {
+    case title
+    case location
+}
+
 @MainActor
 struct DetailItemView: View {
     // MARK: - Stored identifiers
@@ -36,8 +41,7 @@ struct DetailItemView: View {
     @State private var completionDate: Date
 
     // MARK: - Focus & text
-    private enum Field: Hashable { case title, location }
-    @FocusState private var focusedField: Field?
+    @FocusState private var focusedField: DetailItemField?
 
     @State private var titleText: String
     @State private var locationText: String
@@ -90,11 +94,45 @@ struct DetailItemView: View {
 
     private var scrollContent: some View {
         VStack(spacing: 20) {
-            titleCard
-            statusCard
-            photosCard
-            datesCard
-            locationCard
+            DetailItemItemSubview(
+                titleText: $titleText,
+                focusBinding: $focusedField,
+                bindingForCompletion: bindingForCompletion,
+                creationDate: creationDate,
+                completionDate: completionDate,
+                isCompleted: currentItem.completed,
+                formatDate: formatDate,
+                onTitleChange: { newValue in
+                    currentItem.name = newValue
+                },
+                onSubmitTitle: { focusedField = nil },
+                onCreationDateTapped: { showDateCreatedSheet = true },
+                onCompletionDateTapped: {
+                    if currentItem.completed {
+                        showDateCompletedSheet = true
+                    }
+                }
+            )
+
+            DetailItemPhotosSubview(
+                imagePickerViewModel: imagePickerVM,
+                isCompleted: currentItem.completed,
+                imageUrls: currentItem.imageUrls
+            )
+
+            DetailItemLocationSubview(
+                locationText: $locationText,
+                focusBinding: $focusedField,
+                onLocationChange: { newValue in
+                    if currentItem.location != nil || !newValue.isEmpty {
+                        var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
+                        loc.address = newValue.isEmpty ? nil : newValue
+                        currentItem.location = newValue.isEmpty ? nil : loc
+                    }
+                },
+                onSubmit: { focusedField = nil }
+            )
+
             deleteCard
         }
         .padding(.horizontal, 20)
@@ -195,7 +233,7 @@ struct DetailItemView: View {
         commitEdits()
     }
 
-    private func handleFocusChange(_ newValue: Field?) {
+    private func handleFocusChange(_ newValue: DetailItemField?) {
         if newValue != .title {
             saveTitle()
         }
@@ -452,185 +490,8 @@ private extension DetailItemView {
         )
     }
 
-    @ViewBuilder
-    var photoGridRow: some View {
-        if !imagePickerVM.uiImages.isEmpty {
-            photoGrid(uiImages: imagePickerVM.uiImages)
-        } else if !currentItem.imageUrls.isEmpty {
-            photoGrid(urlStrings: currentItem.imageUrls)
-        }
-    }
-
-    func photoGrid(uiImages: [UIImage]) -> some View {
-        LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
-            ForEach(uiImages, id: \.self) { uiImage in
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 80, height: 80)
-                    .cornerRadius(6)
-                    .clipped()
-            }
-        }
-    }
-
-    func photoGrid(urlStrings: [String]) -> some View {
-        LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 3), spacing: 8) {
-            ForEach(urlStrings, id: \.self) { urlStr in
-                if let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 80, height: 80)
-                                .cornerRadius(6)
-                                .clipped()
-                        default:
-                            EmptyView()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    var titleCard: some View {
-        detailCard(title: "Title", systemImage: "pencil") {
-            TextField("Title", text: $titleText)
-                .focused($focusedField, equals: .title)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled(false)
-                .submitLabel(.done)
-                .onSubmit { focusedField = nil }
-                .onChange(of: titleText, initial: false) { _, newValue in
-                    currentItem.name = newValue
-                }
-                .textFieldStyle(.plain)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(uiColor: .systemBackground))
-                )
-        }
-    }
-
-    var statusCard: some View {
-        detailCard(title: "Status", systemImage: "checkmark.circle") {
-            Toggle(isOn: bindingForCompletion) {
-                Text("Completed")
-                    .font(.body)
-            }
-            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-        }
-    }
-
-    var photosCard: some View {
-        detailCard(title: "Photos", systemImage: "photo.on.rectangle") {
-            VStack(alignment: .leading, spacing: 12) {
-                PhotosPicker(
-                    selection: $imagePickerVM.imageSelections,
-                    maxSelectionCount: 3,
-                    matching: .images
-                ) {
-                    HStack {
-                        Label("Select Photos", systemImage: "plus")
-                            .labelStyle(.titleAndIcon)
-                        Spacer()
-                        if !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty {
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .font(.body)
-                }
-                .disabled(!currentItem.completed)
-                .opacity(currentItem.completed ? 1 : 0.4)
-
-                if !currentItem.completed {
-                    Text("Mark as completed to attach photos.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                if !imagePickerVM.uiImages.isEmpty || !currentItem.imageUrls.isEmpty {
-                    photoGridRow
-                }
-            }
-        }
-    }
-
-    var datesCard: some View {
-        detailCard(title: "Dates", systemImage: "calendar") {
-            VStack(spacing: 12) {
-                Button {
-                    showDateCreatedSheet = true
-                } label: {
-                    HStack {
-                        Text("Created")
-                        Spacer()
-                        Text(formatDate(creationDate))
-                            .foregroundColor(.accentColor)
-                    }
-                    .font(.body)
-                }
-                .buttonStyle(.plain)
-
-                Divider()
-
-                Button {
-                    if currentItem.completed {
-                        showDateCompletedSheet = true
-                    }
-                } label: {
-                    HStack {
-                        Text("Completed")
-                        Spacer()
-                        let dateStr = currentItem.completed
-                            ? formatDate(completionDate)
-                            : "--"
-                        Text(dateStr)
-                            .foregroundColor(currentItem.completed ? .accentColor : .secondary)
-                    }
-                    .font(.body)
-                }
-                .buttonStyle(.plain)
-                .disabled(!currentItem.completed)
-                .opacity(currentItem.completed ? 1 : 0.5)
-            }
-        }
-    }
-
-    var locationCard: some View {
-        detailCard(title: "Location", systemImage: "mappin.and.ellipse") {
-            TextField("Enter a location", text: $locationText)
-                .focused($focusedField, equals: .location)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled(false)
-                .textContentType(.fullStreetAddress)
-                .submitLabel(.done)
-                .onSubmit { focusedField = nil }
-                .onChange(of: locationText, initial: false) { _, newValue in
-                    if currentItem.location != nil || !newValue.isEmpty {
-                        var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
-                        loc.address = newValue.isEmpty ? nil : newValue
-                        currentItem.location = newValue.isEmpty ? nil : loc
-                    }
-                }
-                .textFieldStyle(.plain)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(uiColor: .systemBackground))
-                )
-        }
-    }
-
     var deleteCard: some View {
-        detailCard(title: "", systemImage: "trash") {
+        DetailSectionCard(title: "", systemImage: "trash") {
             Button {
                 showDeleteAlert = true
             } label: {
@@ -643,21 +504,5 @@ private extension DetailItemView {
             .buttonStyle(.plain)
         }
         .padding(.top, 12)
-    }
-
-    func detailCard<Content: View>(title: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if !title.isEmpty {
-                Label(title, systemImage: systemImage)
-                    .font(.headline)
-            }
-            content()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
     }
 }
