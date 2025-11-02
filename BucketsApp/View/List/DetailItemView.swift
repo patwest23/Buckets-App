@@ -49,8 +49,12 @@ struct DetailItemView: View {
         .sheet(isPresented: $showDateCreatedSheet) { creationDateSheet }
         .sheet(isPresented: $showDateCompletedSheet) { completionDateSheet }
         .alert("Delete Item?", isPresented: $showDeleteAlert, actions: deleteAlertActions, message: deleteAlertMessage)
-        .onChange(of: viewModel.imagePickerViewModel.imageSelections, initial: false, perform: viewModel.handleImageSelectionChange(_:))
-        .onChange(of: viewModel.imagePickerViewModel.uiImages, initial: true, perform: viewModel.handleUIImageChange(_:))
+        .onChange(of: viewModel.imagePickerViewModel.imageSelections, initial: false) { _, newSelections in
+            viewModel.handleImageSelectionChange(newSelections)
+        }
+        .onChange(of: viewModel.imagePickerViewModel.uiImages, initial: true) { _, newImages in
+            viewModel.handleUIImageChange(newImages)
+        }
         .onAppear {
             viewModel.configureDependencies(bucketListViewModel: bucketListViewModel, onboardingViewModel: onboardingViewModel)
             viewModel.refreshCurrentItemFromList(focusedField: focusedField)
@@ -58,10 +62,16 @@ struct DetailItemView: View {
         .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
             viewModel.refreshCurrentItemFromList(focusedField: focusedField)
         }
-        .onChange(of: viewModel.creationDate, initial: false, perform: viewModel.handleCreationDateChange(_:))
-        .onChange(of: viewModel.completionDate, initial: false, perform: viewModel.handleCompletionDateChange(_:))
+        .onChange(of: viewModel.creationDate, initial: false) { _, newDate in
+            viewModel.handleCreationDateChange(newDate)
+        }
+        .onChange(of: viewModel.completionDate, initial: false) { _, newDate in
+            viewModel.handleCompletionDateChange(newDate)
+        }
         .onDisappear(perform: viewModel.commitOnDisappear)
-        .onChange(of: focusedField, initial: false, perform: viewModel.handleFocusChange(_:))
+        .onChange(of: focusedField, initial: false) { _, newField in
+            viewModel.handleFocusChange(newField)
+        }
     }
 
     private var scrollContent: some View {
