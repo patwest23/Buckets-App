@@ -138,7 +138,7 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] addOrUpdateItem: userId is nil. Cannot save item.")
             return
         }
-        
+
         let isNewItem = !items.contains { $0.id == item.id }
         
         // If new => set next orderIndex
@@ -172,6 +172,32 @@ class ListViewModel: ObservableObject {
             
         } catch {
             print("[ListViewModel] addOrUpdateItem => Error: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Persist Images
+    func persistImageURLs(_ urls: [String], for itemID: UUID) async {
+        guard let userId = userId else {
+            print("[ListViewModel] persistImageURLs: userId is nil. Cannot save images.")
+            return
+        }
+
+        let docRef = db
+            .collection("users")
+            .document(userId)
+            .collection("items")
+            .document(itemID.uuidString)
+
+        do {
+            try await docRef.setData(["imageUrls": urls], merge: true)
+
+            if let index = items.firstIndex(where: { $0.id == itemID }) {
+                items[index].imageUrls = urls
+            }
+
+            print("[ListViewModel] persistImageURLs: Saved \(urls.count) image URLs for item \(itemID).")
+        } catch {
+            print("[ListViewModel] persistImageURLs error:", error.localizedDescription)
         }
     }
     
