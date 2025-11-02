@@ -334,6 +334,9 @@ final class DetailItemViewModel: ObservableObject {
 
         currentItem.imageUrls = updatedUrls
         bucketListViewModel?.addOrUpdateItem(currentItem)
+        if let bucketListViewModel {
+            await bucketListViewModel.persistImageURLs(updatedUrls, for: currentItem.id)
+        }
         bucketListViewModel?.updatePendingImages([], for: currentItem.id)
 
         for pair in uploadedImagePairs {
