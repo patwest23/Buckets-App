@@ -55,9 +55,13 @@ struct DetailItemView: View {
         .onChange(of: viewModel.imagePickerViewModel.uiImages, initial: true) { _, newImages in
             viewModel.handleUIImageChange(newImages)
         }
+        .onReceive(bucketListViewModel.$pendingLocalImages) { pending in
+            viewModel.updateImagePicker(using: pending)
+        }
         .onAppear {
             viewModel.configureDependencies(bucketListViewModel: bucketListViewModel, onboardingViewModel: onboardingViewModel)
             viewModel.refreshCurrentItemFromList(focusedField: focusedField)
+            viewModel.updateImagePicker(using: bucketListViewModel.pendingLocalImages)
         }
         .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
             viewModel.refreshCurrentItemFromList(focusedField: focusedField)

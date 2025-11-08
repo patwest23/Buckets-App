@@ -1,13 +1,11 @@
 import SwiftUI
 import PhotosUI
-import FirebaseStorage
 import UIKit
 
 @MainActor
 final class DetailItemViewModel: ObservableObject {
     // MARK: - Dependencies
     private var bucketListViewModel: ListViewModel?
-    private var onboardingViewModel: OnboardingViewModel?
 
     // MARK: - Stored identifiers
     let itemID: UUID
@@ -27,6 +25,7 @@ final class DetailItemViewModel: ObservableObject {
 
     // MARK: - Sub view models
     let imagePickerViewModel: ImagePickerViewModel
+    private var shouldProcessPickerImages = false
 
     // MARK: - Init
     init(item: ItemModel) {
@@ -47,9 +46,8 @@ final class DetailItemViewModel: ObservableObject {
     }
 
     // MARK: - Configuration
-    func configureDependencies(bucketListViewModel: ListViewModel, onboardingViewModel: OnboardingViewModel) {
+    func configureDependencies(bucketListViewModel: ListViewModel, onboardingViewModel _: OnboardingViewModel) {
         self.bucketListViewModel = bucketListViewModel
-        self.onboardingViewModel = onboardingViewModel
     }
 
     // MARK: - Public actions
@@ -86,12 +84,23 @@ final class DetailItemViewModel: ObservableObject {
     }
 
     func handleImageSelectionChange(_ newSelections: [PhotosPickerItem]) {
-        Task { @MainActor in await uploadPickedImages(newSelections) }
+        shouldProcessPickerImages = !newSelections.isEmpty
     }
 
     func handleUIImageChange(_ newImages: [UIImage]) {
+        guard shouldProcessPickerImages else { return }
+        shouldProcessPickerImages = false
+
+        guard currentItem.completed else { return }
         guard let bucketListViewModel else { return }
-        bucketListViewModel.updatePendingImages(newImages, for: currentItem.id)
+
+        Task {
+            await bucketListViewModel.stageImagesForUpload(newImages, for: currentItem.id)
+            await MainActor.run {
+                self.imagePickerViewModel.imageSelections = []
+                self.imagePickerViewModel.uiImages = bucketListViewModel.pendingLocalImages[self.currentItem.id] ?? []
+            }
+        }
     }
 
     func handleCreationDateChange(_ newValue: Date) {
@@ -141,7 +150,6 @@ final class DetailItemViewModel: ObservableObject {
 
     func commitAndDismiss(dismiss: () -> Void) {
         commitEdits()
-        bucketListViewModel?.updatePendingImages([], for: currentItem.id)
         skipSaveOnDisappear = true
         dismiss()
     }
@@ -152,7 +160,6 @@ final class DetailItemViewModel: ObservableObject {
 
     func cancelEdits(dismiss: () -> Void) {
         revertToLastSavedState()
-        bucketListViewModel?.updatePendingImages([], for: currentItem.id)
         skipSaveOnDisappear = true
         dismiss()
     }
@@ -193,7 +200,7 @@ final class DetailItemViewModel: ObservableObject {
             }
             self.bucketListViewModel?.addOrUpdateItem(self.currentItem)
             if !newValue {
-                self.bucketListViewModel?.updatePendingImages([], for: self.currentItem.id)
+                self.bucketListViewModel?.clearLocalAttachments(for: self.currentItem.id)
             }
         })
     }
@@ -289,61 +296,12 @@ final class DetailItemViewModel: ObservableObject {
         }
     }
 
-    private func uploadPickedImages(_ selections: [PhotosPickerItem]) async {
-        guard currentItem.completed else { return }
-        guard let onboardingViewModel, let user = onboardingViewModel.user else { return }
-        guard let userId = user.id else {
-            print("[DetailItemViewModel] No valid user.id!")
-            return
+    func updateImagePicker(using pendingImages: [UUID: [UIImage]]) {
+        guard !shouldProcessPickerImages else { return }
+        if let images = pendingImages[itemID] {
+            imagePickerViewModel.uiImages = images
+        } else if !imagePickerViewModel.uiImages.isEmpty {
+            imagePickerViewModel.uiImages = []
         }
-
-        var newUrls: [String] = []
-        var uploadedImagePairs: [(url: String, image: UIImage)] = []
-        let storageRef = Storage.storage().reference()
-            .child("users/\(userId)/item-\(currentItem.id.uuidString)")
-
-        for pickerItem in selections {
-            do {
-                if let data = try await pickerItem.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data),
-                   let imageData = uiImage.jpegData(compressionQuality: 0.8) {
-
-                    let uniqueName = UUID().uuidString + ".jpg"
-                    let imageRef = storageRef.child(uniqueName)
-                    try await imageRef.putDataAsync(imageData)
-                    let downloadURL = try await imageRef.downloadURL()
-                    let absoluteString = downloadURL.absoluteString
-                    newUrls.append(absoluteString)
-                    uploadedImagePairs.append((url: absoluteString, image: uiImage))
-                }
-            } catch {
-                print("[DetailItemViewModel] uploadPickedImages error:", error.localizedDescription)
-            }
-        }
-
-        guard !newUrls.isEmpty else { return }
-
-        var updatedUrls = currentItem.imageUrls
-        for url in newUrls where !updatedUrls.contains(url) {
-            updatedUrls.append(url)
-        }
-
-        if updatedUrls.count > 3 {
-            updatedUrls = Array(updatedUrls.suffix(3))
-        }
-
-        currentItem.imageUrls = updatedUrls
-        bucketListViewModel?.addOrUpdateItem(currentItem)
-        if let bucketListViewModel {
-            await bucketListViewModel.persistImageURLs(updatedUrls, for: currentItem.id)
-        }
-        bucketListViewModel?.updatePendingImages([], for: currentItem.id)
-
-        for pair in uploadedImagePairs {
-            bucketListViewModel?.imageCache[pair.url] = pair.image
-        }
-
-        imagePickerViewModel.imageSelections = []
-        imagePickerViewModel.uiImages = []
     }
 }

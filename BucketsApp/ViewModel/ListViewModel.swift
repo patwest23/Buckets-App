@@ -6,10 +6,10 @@
 //
 
 import Foundation
-import Combine
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
 
 enum SortingMode: String, CaseIterable {
     case manual
@@ -33,6 +33,10 @@ class ListViewModel: ObservableObject {
     
     @Published var imageCache: [String : UIImage] = [:]
     @Published var pendingLocalImages: [UUID: [UIImage]] = [:]
+
+    // MARK: - Attachments
+    private let attachmentStore = AttachmentPersistence.shared
+    private var uploadTasks: [UUID: Task<Void, Never>] = [:]
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
@@ -45,6 +49,9 @@ class ListViewModel: ObservableObject {
     // MARK: - Initialization
     init() {
         print("[ListViewModel] init.")
+        Task { [weak self] in
+            await self?.initializeAttachmentState()
+        }
     }
     
     deinit {
@@ -207,17 +214,24 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] deleteItem: userId is nil (not authenticated).")
             return
         }
-        
+
         do {
             let docRef = db
                 .collection("users")
                 .document(userId)
                 .collection("items")
                 .document(item.id.uuidString)
-            
+
             try await docRef.delete()
             items.removeAll { $0.id == item.id }
             pendingLocalImages.removeValue(forKey: item.id)
+            let attachments = await attachmentStore.attachments(for: item.id)
+            for attachment in attachments {
+                if let task = uploadTasks.removeValue(forKey: attachment.id) {
+                    task.cancel()
+                }
+            }
+            await attachmentStore.removeAllAttachments(for: item.id)
             print("[ListViewModel] deleteItem: Deleted item \(item.id) from /users/\(userId)/items")
         } catch {
             print("[ListViewModel] deleteItem error:", error.localizedDescription)
@@ -304,11 +318,194 @@ class ListViewModel: ObservableObject {
         }
     }
 
-    func updatePendingImages(_ images: [UIImage], for itemID: UUID) {
+    // MARK: - Attachments
+    func stageImagesForUpload(_ images: [UIImage], for itemID: UUID) async {
+        guard !images.isEmpty else { return }
+        guard let item = getItem(by: itemID), item.completed else { return }
+
+        let availableSlots = await availableSlotsForNewAttachments(itemID: itemID)
+        guard availableSlots > 0 else {
+            print("[ListViewModel] stageImagesForUpload: no available slots for item \(itemID)")
+            return
+        }
+
+        let imagesToStore = Array(images.prefix(availableSlots))
+        var newAttachments: [ItemAttachment] = []
+
+        for image in imagesToStore {
+            guard let data = image.jpegData(compressionQuality: 0.85) else { continue }
+            do {
+                let attachment = try await attachmentStore.createAttachment(for: itemID, imageData: data)
+                newAttachments.append(attachment)
+            } catch {
+                print("[ListViewModel] stageImagesForUpload: failed to create attachment:", error.localizedDescription)
+            }
+        }
+
+        guard !newAttachments.isEmpty else { return }
+
+        await refreshPendingImages(for: itemID)
+
+        for attachment in newAttachments {
+            scheduleUpload(for: attachment)
+        }
+    }
+
+    func clearLocalAttachments(for itemID: UUID) {
+        Task { [weak self] in
+            guard let self else { return }
+            let attachments = await self.attachmentStore.attachments(for: itemID)
+            for attachment in attachments {
+                if let task = self.uploadTasks.removeValue(forKey: attachment.id) {
+                    task.cancel()
+                }
+            }
+            await self.attachmentStore.removeAllAttachments(for: itemID)
+            await self.refreshPendingImages(for: itemID)
+        }
+    }
+
+    private func initializeAttachmentState() async {
+        let allAttachments = await attachmentStore.allAttachments()
+        let grouped = Dictionary(grouping: allAttachments, by: { $0.itemID })
+
+        for (itemID, attachments) in grouped {
+            let pending = attachments.filter { $0.status != .synced }
+            if !pending.isEmpty {
+                await refreshPendingImages(for: itemID)
+            }
+
+            for attachment in attachments where attachment.status == .pendingUpload || attachment.status == .failed {
+                scheduleUpload(for: attachment)
+            }
+        }
+    }
+
+    private func availableSlotsForNewAttachments(itemID: UUID) async -> Int {
+        let remoteCount = getItem(by: itemID)?.imageUrls.count ?? 0
+        let existingAttachments = await attachmentStore.attachments(for: itemID)
+        let pendingCount = existingAttachments.filter { $0.status != .synced }.count
+        return max(0, 3 - remoteCount - pendingCount)
+    }
+
+    @MainActor
+    private func refreshPendingImagesOnMain(itemID: UUID, images: [UIImage]) {
         if images.isEmpty {
             pendingLocalImages.removeValue(forKey: itemID)
         } else {
             pendingLocalImages[itemID] = images
+        }
+    }
+
+    nonisolated private func refreshPendingImages(for itemID: UUID) async {
+        let attachments = await attachmentStore.attachments(for: itemID)
+        var images: [UIImage] = []
+
+        for attachment in attachments where attachment.status != .synced {
+            if let fileURL = await attachmentStore.fileURL(for: attachment.id),
+               let image = UIImage(contentsOfFile: fileURL.path) {
+                images.append(image)
+            }
+        }
+
+        await MainActor.run {
+            self.refreshPendingImagesOnMain(itemID: itemID, images: images)
+        }
+    }
+
+    private func scheduleUpload(for attachment: ItemAttachment) {
+        guard uploadTasks[attachment.id] == nil else { return }
+
+        let task = Task.detached(priority: .background) { [weak self] in
+            await self?.performUpload(for: attachment.id)
+        }
+
+        uploadTasks[attachment.id] = task
+    }
+
+    nonisolated private func performUpload(for attachmentID: UUID) async {
+        guard let attachment = await attachmentStore.attachment(withID: attachmentID) else {
+            await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+            return
+        }
+
+        guard let userId = await MainActor.run(body: { self.userId }) else {
+            await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+            return
+        }
+
+        await attachmentStore.updateStatus(for: attachmentID, to: .uploading)
+        await refreshPendingImages(for: attachment.itemID)
+
+        guard let fileURL = await attachmentStore.fileURL(for: attachmentID) else {
+            await attachmentStore.incrementRetryCount(for: attachmentID)
+            await refreshPendingImages(for: attachment.itemID)
+            await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+
+            if let updated = await attachmentStore.attachment(withID: attachmentID), updated.retryCount < 3 {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        self.scheduleUpload(for: updated)
+                    }
+                }
+            }
+            return
+        }
+
+        var retryCandidate: ItemAttachment?
+
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let storageRef = Storage.storage().reference()
+                .child("users/\(userId)/item-\(attachment.itemID.uuidString)/\(attachment.id.uuidString).jpg")
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+            try await storageRef.putDataAsync(data, metadata: metadata)
+            let downloadURL = try await storageRef.downloadURL()
+
+            await attachmentStore.setRemoteURL(downloadURL.absoluteString, for: attachmentID)
+
+            if let image = UIImage(data: data) {
+                await MainActor.run {
+                    self.imageCache[downloadURL.absoluteString] = image
+                }
+            }
+
+            await MainActor.run {
+                self.mergeRemoteURL(downloadURL.absoluteString, for: attachment.itemID)
+            }
+        } catch {
+            print("[ListViewModel] performUpload error:", error.localizedDescription)
+            await attachmentStore.incrementRetryCount(for: attachmentID)
+            retryCandidate = await attachmentStore.attachment(withID: attachmentID)
+        }
+
+        await refreshPendingImages(for: attachment.itemID)
+        await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+
+        if let retryAttachment = retryCandidate, retryAttachment.retryCount < 3 {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if !Task.isCancelled {
+                await MainActor.run {
+                    self.scheduleUpload(for: retryAttachment)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func mergeRemoteURL(_ url: String, for itemID: UUID) {
+        guard var item = getItem(by: itemID) else { return }
+        if !item.imageUrls.contains(url) {
+            item.imageUrls.append(url)
+            if item.imageUrls.count > 3 {
+                item.imageUrls = Array(item.imageUrls.suffix(3))
+            }
+            if let index = items.firstIndex(where: { $0.id == itemID }) {
+                items[index] = item
+            }
+            Task { await self.persistImageURLs(item.imageUrls, for: itemID) }
         }
     }
 }
