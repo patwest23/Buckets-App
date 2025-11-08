@@ -203,7 +203,8 @@ extension ItemRowView {
     }
 
     private var locationDescription: String? {
-        guard let location = item.location else { return nil }
+        guard item.completed,
+              let location = item.location else { return nil }
         if let address = location.address, !address.isEmpty {
             return address
         }
@@ -211,7 +212,8 @@ extension ItemRowView {
     }
 
     private var completionDescription: String? {
-        guard let date = item.dueDate else { return nil }
+        guard item.completed,
+              let date = item.dueDate else { return nil }
         return ItemRowView.dateFormatter.string(from: date)
     }
 
