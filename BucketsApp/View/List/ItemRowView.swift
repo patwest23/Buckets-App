@@ -54,25 +54,58 @@ struct ItemRowView: View {
         let remainingSlots = max(0, 3 - pendingToDisplay.count)
         let remoteUrls = Array(item.imageUrls.prefix(remainingSlots))
 
-        VStack(alignment: .leading, spacing: 8) {
-            topRow
+        HStack(alignment: .top, spacing: 8) {
+            Button(action: toggleCompleted) {
+                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
+                    .imageScale(.large)
+                    .foregroundColor(item.completed ? .accentColor : .gray)
+            }
+            .buttonStyle(.borderless)
 
-            if displayMode == .detailed {
-                if let locationText = locationDescription {
-                    Text(locationText)
-                        .font(.caption)
+            VStack(alignment: .leading, spacing: 6) {
+                TextField(
+                    "",
+                    text: bindingForName(),
+                    onCommit: handleOnSubmit
+                )
+                .font(.subheadline)
+                .foregroundColor(.primary)
+                .focused($isTextFieldFocused)
+
+                if displayMode == .detailed {
+                    if let locationText = locationDescription {
+                        Text(locationText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if hasImages(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls) {
+                        imageGrid(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls)
+                    }
+
+                    if let completionText = completionDescription {
+                        Text(completionText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            if isTextFieldFocused {
+                Button {
+                    isTextFieldFocused = false
+                    onNavigateToDetail?()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .imageScale(.medium)
                         .foregroundColor(.secondary)
                 }
-
-                if hasImages(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls) {
-                    imageGrid(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls)
-                }
-
-                if let completionText = completionDescription {
-                    Text(completionText)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
+                .buttonStyle(.borderless)
             }
         }
         .padding(cardPadding)
@@ -179,46 +212,11 @@ extension ItemRowView {
 
     private var completionDescription: String? {
         guard let date = item.dueDate else { return nil }
-        return "Completed on \(ItemRowView.dateFormatter.string(from: date))"
+        return ItemRowView.dateFormatter.string(from: date)
     }
 
     private func hasImages(pendingToDisplay: [UIImage], remoteUrls: [String]) -> Bool {
         !pendingToDisplay.isEmpty || !remoteUrls.isEmpty
-    }
-
-    @ViewBuilder
-    private var topRow: some View {
-        HStack(spacing: 8) {
-            Button(action: toggleCompleted) {
-                Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
-                    .imageScale(.large)
-                    .foregroundColor(item.completed ? .accentColor : .gray)
-            }
-            .buttonStyle(.borderless)
-
-            TextField(
-                "",
-                text: bindingForName(),
-                onCommit: handleOnSubmit
-            )
-            .font(displayMode == .simple ? .subheadline : .footnote)
-            .foregroundColor(displayMode == .simple ? .primary : .secondary)
-            .focused($isTextFieldFocused)
-
-            Spacer()
-
-            if isTextFieldFocused {
-                Button {
-                    isTextFieldFocused = false
-                    onNavigateToDetail?()
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .imageScale(.medium)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.borderless)
-            }
-        }
     }
 
     @ViewBuilder
