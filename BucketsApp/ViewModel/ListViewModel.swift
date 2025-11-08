@@ -417,7 +417,8 @@ class ListViewModel: ObservableObject {
         guard uploadTasks[attachment.id] == nil else { return }
 
         let task = Task.detached(priority: .background) { [weak self] in
-            await self?.performUpload(for: attachment.id)
+            guard let self else { return }
+            await self.performUpload(for: attachment.id)
         }
 
         uploadTasks[attachment.id] = task
