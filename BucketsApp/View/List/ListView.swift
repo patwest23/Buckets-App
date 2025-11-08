@@ -40,14 +40,14 @@ struct ListView: View {
     @State private var showAllItems = true
 
     private var bucketListTitle: String {
-        guard let rawName = userViewModel.user?.name?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !rawName.isEmpty else {
+        guard let rawUsername = userViewModel.user?.username?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawUsername.isEmpty else {
             return "Bucket List"
         }
 
-        let firstName = rawName.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) ?? rawName
-        let apostrophe = firstName.hasSuffix("s") ? "'" : "'s"
-        return "\(firstName)\(apostrophe) Bucket List"
+        let username = rawUsername.hasPrefix("@") ? rawUsername : "@\(rawUsername)"
+        let apostrophe = username.hasSuffix("s") ? "'" : "'s"
+        return "\(username)\(apostrophe) Bucket List"
     }
 
     var body: some View {
