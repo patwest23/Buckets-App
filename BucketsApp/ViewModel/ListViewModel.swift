@@ -397,6 +397,16 @@ class ListViewModel: ObservableObject {
         }
     }
 
+    @MainActor
+    private func removeUploadTask(for attachmentID: UUID) {
+        uploadTasks.removeValue(forKey: attachmentID)
+    }
+
+    @MainActor
+    private func cacheImage(_ image: UIImage, for url: String) {
+        imageCache[url] = image
+    }
+
     nonisolated private func refreshPendingImages(for itemID: UUID) async {
         let attachments = await attachmentStore.attachments(for: itemID)
         var images: [UIImage] = []
@@ -408,11 +418,11 @@ class ListViewModel: ObservableObject {
             }
         }
 
-        await MainActor.run {
-            self.refreshPendingImagesOnMain(itemID: itemID, images: images)
-        }
+        let pendingImages = images
+        await refreshPendingImagesOnMain(itemID: itemID, images: pendingImages)
     }
 
+    @MainActor
     private func scheduleUpload(for attachment: ItemAttachment) {
         guard uploadTasks[attachment.id] == nil else { return }
 
@@ -426,12 +436,12 @@ class ListViewModel: ObservableObject {
 
     nonisolated private func performUpload(for attachmentID: UUID) async {
         guard let attachment = await attachmentStore.attachment(withID: attachmentID) else {
-            await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+            await removeUploadTask(for: attachmentID)
             return
         }
 
         guard let userId = await MainActor.run(body: { self.userId }) else {
-            await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+            await removeUploadTask(for: attachmentID)
             return
         }
 
@@ -441,14 +451,12 @@ class ListViewModel: ObservableObject {
         guard let fileURL = await attachmentStore.fileURL(for: attachmentID) else {
             await attachmentStore.incrementRetryCount(for: attachmentID)
             await refreshPendingImages(for: attachment.itemID)
-            await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+            await removeUploadTask(for: attachmentID)
 
             if let updated = await attachmentStore.attachment(withID: attachmentID), updated.retryCount < 3 {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
                 if !Task.isCancelled {
-                    await MainActor.run {
-                        self.scheduleUpload(for: updated)
-                    }
+                    await scheduleUpload(for: updated)
                 }
             }
             return
@@ -468,14 +476,10 @@ class ListViewModel: ObservableObject {
             await attachmentStore.setRemoteURL(downloadURL.absoluteString, for: attachmentID)
 
             if let image = UIImage(data: data) {
-                await MainActor.run {
-                    self.imageCache[downloadURL.absoluteString] = image
-                }
+                await cacheImage(image, for: downloadURL.absoluteString)
             }
 
-            await MainActor.run {
-                self.mergeRemoteURL(downloadURL.absoluteString, for: attachment.itemID)
-            }
+            await mergeRemoteURL(downloadURL.absoluteString, for: attachment.itemID)
         } catch {
             print("[ListViewModel] performUpload error:", error.localizedDescription)
             await attachmentStore.incrementRetryCount(for: attachmentID)
@@ -483,14 +487,12 @@ class ListViewModel: ObservableObject {
         }
 
         await refreshPendingImages(for: attachment.itemID)
-        await MainActor.run { self.uploadTasks.removeValue(forKey: attachmentID) }
+        await removeUploadTask(for: attachmentID)
 
         if let retryAttachment = retryCandidate, retryAttachment.retryCount < 3 {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             if !Task.isCancelled {
-                await MainActor.run {
-                    self.scheduleUpload(for: retryAttachment)
-                }
+                await scheduleUpload(for: retryAttachment)
             }
         }
     }
