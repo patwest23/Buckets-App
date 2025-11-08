@@ -21,19 +21,19 @@ actor AttachmentPersistence {
         }
 
         do {
-            try loadFromDisk()
+            attachments = try Self.loadInitialAttachments(from: metadataURL)
         } catch {
             print("[AttachmentPersistence] Failed to load metadata from disk:", error.localizedDescription)
         }
     }
 
     // MARK: - Loading & Persistence
-    private func loadFromDisk() throws {
-        guard FileManager.default.fileExists(atPath: metadataURL.path) else { return }
-        let data = try Data(contentsOf: metadataURL)
+    private static func loadInitialAttachments(from url: URL) throws -> [UUID: ItemAttachment] {
+        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
+        let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         let decoded = try decoder.decode([ItemAttachment].self, from: data)
-        attachments = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+        return Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
     }
 
     private func persistToDisk() {
