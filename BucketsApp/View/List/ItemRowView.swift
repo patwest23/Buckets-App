@@ -188,7 +188,7 @@ extension ItemRowView {
             generator.notificationOccurred(.success)
         } else {
             updated.dueDate = nil
-            bucketListViewModel.updatePendingImages([], for: updated.id)
+            bucketListViewModel.clearLocalAttachments(for: updated.id)
         }
 
         bucketListViewModel.addOrUpdateItem(updated)

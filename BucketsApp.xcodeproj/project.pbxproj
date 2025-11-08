@@ -23,7 +23,9 @@
 		1F8EB9582B537915009CC18E /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 1F8EB9572B537915009CC18E /* GoogleSignInSwift */; };
             1F91D69B2C9678F300947A9D /* MockOnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */; };
             1FD555562F0A123400000001 /* DetailItemViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD555552F0A123400000001 /* DetailItemViewModel.swift */; };
-		1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */; };
+            1FFF11122FFF111100000001 /* ItemAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FFF11112FFF111100000001 /* ItemAttachment.swift */; };
+            1FFF11142FFF111100000001 /* AttachmentPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FFF11132FFF111100000001 /* AttachmentPersistence.swift */; };
+            1FAAA3902B534239007C7A26 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */; };
 		1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */; };
 		1FAAA3942B534600007C7A26 /* UpdatePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */; };
 		1FCC05832D0E685100892746 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FCC05822D0E685100892746 /* FirebaseFirestore */; };
@@ -63,7 +65,9 @@
 		1F8EB9592B5379E5009CC18E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
             1F91D69A2C9678F300947A9D /* MockOnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOnBoardingViewModel.swift; sourceTree = "<group>"; };
             1FD555552F0A123400000001 /* DetailItemViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemViewModel.swift; sourceTree = "<group>"; };
-		1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
+            1FFF11112FFF111100000001 /* ItemAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemAttachment.swift; sourceTree = "<group>"; };
+            1FFF11132FFF111100000001 /* AttachmentPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPersistence.swift; sourceTree = "<group>"; };
+            1FAAA38F2B534239007C7A26 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 		1FAAA3912B53425A007C7A26 /* UpdateEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateEmailView.swift; sourceTree = "<group>"; };
 		1FAAA3932B534600007C7A26 /* UpdatePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdatePasswordView.swift; sourceTree = "<group>"; };
 		1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinchZoomImage.swift; sourceTree = "<group>"; };
@@ -144,17 +148,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		1FED1A0B29E20B2E00868BAC /* BucketsApp */ = {
-			isa = PBXGroup;
-			children = (
-				1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */,
-				1F8EB9592B5379E5009CC18E /* Info.plist */,
-				1FED1A1C29E20B6000868BAC /* Model */,
-				1FED1A1B29E20B5700868BAC /* ViewModel */,
-				1FED1A1A29E20B4D00868BAC /* View */,
-				1FED1A1029E20B3100868BAC /* Assets.xcassets */,
-				1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */,
-				1FED1A1229E20B3100868BAC /* Preview Content */,
+                1FED1A0B29E20B2E00868BAC /* BucketsApp */ = {
+                        isa = PBXGroup;
+                        children = (
+                                1FED1A0C29E20B2E00868BAC /* BucketsApp.swift */,
+                                1F8EB9592B5379E5009CC18E /* Info.plist */,
+                                1FED1A1C29E20B6000868BAC /* Model */,
+                                1FFF11152FFF111100000001 /* Services */,
+                                1FED1A1B29E20B5700868BAC /* ViewModel */,
+                                1FED1A1A29E20B4D00868BAC /* View */,
+                                1FED1A1029E20B3100868BAC /* Assets.xcassets */,
+                                1FFCE5B82B4200CB001751CA /* GoogleService-Info.plist */,
+                                1FED1A1229E20B3100868BAC /* Preview Content */,
 			);
 			path = BucketsApp;
 			sourceTree = "<group>";
@@ -191,15 +196,24 @@
 			path = ViewModel;
 			sourceTree = "<group>";
 		};
-		1FED1A1C29E20B6000868BAC /* Model */ = {
-			isa = PBXGroup;
-			children = (
-				1F64774B29E5023600B66F63 /* ItemModel.swift */,
-				1F234B242D21DC7E000DF507 /* UserModel.swift */,
-			);
-			path = Model;
-			sourceTree = "<group>";
-		};
+                1FED1A1C29E20B6000868BAC /* Model */ = {
+                        isa = PBXGroup;
+                        children = (
+                                1F64774B29E5023600B66F63 /* ItemModel.swift */,
+                                1F234B242D21DC7E000DF507 /* UserModel.swift */,
+                                1FFF11112FFF111100000001 /* ItemAttachment.swift */,
+                        );
+                        path = Model;
+                        sourceTree = "<group>";
+                };
+                1FFF11152FFF111100000001 /* Services */ = {
+                        isa = PBXGroup;
+                        children = (
+                                1FFF11132FFF111100000001 /* AttachmentPersistence.swift */,
+                        );
+                        path = Services;
+                        sourceTree = "<group>";
+                };
 		1FED1A1D29E20BF800868BAC /* OnBoarding */ = {
 			isa = PBXGroup;
                         children = (
@@ -327,9 +341,11 @@
 				1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */,
 				1FCD29342D6284A70022E4CB /* SettingsView.swift in Sources */,
 				1F234B252D21DC85000DF507 /* UserModel.swift in Sources */,
-				1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
-				1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
-				1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
+                                1F357F5A2D0D3F06003F121A /* Extensions.swift in Sources */,
+                                1F64774A29E5020F00B66F63 /* ListViewModel.swift in Sources */,
+                                1FFF11122FFF111100000001 /* ItemAttachment.swift in Sources */,
+                                1FFF11142FFF111100000001 /* AttachmentPersistence.swift in Sources */,
+                                1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
 				1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */,
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
