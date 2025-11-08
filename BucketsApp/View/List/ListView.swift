@@ -38,7 +38,18 @@ struct ListView: View {
     @State private var sortCompletedFirst = false
     @State private var hideCompletedItems = false
     @State private var showAllItems = true
-    
+
+    private var bucketListTitle: String {
+        guard let rawName = userViewModel.user?.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawName.isEmpty else {
+            return "Bucket List"
+        }
+
+        let firstName = rawName.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) ?? rawName
+        let apostrophe = firstName.hasSuffix("s") ? "'" : "'s"
+        return "\(firstName)\(apostrophe) Bucket List"
+    }
+
     var body: some View {
         NavigationStack {
             if #available(iOS 17.0, *) {
@@ -50,10 +61,13 @@ struct ListView: View {
                         contentView
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbar {
-                                // MARK: - Leading: "Bucket List"
+                                // MARK: - Leading: Personalized Bucket List Title
                                 ToolbarItem(placement: .navigationBarLeading) {
-                                    Text("Bucket List")
+                                    Text(bucketListTitle)
                                         .font(.headline)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
+                                        .frame(maxWidth: UIScreen.main.bounds.width / 2, alignment: .leading)
                                 }
                                 
                                 // MARK: - Trailing: "Done" (if editing) or Profile
