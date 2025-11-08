@@ -73,22 +73,28 @@ struct ItemRowView: View {
                 .focused($isTextFieldFocused)
 
                 if displayMode == .detailed {
-                    if let locationText = locationDescription {
-                        Text(locationText)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    let completionText = completionDescription
+                    let locationText = locationDescription
+
+                    if completionText != nil || locationText != nil {
+                        HStack(spacing: 8) {
+                            if let completionText {
+                                Text(completionText)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if let locationText {
+                                Text(locationText)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if hasImages(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls) {
                         imageGrid(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls)
-                    }
-
-                    if let completionText = completionDescription {
-                        Text(completionText)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
