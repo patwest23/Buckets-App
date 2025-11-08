@@ -33,11 +33,11 @@ struct ListView: View {
             _isLoading = State(initialValue: false)
         }
     }
-    
-    private enum ViewStyle: String {
-        case list, detailed, completed, incomplete
-    }
-    @State private var selectedViewStyle: ViewStyle = .list
+
+    @State private var displayMode: ItemRowDisplayMode = .simple
+    @State private var sortCompletedFirst = false
+    @State private var hideCompletedItems = false
+    @State private var showAllItems = true
     
     var body: some View {
         NavigationStack {
@@ -67,23 +67,17 @@ struct ListView: View {
                                         .font(.headline)
                                         .foregroundColor(.accentColor)
                                     } else {
-                                        // Profile
-                                        Button {
-                                            showProfileView = true
-                                        } label: {
-                                            HStack(spacing: 8) {
-                                                if let user = onboardingViewModel.user {
-                                                    Text(user.username ?? "Unknown")
-                                                        .font(.headline)
-                                                } else {
-                                                    Text("@NoName")
-                                                        .font(.headline)
-                                                }
+                                        HStack(spacing: 12) {
+                                            sortingMenu
+
+                                            Button {
+                                                showProfileView = true
+                                            } label: {
                                                 profileImageView
                                                     .frame(width: 35, height: 35)
                                             }
+                                            .buttonStyle(.plain)
                                         }
-                                        .buttonStyle(.plain)
                                     }
                                 }
                                 
@@ -187,6 +181,7 @@ struct ListView: View {
                 ItemRowView(
                     item: itemBinding,
                     newlyCreatedItemID: newlyCreatedItemID,
+                    displayMode: displayMode,
                     onNavigateToDetail: {
                         UIApplication.shared.endEditing()
                         isAnyTextFieldActive = false
@@ -212,13 +207,98 @@ struct ListView: View {
     
     // MARK: - Derived Items
     private var displayedItems: [ItemModel] {
-        switch selectedViewStyle {
-        case .list, .detailed:
-            return bucketListViewModel.items
-        case .completed:
-            return bucketListViewModel.items.filter { $0.completed }
-        case .incomplete:
-            return bucketListViewModel.items.filter { !$0.completed }
+        var items = bucketListViewModel.items
+
+        if hideCompletedItems {
+            items = items.filter { !$0.completed }
+        }
+
+        if sortCompletedFirst {
+            items = items.sorted { lhs, rhs in
+                if lhs.completed != rhs.completed {
+                    return lhs.completed && !rhs.completed
+                }
+
+                if lhs.completed && rhs.completed {
+                    let lhsDate = lhs.dueDate ?? .distantPast
+                    let rhsDate = rhs.dueDate ?? .distantPast
+                    return lhsDate > rhsDate
+                }
+
+                return lhs.orderIndex < rhs.orderIndex
+            }
+        }
+
+        return items
+    }
+
+    private func toggleHideCompleted() {
+        hideCompletedItems.toggle()
+        if hideCompletedItems {
+            showAllItems = false
+        } else if !sortCompletedFirst {
+            showAllItems = true
+        }
+    }
+
+    private func toggleShowAll() {
+        showAllItems.toggle()
+        if showAllItems {
+            hideCompletedItems = false
+            sortCompletedFirst = false
+        }
+    }
+
+    private func toggleSortCompletedFirst() {
+        sortCompletedFirst.toggle()
+        if sortCompletedFirst {
+            showAllItems = false
+        } else if !hideCompletedItems {
+            showAllItems = true
+        }
+    }
+
+    private func selectDisplayMode(_ mode: ItemRowDisplayMode) {
+        displayMode = mode
+    }
+
+    private var sortingMenu: some View {
+        Menu {
+            Button {
+                selectDisplayMode(.simple)
+            } label: {
+                Label("Simple list", systemImage: displayMode == .simple ? "checkmark" : "circle")
+            }
+
+            Button {
+                selectDisplayMode(.detailed)
+            } label: {
+                Label("Detail list", systemImage: displayMode == .detailed ? "checkmark" : "circle")
+            }
+
+            Divider()
+
+            Button {
+                toggleSortCompletedFirst()
+            } label: {
+                Label("Sort by date completed", systemImage: sortCompletedFirst ? "checkmark" : "circle")
+            }
+
+            Button {
+                toggleHideCompleted()
+            } label: {
+                Label("Hide completed", systemImage: hideCompletedItems ? "checkmark" : "circle")
+            }
+
+            Button {
+                toggleShowAll()
+            } label: {
+                Label("Show all", systemImage: showAllItems ? "checkmark" : "circle")
+            }
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .imageScale(.large)
+                .foregroundColor(.accentColor)
         }
     }
     
