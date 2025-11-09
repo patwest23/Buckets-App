@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum ItemRowDisplayMode {
+enum ItemRowDisplayMode: String {
     case simple
     case detailed
 }

@@ -34,10 +34,26 @@ struct ListView: View {
         }
     }
 
-    @State private var displayMode: ItemRowDisplayMode = .simple
-    @State private var sortCompletedFirst = false
-    @State private var hideCompletedItems = false
-    @State private var showAllItems = true
+    @AppStorage(PreferencesKeys.displayMode)
+    private var displayModeRawValue = ItemRowDisplayMode.simple.rawValue
+    @AppStorage(PreferencesKeys.sortCompletedFirst)
+    private var sortCompletedFirst = false
+    @AppStorage(PreferencesKeys.hideCompletedItems)
+    private var hideCompletedItems = false
+    @AppStorage(PreferencesKeys.showAllItems)
+    private var showAllItems = true
+
+    private var displayMode: ItemRowDisplayMode {
+        get { ItemRowDisplayMode(rawValue: displayModeRawValue) ?? .simple }
+        nonmutating set { displayModeRawValue = newValue.rawValue }
+    }
+
+    private enum PreferencesKeys {
+        static let displayMode = "ListView.displayMode"
+        static let sortCompletedFirst = "ListView.sortCompletedFirst"
+        static let hideCompletedItems = "ListView.hideCompletedItems"
+        static let showAllItems = "ListView.showAllItems"
+    }
 
     private var bucketListTitle: String {
         let potentialUsernames: [String?] = [
