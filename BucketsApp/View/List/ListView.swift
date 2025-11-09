@@ -12,8 +12,7 @@ struct ListView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
     
-    // Loading / detail
-    @State private var isLoading = true
+    // Detail navigation
     @State private var showProfileView = false
     @State private var selectedItem: ItemModel?
     @State private var itemToDelete: ItemModel?
@@ -27,13 +26,6 @@ struct ListView: View {
     // Which newly created item => row can auto-focus
     @State private var newlyCreatedItemID: UUID? = nil
     
-    // For preview mode
-    init(previewMode: Bool = false) {
-        if previewMode {
-            _isLoading = State(initialValue: false)
-        }
-    }
-
     @AppStorage(PreferencesKeys.displayMode)
     private var displayModeRawValue = ItemRowDisplayMode.simple.rawValue
     @AppStorage(PreferencesKeys.sortCompletedFirst)
@@ -129,9 +121,6 @@ struct ListView: View {
                                     .padding(.top, 4)
                                 }
                             }
-                            .onAppear {
-                                loadItems()
-                            }
                             .onDisappear {
                                 // ——— Fix #1: reset newlyCreatedItemID, so no auto-focus after coming back
                                 newlyCreatedItemID = nil
@@ -200,9 +189,7 @@ struct ListView: View {
     // MARK: - Main Content
     @ViewBuilder
     private var contentView: some View {
-        if isLoading {
-            loadingView
-        } else if bucketListViewModel.items.isEmpty {
+        if bucketListViewModel.items.isEmpty {
             emptyStateView
         } else {
             itemListView
@@ -340,14 +327,6 @@ struct ListView: View {
         }
     }
     
-    // MARK: - UI States
-    private var loadingView: some View {
-        ProgressView("Loading...")
-            .progressViewStyle(CircularProgressViewStyle())
-            .scaleEffect(1.5)
-            .padding()
-    }
-    
     private var emptyStateView: some View {
         Text("What do you want to do before you die?")
             .foregroundColor(.primary)
@@ -437,15 +416,6 @@ struct ListView: View {
         return $bucketListViewModel.items[index]
     }
     
-    // MARK: - Load
-    private func loadItems() {
-        Task { @MainActor in
-            isLoading = true
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            isLoading = false
-        }
-    }
-    
     // MARK: - Profile Image Helper
     @ViewBuilder
     private var profileImageView: some View {
@@ -524,8 +494,7 @@ struct ListView_Previews: PreviewProvider {
             
             // 2) Populated scenario
             NavigationStack {
-                // Pass previewMode: true => isLoading = false
-                ListView(previewMode: true)
+                ListView()
                     .environmentObject(mockListVMWithItems)
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
