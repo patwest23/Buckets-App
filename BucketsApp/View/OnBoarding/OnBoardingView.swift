@@ -21,6 +21,8 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 32) {
                     Spacer(minLength: 24)
 
+                    brandEmblem
+
                     header
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -73,6 +75,22 @@ struct OnboardingView: View {
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var brandEmblem: some View {
+        VStack(spacing: 8) {
+            Image("Image2")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 96, height: 96)
+
+            Text("buckets")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .textCase(.lowercase)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var primaryButton: some View {
