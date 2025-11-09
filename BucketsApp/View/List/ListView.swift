@@ -11,6 +11,7 @@ struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
+    @Environment(\.colorScheme) private var colorScheme
     
     // Detail navigation
     @State private var showProfileView = false
@@ -363,14 +364,38 @@ struct ListView: View {
             }
         } label: {
             ZStack {
+                let baseColor = Color(uiColor: colorScheme == .dark ? .secondarySystemBackground : .white)
+
                 Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                baseColor.opacity(colorScheme == .dark ? 0.95 : 1),
+                                baseColor.opacity(colorScheme == .dark ? 0.65 : 0.85)
+                            ]),
+                            center: .topLeading,
+                            startRadius: 6,
+                            endRadius: 50
+                        )
+                    )
                     .frame(width: 60, height: 60)
-                    .foregroundColor(.accentColor)
-                    .shadow(color: .gray.opacity(0.6), radius: 6, x: 0, y: 3)
-                
-                Image(systemName: "plus")
-                    .foregroundColor(.white)
-                    .font(.system(size: 30, weight: .bold))
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(colorScheme == .dark ? 0.18 : 0.25), lineWidth: 1)
+                    )
+                    .overlay(alignment: .topLeading) {
+                        Circle()
+                            .fill(Color.white.opacity(colorScheme == .dark ? 0.25 : 0.7))
+                            .frame(width: 20, height: 20)
+                            .offset(x: -6, y: -6)
+                    }
+                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.6 : 0.2), radius: 12, x: 0, y: 8)
+                    .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.05 : 0.4), radius: 4, x: 0, y: -2)
+
+                Image("Image2")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
             }
         }
     }
