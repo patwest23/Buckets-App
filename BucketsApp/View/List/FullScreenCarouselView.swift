@@ -112,15 +112,21 @@ struct FullScreenCarouselView: View {
                         if formattedDate != nil || (location?.isEmpty == false) {
                             HStack(spacing: 8) {
                                 if let formattedDate {
-                                    Text(formattedDate)
-                                        .font(.caption)
-                                        .foregroundColor(subtitleColor)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "calendar")
+                                        Text(formattedDate)
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(subtitleColor)
                                 }
 
                                 if let location, !location.isEmpty {
-                                    Text(location)
-                                        .font(.caption)
-                                        .foregroundColor(subtitleColor)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "mappin.and.ellipse")
+                                        Text(location)
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(subtitleColor)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
