@@ -47,12 +47,13 @@ struct ItemRowView: View {
     private let spacing: CGFloat = 6
 
     @State private var showFullScreenGallery = false
+    @State private var selectedImageIndex = 0
 
     var body: some View {
         let pendingImages = bucketListViewModel.pendingLocalImages[item.id] ?? []
         let pendingToDisplay = Array(pendingImages.prefix(3))
         let remainingSlots = max(0, 3 - pendingToDisplay.count)
-        let remoteUrls = Array(item.imageUrls.prefix(remainingSlots))
+        let remoteUrlsToDisplay = Array(item.imageUrls.prefix(remainingSlots))
 
         HStack(alignment: .top, spacing: 8) {
             Button(action: toggleCompleted) {
@@ -93,8 +94,13 @@ struct ItemRowView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    if hasImages(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls) {
-                        imageGrid(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrls)
+                    if hasImages(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrlsToDisplay) {
+                        imageGrid(
+                            pendingAll: pendingImages,
+                            pendingToDisplay: pendingToDisplay,
+                            remoteDisplay: remoteUrlsToDisplay,
+                            remoteAll: item.imageUrls
+                        )
                     }
                 }
             }
@@ -228,48 +234,98 @@ extension ItemRowView {
     }
 
     @ViewBuilder
-    private func imageGrid(pendingToDisplay: [UIImage], remoteUrls: [String]) -> some View {
+    private func imageGrid(
+        pendingAll: [UIImage],
+        pendingToDisplay: [UIImage],
+        remoteDisplay: [String],
+        remoteAll: [String]
+    ) -> some View {
         let columns = Array(
             repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
             count: 3
         )
 
+        let gridImages = makeCarouselImages(
+            pendingToDisplay: pendingToDisplay,
+            remoteUrls: remoteDisplay
+        )
+
+        let carouselImages = makeCarouselImages(
+            pendingToDisplay: pendingAll,
+            remoteUrls: remoteAll
+        )
+
         LazyVGrid(columns: columns, spacing: spacing) {
-            ForEach(Array(pendingToDisplay.enumerated()), id: \.offset) { _, uiImage in
+            ForEach(Array(gridImages.enumerated()), id: \.offset) { gridIndex, imageSource in
+                gridThumbnail(for: imageSource)
+                    .onTapGesture {
+                        selectedImageIndex = mapGridIndexToCarouselIndex(
+                            gridIndex: gridIndex,
+                            pendingDisplayCount: pendingToDisplay.count,
+                            pendingAllCount: pendingAll.count
+                        )
+                        showFullScreenGallery = true
+                    }
+            }
+        }
+        .fullScreenCover(isPresented: $showFullScreenGallery) {
+            FullScreenCarouselView(
+                images: carouselImages,
+                initialIndex: selectedImageIndex,
+                itemName: item.name,
+                location: locationDescription,
+                dateCompleted: item.dueDate
+            )
+            .environmentObject(bucketListViewModel)
+        }
+    }
+
+    private func makeCarouselImages(
+        pendingToDisplay: [UIImage],
+        remoteUrls: [String]
+    ) -> [CarouselImageSource] {
+        let localImages = pendingToDisplay.map { CarouselImageSource.local($0) }
+        let remoteImages = remoteUrls.map { CarouselImageSource.remote($0) }
+        return localImages + remoteImages
+    }
+
+    private func mapGridIndexToCarouselIndex(
+        gridIndex: Int,
+        pendingDisplayCount: Int,
+        pendingAllCount: Int
+    ) -> Int {
+        if gridIndex < pendingDisplayCount {
+            return gridIndex
+        }
+
+        let remoteGridIndex = gridIndex - pendingDisplayCount
+        return pendingAllCount + remoteGridIndex
+    }
+
+    @ViewBuilder
+    private func gridThumbnail(for imageSource: CarouselImageSource) -> some View {
+        switch imageSource {
+        case .local(let uiImage):
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: imageCellSize, height: imageCellSize)
+                .cornerRadius(8)
+                .clipped()
+        case .remote(let urlStr):
+            if let uiImage = bucketListViewModel.imageCache[urlStr] {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: imageCellSize, height: imageCellSize)
                     .cornerRadius(8)
                     .clipped()
+            } else {
+                ProgressView()
+                    .frame(width: imageCellSize, height: imageCellSize)
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
             }
-            ForEach(remoteUrls, id: \.self) { urlStr in
-                if let uiImage = bucketListViewModel.imageCache[urlStr] {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: imageCellSize, height: imageCellSize)
-                        .cornerRadius(8)
-                        .clipped()
-                        .onTapGesture {
-                            showFullScreenGallery = true
-                        }
-                } else {
-                    ProgressView()
-                        .frame(width: imageCellSize, height: imageCellSize)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(8)
-                }
-            }
-        }
-        .fullScreenCover(isPresented: $showFullScreenGallery) {
-            FullScreenCarouselView(
-                imageUrls: item.imageUrls,
-                itemName: item.name,
-                location: locationDescription,
-                dateCompleted: item.dueDate
-            )
-            .environmentObject(bucketListViewModel)
         }
     }
 
