@@ -216,7 +216,7 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
                 dateCompleted: sampleDate
             )
             .environmentObject(mockListVM)
-            .preferredColorScheme(.light)
+            .preferredColorScheme(ColorScheme.light)
             .previewDisplayName("Light Mode - Location + Date")
             
             // Dark mode: location only, no date
@@ -227,7 +227,7 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
                 dateCompleted: nil
             )
             .environmentObject(mockListVM)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(ColorScheme.dark)
             .previewDisplayName("Dark Mode - Location Only")
         }
     }

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */; };
+		1FB0C0A32F9D2E9800AA55AA /* CarouselImageSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */; };
 		1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B222D21DAE7000DF507 /* UserViewModel.swift */; };
 		1F234B252D21DC85000DF507 /* UserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B242D21DC7E000DF507 /* UserModel.swift */; };
 		1F2BADF42A1AA6AC001182D5 /* ImagePickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */; };
@@ -53,6 +54,7 @@
 
 /* Begin PBXFileReference section */
 		1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenCarouselView.swift; sourceTree = "<group>"; };
+		1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarouselImageSource.swift; sourceTree = "<group>"; };
 		1F234B222D21DAE7000DF507 /* UserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserViewModel.swift; sourceTree = "<group>"; };
 		1F234B242D21DC7E000DF507 /* UserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserModel.swift; sourceTree = "<group>"; };
 		1F2BADF32A1AA6AC001182D5 /* ImagePickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePickerViewModel.swift; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
                                 1FD222252EAD000100000001 /* DetailItemPhotosSubview.swift */,
                                 1FD222272EAD000100000001 /* DetailItemLocationSubview.swift */,
                                 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
+				1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */,
                                 1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */,
                         );
 			path = List;
@@ -347,6 +350,7 @@
                                 1FFF11142FFF111100000001 /* AttachmentPersistence.swift in Sources */,
                                 1F64774E29E5025000B66F63 /* ListView.swift in Sources */,
 				1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */,
+				1FB0C0A32F9D2E9800AA55AA /* CarouselImageSource.swift in Sources */,
 				1FED1A0D29E20B2E00868BAC /* BucketsApp.swift in Sources */,
 				1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */,
 				1F64774C29E5023600B66F63 /* ItemModel.swift in Sources */,
