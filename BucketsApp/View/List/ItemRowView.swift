@@ -64,14 +64,31 @@ struct ItemRowView: View {
             .buttonStyle(.borderless)
 
             VStack(alignment: .leading, spacing: 6) {
-                TextField(
-                    "",
-                    text: bindingForName(),
-                    onCommit: handleOnSubmit
-                )
-                .font(.subheadline)
-                .foregroundColor(.primary)
-                .focused($isTextFieldFocused)
+                HStack(alignment: .center, spacing: 8) {
+                    TextField(
+                        "",
+                        text: bindingForName(),
+                        onCommit: handleOnSubmit
+                    )
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
+                    .focused($isTextFieldFocused)
+
+                    Spacer(minLength: 0)
+
+                    Button {
+                        isTextFieldFocused = false
+                        onNavigateToDetail?()
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .imageScale(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .opacity(isTextFieldFocused ? 1 : 0)
+                    .allowsHitTesting(isTextFieldFocused)
+                    .accessibilityHidden(!isTextFieldFocused)
+                }
 
                 if displayMode == .detailed {
                     let completionText = completionDescription
@@ -105,20 +122,6 @@ struct ItemRowView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer(minLength: 0)
-
-            if isTextFieldFocused {
-                Button {
-                    isTextFieldFocused = false
-                    onNavigateToDetail?()
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .imageScale(.medium)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.borderless)
-            }
         }
         .padding(cardPadding)
         .background(
