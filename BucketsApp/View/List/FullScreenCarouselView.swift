@@ -10,6 +10,7 @@ import SwiftUI
 struct FullScreenCarouselView: View {
     let images: [CarouselImageSource]
     let itemName: String
+    let isCompleted: Bool
     let location: String?
     let dateCompleted: Date?
 
@@ -26,11 +27,13 @@ struct FullScreenCarouselView: View {
         images: [CarouselImageSource],
         initialIndex: Int = 0,
         itemName: String,
+        isCompleted: Bool,
         location: String?,
         dateCompleted: Date?
     ) {
         self.images = images
         self.itemName = itemName
+        self.isCompleted = isCompleted
         self.location = location
         self.dateCompleted = dateCompleted
 
@@ -52,17 +55,6 @@ struct FullScreenCarouselView: View {
 
     private var subtitleColor: Color { .secondary }
 
-    private var metadataEntries: [String] {
-        var entries: [String] = []
-        if let formattedDate {
-            entries.append(formattedDate)
-        }
-        if let location, !location.isEmpty {
-            entries.append(location)
-        }
-        return entries
-    }
-
     private var formattedDate: String? {
         guard let dateCompleted else { return nil }
         let formatter = DateFormatter()
@@ -73,10 +65,10 @@ struct FullScreenCarouselView: View {
     var body: some View {
         let dragGesture = DragGesture()
             .updating($dragTranslation) { value, state, _ in
-                state = value.translation.height
+                state = max(value.translation.height, 0)
             }
             .onEnded { value in
-                if abs(value.translation.height) > dragDismissThreshold {
+                if value.translation.height > dragDismissThreshold {
                     dismiss()
                 }
             }
@@ -105,7 +97,11 @@ struct FullScreenCarouselView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                HStack(spacing: 12) {
+                    Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                        .imageScale(.large)
+                        .foregroundColor(isCompleted ? .accentColor : .gray)
+
                     Text(itemName)
                         .font(.title3.weight(.semibold))
                         .foregroundColor(textColor)
@@ -113,24 +109,20 @@ struct FullScreenCarouselView: View {
                         .multilineTextAlignment(.leading)
 
                     Spacer()
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(textColor.opacity(0.9))
-                    }
-                    .accessibilityLabel("Close")
                 }
 
-                if !metadataEntries.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(metadataEntries, id: \.self) { entry in
-                            Text(entry)
+                if formattedDate != nil || (location?.isEmpty == false) {
+                    HStack(spacing: 8) {
+                        if let formattedDate {
+                            Text(formattedDate)
                                 .font(.caption)
                                 .foregroundColor(subtitleColor)
-                                .multilineTextAlignment(.leading)
+                        }
+
+                        if let location, !location.isEmpty {
+                            Text(location)
+                                .font(.caption)
+                                .foregroundColor(subtitleColor)
                         }
                     }
                 }
@@ -212,6 +204,7 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
             FullScreenCarouselView(
                 images: sampleImages,
                 itemName: "Visit Tokyo",
+                isCompleted: true,
                 location: "Shinjuku, Tokyo",
                 dateCompleted: sampleDate
             )
@@ -223,6 +216,7 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
             FullScreenCarouselView(
                 images: sampleImages,
                 itemName: "Visit Tokyo",
+                isCompleted: false,
                 location: "Shibuya Crossing",
                 dateCompleted: nil
             )

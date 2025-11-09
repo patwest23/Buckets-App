@@ -273,6 +273,7 @@ extension ItemRowView {
                 images: carouselImages,
                 initialIndex: selectedImageIndex,
                 itemName: item.name,
+                isCompleted: item.completed,
                 location: locationDescription,
                 dateCompleted: item.dueDate
             )
