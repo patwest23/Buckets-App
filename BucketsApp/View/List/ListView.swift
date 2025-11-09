@@ -383,12 +383,6 @@ struct ListView: View {
                         Circle()
                             .stroke(Color.white.opacity(colorScheme == .dark ? 0.18 : 0.25), lineWidth: 1)
                     )
-                    .overlay(alignment: .topLeading) {
-                        Circle()
-                            .fill(Color.white.opacity(colorScheme == .dark ? 0.25 : 0.7))
-                            .frame(width: 20, height: 20)
-                            .offset(x: -6, y: -6)
-                    }
                     .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.6 : 0.2), radius: 12, x: 0, y: 8)
                     .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.05 : 0.4), radius: 4, x: 0, y: -2)
 
