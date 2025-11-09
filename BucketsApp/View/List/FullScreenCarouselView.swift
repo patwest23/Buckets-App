@@ -97,39 +97,41 @@ struct FullScreenCarouselView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
                     Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                         .imageScale(.large)
                         .foregroundColor(isCompleted ? .accentColor : .gray)
+                        .alignmentGuide(.top) { $0[.top] }
 
-                    Text(itemName)
-                        .font(.title3.weight(.semibold))
-                        .foregroundColor(textColor)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(itemName)
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(textColor)
+                            .multilineTextAlignment(.leading)
 
-                    Spacer()
-                }
+                        if formattedDate != nil || (location?.isEmpty == false) {
+                            HStack(spacing: 8) {
+                                if let formattedDate {
+                                    Text(formattedDate)
+                                        .font(.caption)
+                                        .foregroundColor(subtitleColor)
+                                }
 
-                if formattedDate != nil || (location?.isEmpty == false) {
-                    HStack(spacing: 8) {
-                        if let formattedDate {
-                            Text(formattedDate)
-                                .font(.caption)
-                                .foregroundColor(subtitleColor)
-                        }
-
-                        if let location, !location.isEmpty {
-                            Text(location)
-                                .font(.caption)
-                                .foregroundColor(subtitleColor)
+                                if let location, !location.isEmpty {
+                                    Text(location)
+                                        .font(.caption)
+                                        .foregroundColor(subtitleColor)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 Spacer()
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
             .padding(.top, 52)
         }
         .offset(y: dragTranslation)
