@@ -45,7 +45,7 @@ struct ListView: View {
 
     private var displayMode: ItemRowDisplayMode {
         get { ItemRowDisplayMode(rawValue: displayModeRawValue) ?? .simple }
-        set { displayModeRawValue = newValue.rawValue }
+        nonmutating set { displayModeRawValue = newValue.rawValue }
     }
 
     private enum PreferencesKeys {
