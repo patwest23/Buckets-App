@@ -8,136 +8,173 @@
 import SwiftUI
 
 struct FullScreenCarouselView: View {
-    let imageUrls: [String]
-    
-    // The item name to show at top-left
+    let images: [CarouselImageSource]
     let itemName: String
-    
-    // Optional location & completion date to show at bottom
+    let isCompleted: Bool
     let location: String?
     let dateCompleted: Date?
-    
-    @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var listViewModel: ListViewModel
-    
-    // Detect light/dark mode
+
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var listViewModel: ListViewModel
     @Environment(\.colorScheme) private var colorScheme
-    
-    // Dynamic background: white if light mode, black if dark
+
+    @GestureState private var dragTranslation: CGFloat = 0
+    @State private var selectedIndex: Int
+
+    private let dragDismissThreshold: CGFloat = 120
+
+    init(
+        images: [CarouselImageSource],
+        initialIndex: Int = 0,
+        itemName: String,
+        isCompleted: Bool,
+        location: String?,
+        dateCompleted: Date?
+    ) {
+        self.images = images
+        self.itemName = itemName
+        self.isCompleted = isCompleted
+        self.location = location
+        self.dateCompleted = dateCompleted
+
+        if images.isEmpty {
+            _selectedIndex = State(initialValue: 0)
+        } else {
+            let boundedIndex = min(max(initialIndex, 0), images.count - 1)
+            _selectedIndex = State(initialValue: boundedIndex)
+        }
+    }
+
     private var dynamicBackground: Color {
         colorScheme == .dark ? .black : .white
     }
-    
-    // Dynamic foreground for most text/icons
-    private var dynamicForeground: Color {
+
+    private var textColor: Color {
         colorScheme == .dark ? .white : .black
     }
-    
-    // Checkmark color specifically
-    private var checkmarkColor: Color {
-        colorScheme == .dark ? .white : .accentColor
-    }
-    
-    // Helper for date formatting
+
+    private var subtitleColor: Color { .secondary }
+
     private var formattedDate: String? {
-        guard let dateCompleted = dateCompleted else { return nil }
+        guard let dateCompleted else { return nil }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: dateCompleted)
     }
-    
+
     var body: some View {
-        ZStack {
-            // 1) Main TabView of images
-            TabView {
-                ForEach(imageUrls, id: \.self) { urlStr in
-                    if let uiImage = listViewModel.imageCache[urlStr] {
-                        // Zoomable image
-                        PinchZoomImage(
-                            image: Image(uiImage: uiImage)
-                                .resizable()
-                        )
-                        .background(dynamicBackground)   // adapt to light/dark
-                        .ignoresSafeArea()
-                    } else {
-                        // Placeholder
-                        VStack {
-                            ProgressView("Loading image...")
-                                .foregroundColor(dynamicForeground)
-                                .padding()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(dynamicBackground)
-                        .ignoresSafeArea()
-                    }
+        let dragGesture = DragGesture()
+            .updating($dragTranslation) { value, state, _ in
+                state = max(value.translation.height, 0)
+            }
+            .onEnded { value in
+                if value.translation.height > dragDismissThreshold {
+                    dismiss()
                 }
             }
-            .tabViewStyle(.page)
+
+        ZStack(alignment: .top) {
+            dynamicBackground
+                .ignoresSafeArea()
+
+            if !images.isEmpty {
+                TabView(selection: $selectedIndex) {
+                    ForEach(Array(images.enumerated()), id: \.offset) { index, imageSource in
+                        carouselContent(for: imageSource)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+            } else {
+                VStack {
+                    Image(systemName: "photo")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No images available")
+                        .foregroundColor(.secondary)
+                        .font(.headline)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                        .imageScale(.large)
+                        .foregroundColor(isCompleted ? .accentColor : .gray)
+                        .alignmentGuide(.top) { $0[.top] }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(itemName)
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(textColor)
+                            .multilineTextAlignment(.leading)
+
+                        if formattedDate != nil || (location?.isEmpty == false) {
+                            HStack(spacing: 8) {
+                                if let formattedDate {
+                                    Text(formattedDate)
+                                        .font(.caption)
+                                        .foregroundColor(subtitleColor)
+                                }
+
+                                if let location, !location.isEmpty {
+                                    Text(location)
+                                        .font(.caption)
+                                        .foregroundColor(subtitleColor)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 52)
+        }
+        .offset(y: dragTranslation)
+        .opacity(opacity(for: dragTranslation))
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: dragTranslation)
+        .gesture(dragGesture)
+    }
+
+    @ViewBuilder
+    private func carouselContent(for source: CarouselImageSource) -> some View {
+        switch source {
+        case .local(let uiImage):
+            PinchZoomImage(
+                image: Image(uiImage: uiImage)
+                    .resizable()
+            )
             .background(dynamicBackground)
             .ignoresSafeArea()
-            
-            // 2) Dismiss (X) button, pinned top-right but lowered
-            VStack {
-                Spacer()
-                    .frame(height: 20) // push it down from top somewhat
-                HStack {
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundColor(dynamicForeground)
-                            .padding(.trailing, 16)
-                    }
+        case .remote(let urlStr):
+            if let cached = listViewModel.imageCache[urlStr] {
+                PinchZoomImage(
+                    image: Image(uiImage: cached)
+                        .resizable()
+                )
+                .background(dynamicBackground)
+                .ignoresSafeArea()
+            } else {
+                VStack(spacing: 16) {
+                    ProgressView("Loading image...")
+                    Text("Pull down to close")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                Spacer()
-            }
-            
-            // 3) Top-Left: Checkmark + item name, lowered slightly
-            VStack {
-                Spacer().frame(height: 50) // offset from the top
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.headline)
-                        .foregroundColor(checkmarkColor)  // <-- use accent for light, white for dark
-                    Text(itemName)
-                        .font(.headline)
-                        .foregroundColor(dynamicForeground)
-                    Spacer()
-                }
-                .padding(.leading, 20)
-                
-                Spacer()
-            }
-            
-            // 4) Bottom: Date on left, Location on right
-            // (both optional, appear only if present)
-            VStack {
-                Spacer()
-                HStack {
-                    // Date on the left (if present)
-                    if let dateStr = formattedDate {
-                        HStack {
-                            Image(systemName: "calendar")
-                            Text(dateStr)
-                        }
-                        .foregroundColor(dynamicForeground)
-                    }
-                    Spacer()
-                    // Location on the right (if present)
-                    if let location = location, !location.isEmpty {
-                        HStack {
-                            Image(systemName: "mappin.and.ellipse")
-                            Text(location)
-                        }
-                        .foregroundColor(dynamicForeground)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40) // space above iPhone home indicator
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(dynamicBackground)
+                .ignoresSafeArea()
             }
         }
+    }
+
+    private func opacity(for translation: CGFloat) -> Double {
+        let distance = min(abs(translation), 200)
+        return Double(1 - (distance / 400))
     }
 }
 
@@ -155,10 +192,10 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
         }
         
         // 2) Provide an array of 3 URLs that match the keys in imageCache
-        let sampleUrls = [
-            "https://example.com/image1",
-            "https://example.com/image2",
-            "https://example.com/image3"
+        let sampleImages: [CarouselImageSource] = [
+            .remote("https://example.com/image1"),
+            .remote("https://example.com/image2"),
+            .remote("https://example.com/image3")
         ]
         
         // 3) Use a date for example
@@ -167,24 +204,26 @@ struct FullScreenCarouselView_Previews: PreviewProvider {
         return Group {
             // Light mode: location + date
             FullScreenCarouselView(
-                imageUrls: sampleUrls,
+                images: sampleImages,
                 itemName: "Visit Tokyo",
+                isCompleted: true,
                 location: "Shinjuku, Tokyo",
                 dateCompleted: sampleDate
             )
             .environmentObject(mockListVM)
-            .preferredColorScheme(.light)
+            .preferredColorScheme(ColorScheme.light)
             .previewDisplayName("Light Mode - Location + Date")
             
             // Dark mode: location only, no date
             FullScreenCarouselView(
-                imageUrls: sampleUrls,
+                images: sampleImages,
                 itemName: "Visit Tokyo",
+                isCompleted: false,
                 location: "Shibuya Crossing",
                 dateCompleted: nil
             )
             .environmentObject(mockListVM)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(ColorScheme.dark)
             .previewDisplayName("Dark Mode - Location Only")
         }
     }
