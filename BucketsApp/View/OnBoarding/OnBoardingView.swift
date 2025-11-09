@@ -59,11 +59,11 @@ struct OnboardingView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("BUCKETS")
-                .font(.footnote)
-                .fontWeight(.semibold)
-                .foregroundColor(.accentColor)
-                .tracking(2)
+//            Text("BUCKETS")
+//                .font(.footnote)
+//                .fontWeight(.semibold)
+//                .foregroundColor(.accentColor)
+//                .tracking(2)
 
             Text("Plan a life well lived")
                 .font(.largeTitle)
