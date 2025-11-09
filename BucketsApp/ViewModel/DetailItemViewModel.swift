@@ -1,9 +1,37 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import MapKit
+
+struct LocationSuggestion: Identifiable, Hashable {
+    let title: String
+    let subtitle: String
+    fileprivate let completion: MKLocalSearchCompletion
+
+    var id: String {
+        "\(title)|\(subtitle)"
+    }
+
+    var displayText: String {
+        if title.isEmpty { return subtitle }
+        if subtitle.isEmpty { return title }
+        if subtitle.localizedCaseInsensitiveContains(title) {
+            return subtitle
+        }
+        return "\(title), \(subtitle)"
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: LocationSuggestion, rhs: LocationSuggestion) -> Bool {
+        lhs.id == rhs.id
+    }
+}
 
 @MainActor
-final class DetailItemViewModel: ObservableObject {
+final class DetailItemViewModel: NSObject, ObservableObject {
     // MARK: - Dependencies
     private var bucketListViewModel: ListViewModel?
 
@@ -22,10 +50,14 @@ final class DetailItemViewModel: ObservableObject {
     @Published private(set) var lastSavedCompletionDate: Date?
     @Published private(set) var lastSavedCompleted: Bool
     @Published var skipSaveOnDisappear = false
+    @Published var locationSuggestions: [LocationSuggestion] = []
+    @Published var isShowingLocationSuggestions = false
 
     // MARK: - Sub view models
     let imagePickerViewModel: ImagePickerViewModel
     private var shouldProcessPickerImages = false
+    private let searchCompleter: MKLocalSearchCompleter
+    private var isApplyingLocationSuggestion = false
 
     // MARK: - Init
     init(item: ItemModel) {
@@ -43,6 +75,10 @@ final class DetailItemViewModel: ObservableObject {
         self.lastSavedCompletionDate = item.dueDate
         self.lastSavedCompleted = item.completed
         self.imagePickerViewModel = ImagePickerViewModel()
+        self.searchCompleter = MKLocalSearchCompleter()
+        self.searchCompleter.resultTypes = [.address, .pointOfInterest]
+        super.init()
+        self.searchCompleter.delegate = self
     }
 
     // MARK: - Configuration
@@ -129,6 +165,7 @@ final class DetailItemViewModel: ObservableObject {
         }
         if newValue != .location {
             saveLocation()
+            clearLocationSuggestions()
         }
     }
 
@@ -137,6 +174,8 @@ final class DetailItemViewModel: ObservableObject {
     }
 
     func handleLocationChange(_ newValue: String) {
+        guard !isApplyingLocationSuggestion else { return }
+        updateLocationSuggestions(for: newValue)
         if currentItem.location != nil || !newValue.isEmpty {
             var loc = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
             loc.address = newValue.isEmpty ? nil : newValue
@@ -302,6 +341,70 @@ final class DetailItemViewModel: ObservableObject {
             imagePickerViewModel.uiImages = images
         } else if !imagePickerViewModel.uiImages.isEmpty {
             imagePickerViewModel.uiImages = []
+        }
+    }
+
+    private func updateLocationSuggestions(for query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            clearLocationSuggestions()
+            return
+        }
+        searchCompleter.queryFragment = trimmed
+    }
+
+    private func clearLocationSuggestions() {
+        locationSuggestions = []
+        isShowingLocationSuggestions = false
+        searchCompleter.queryFragment = ""
+    }
+
+    func handleLocationSuggestionTapped(_ suggestion: LocationSuggestion) {
+        isApplyingLocationSuggestion = true
+        clearLocationSuggestions()
+        Task {
+            let request = MKLocalSearch.Request(completion: suggestion.completion)
+            let search = MKLocalSearch(request: request)
+            let response = try? await search.start()
+            let mapItem = response?.mapItems.first
+            await MainActor.run {
+                self.applyLocationSuggestion(suggestion, mapItem: mapItem)
+            }
+        }
+    }
+
+    @MainActor
+    private func applyLocationSuggestion(_ suggestion: LocationSuggestion, mapItem: MKMapItem?) {
+        defer { isApplyingLocationSuggestion = false }
+        let displayText = mapItem?.placemark.title ?? suggestion.displayText
+        let coordinate = mapItem?.placemark.coordinate
+
+        var location = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
+        if let coordinate {
+            location.latitude = coordinate.latitude
+            location.longitude = coordinate.longitude
+        }
+        location.address = displayText
+        currentItem.location = location
+        locationText = displayText
+        clearLocationSuggestions()
+        saveLocation()
+    }
+}
+
+extension DetailItemViewModel: MKLocalSearchCompleterDelegate {
+    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        let suggestions = completer.results.map { LocationSuggestion(title: $0.title, subtitle: $0.subtitle, completion: $0) }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.locationSuggestions = Array(suggestions.prefix(8))
+            self.isShowingLocationSuggestions = !self.locationSuggestions.isEmpty
+        }
+    }
+
+    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError _: Error) {
+        Task { @MainActor [weak self] in
+            self?.clearLocationSuggestions()
         }
     }
 }

@@ -113,7 +113,10 @@ struct DetailItemView: View {
                     set: { viewModel.locationText = $0 }
                 ),
                 focusBinding: $focusedField,
+                suggestions: viewModel.locationSuggestions,
+                isShowingSuggestions: viewModel.isShowingLocationSuggestions,
                 onLocationChange: viewModel.handleLocationChange(_:),
+                onSuggestionTapped: viewModel.handleLocationSuggestionTapped(_:),
                 onSubmit: { focusedField = nil }
             )
 
