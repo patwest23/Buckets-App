@@ -38,43 +38,49 @@ struct DetailItemView: View {
 
     // MARK: - View
     var body: some View {
-        ScrollView {
-            scrollContent
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
-        .navigationTitle("Details")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { navigationToolbar }
-        .sheet(isPresented: $showDateCreatedSheet) { creationDateSheet }
-        .sheet(isPresented: $showDateCompletedSheet) { completionDateSheet }
-        .alert("Delete Item?", isPresented: $showDeleteAlert, actions: deleteAlertActions, message: deleteAlertMessage)
-        .onChange(of: viewModel.imagePickerViewModel.imageSelections, initial: false) { _, newSelections in
-            viewModel.handleImageSelectionChange(newSelections)
-        }
-        .onChange(of: viewModel.imagePickerViewModel.uiImages, initial: true) { _, newImages in
-            viewModel.handleUIImageChange(newImages)
-        }
-        .onReceive(bucketListViewModel.$pendingLocalImages) { pending in
-            viewModel.updateImagePicker(using: pending)
-        }
-        .onAppear {
-            viewModel.configureDependencies(bucketListViewModel: bucketListViewModel, onboardingViewModel: onboardingViewModel)
-            viewModel.refreshCurrentItemFromList(focusedField: focusedField)
-            viewModel.updateImagePicker(using: bucketListViewModel.pendingLocalImages)
-        }
-        .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
-            viewModel.refreshCurrentItemFromList(focusedField: focusedField)
-        }
-        .onChange(of: viewModel.creationDate, initial: false) { _, newDate in
-            viewModel.handleCreationDateChange(newDate)
-        }
-        .onChange(of: viewModel.completionDate, initial: false) { _, newDate in
-            viewModel.handleCompletionDateChange(newDate)
-        }
-        .onDisappear(perform: viewModel.commitOnDisappear)
-        .onChange(of: focusedField, initial: false) { _, newField in
-            viewModel.handleFocusChange(newField)
+        ScrollViewReader { proxy in
+            ScrollView {
+                scrollContent
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+            .navigationTitle("Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { navigationToolbar }
+            .sheet(isPresented: $showDateCreatedSheet) { creationDateSheet }
+            .sheet(isPresented: $showDateCompletedSheet) { completionDateSheet }
+            .alert("Delete Item?", isPresented: $showDeleteAlert, actions: deleteAlertActions, message: deleteAlertMessage)
+            .onChange(of: viewModel.imagePickerViewModel.imageSelections, initial: false) { _, newSelections in
+                viewModel.handleImageSelectionChange(newSelections)
+            }
+            .onChange(of: viewModel.imagePickerViewModel.uiImages, initial: true) { _, newImages in
+                viewModel.handleUIImageChange(newImages)
+            }
+            .onReceive(bucketListViewModel.$pendingLocalImages) { pending in
+                viewModel.updateImagePicker(using: pending)
+            }
+            .onAppear {
+                viewModel.configureDependencies(bucketListViewModel: bucketListViewModel, onboardingViewModel: onboardingViewModel)
+                viewModel.refreshCurrentItemFromList(focusedField: focusedField)
+                viewModel.updateImagePicker(using: bucketListViewModel.pendingLocalImages)
+            }
+            .onChange(of: bucketListViewModel.items, initial: false) { _, _ in
+                viewModel.refreshCurrentItemFromList(focusedField: focusedField)
+            }
+            .onChange(of: viewModel.creationDate, initial: false) { _, newDate in
+                viewModel.handleCreationDateChange(newDate)
+            }
+            .onChange(of: viewModel.completionDate, initial: false) { _, newDate in
+                viewModel.handleCompletionDateChange(newDate)
+            }
+            .onDisappear(perform: viewModel.commitOnDisappear)
+            .onChange(of: focusedField, initial: false) { _, newField in
+                viewModel.handleFocusChange(newField)
+                guard newField == .location else { return }
+                withAnimation(.easeInOut) {
+                    proxy.scrollTo(DetailItemField.location, anchor: .top)
+                }
+            }
         }
     }
 
@@ -119,6 +125,7 @@ struct DetailItemView: View {
                 onSuggestionTapped: viewModel.handleLocationSuggestionTapped(_:),
                 onSubmit: { focusedField = nil }
             )
+            .id(DetailItemField.location)
 
             deleteCard
         }

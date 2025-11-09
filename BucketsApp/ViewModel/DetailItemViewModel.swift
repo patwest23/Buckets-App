@@ -397,7 +397,7 @@ extension DetailItemViewModel: MKLocalSearchCompleterDelegate {
         let suggestions = completer.results.map { LocationSuggestion(title: $0.title, subtitle: $0.subtitle, completion: $0) }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.locationSuggestions = Array(suggestions.prefix(8))
+            self.locationSuggestions = Array(suggestions.prefix(5))
             self.isShowingLocationSuggestions = !self.locationSuggestions.isEmpty
         }
     }

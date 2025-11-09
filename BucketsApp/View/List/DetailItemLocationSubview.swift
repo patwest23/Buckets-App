@@ -43,9 +43,13 @@ private extension DetailItemLocationSubview {
         isShowingSuggestions && focusBinding.wrappedValue == .location && !suggestions.isEmpty
     }
 
+    var displayedSuggestions: [LocationSuggestion] {
+        Array(suggestions.prefix(5))
+    }
+
     var suggestionList: some View {
         VStack(spacing: 0) {
-            ForEach(suggestions) { suggestion in
+            ForEach(displayedSuggestions) { suggestion in
                 Button {
                     onSuggestionTapped(suggestion)
                 } label: {
@@ -66,7 +70,7 @@ private extension DetailItemLocationSubview {
                 }
                 .buttonStyle(.plain)
 
-                if suggestion.id != suggestions.last?.id {
+                if suggestion.id != displayedSuggestions.last?.id {
                     Divider()
                 }
             }
