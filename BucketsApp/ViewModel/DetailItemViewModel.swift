@@ -130,11 +130,17 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         guard currentItem.completed else { return }
         guard let bucketListViewModel else { return }
 
+        currentItem.imageUrls = []
+
         Task {
-            await bucketListViewModel.stageImagesForUpload(newImages, for: currentItem.id)
+            await bucketListViewModel.replaceImages(with: newImages, for: currentItem.id)
             await MainActor.run {
                 self.imagePickerViewModel.imageSelections = []
-                self.imagePickerViewModel.uiImages = bucketListViewModel.pendingLocalImages[self.currentItem.id] ?? []
+                if newImages.isEmpty {
+                    self.imagePickerViewModel.uiImages = []
+                } else {
+                    self.imagePickerViewModel.uiImages = newImages
+                }
             }
         }
     }
