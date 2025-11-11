@@ -354,15 +354,19 @@ class ListViewModel: ObservableObject {
     func clearLocalAttachments(for itemID: UUID) {
         Task { [weak self] in
             guard let self else { return }
-            let attachments = await self.attachmentStore.attachments(for: itemID)
-            for attachment in attachments {
-                if let task = self.uploadTasks.removeValue(forKey: attachment.id) {
-                    task.cancel()
-                }
-            }
-            await self.attachmentStore.removeAllAttachments(for: itemID)
-            await self.refreshPendingImages(for: itemID)
+            await self.removeAllAttachments(for: itemID)
         }
+    }
+
+    func replaceImages(with newImages: [UIImage], for itemID: UUID) async {
+        guard let item = getItem(by: itemID) else { return }
+        guard item.completed else { return }
+
+        await removeExistingImages(for: itemID)
+
+        guard !newImages.isEmpty else { return }
+
+        await stageImagesForUpload(newImages, for: itemID)
     }
 
     private func initializeAttachmentState() async {
@@ -509,6 +513,60 @@ class ListViewModel: ObservableObject {
                 items[index] = item
             }
             Task { await self.persistImageURLs(item.imageUrls, for: itemID) }
+        }
+    }
+
+    private func removeExistingImages(for itemID: UUID) async {
+        let existingURLs = getItem(by: itemID)?.imageUrls ?? []
+
+        await removeAllAttachments(for: itemID)
+        await clearRemoteImages(for: itemID)
+
+        if let index = items.firstIndex(where: { $0.id == itemID }) {
+            items[index].imageUrls = []
+        }
+
+        for url in existingURLs {
+            imageCache.removeValue(forKey: url)
+        }
+
+        if !existingURLs.isEmpty {
+            await persistImageURLs([], for: itemID)
+        }
+    }
+
+    private func removeAllAttachments(for itemID: UUID) async {
+        let attachments = await attachmentStore.attachments(for: itemID)
+        for attachment in attachments {
+            if let task = uploadTasks.removeValue(forKey: attachment.id) {
+                task.cancel()
+            }
+        }
+
+        await attachmentStore.removeAllAttachments(for: itemID)
+        await refreshPendingImages(for: itemID)
+    }
+
+    private func clearRemoteImages(for itemID: UUID) async {
+        guard let userId = userId else { return }
+
+        let itemFolderRef = Storage.storage().reference()
+            .child("users/\(userId)/item-\(itemID.uuidString)")
+
+        do {
+            let listResult = try await itemFolderRef.listAll()
+            for itemRef in listResult.items {
+                do {
+                    try await itemRef.delete()
+                } catch {
+                    print("[ListViewModel] Failed to delete storage item: \(error.localizedDescription)")
+                }
+            }
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain != StorageErrorDomain || StorageErrorCode(rawValue: nsError.code) != .objectNotFound {
+                print("[ListViewModel] clearRemoteImages error: \(error.localizedDescription)")
+            }
         }
     }
 }
