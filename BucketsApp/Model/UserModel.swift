@@ -19,7 +19,7 @@ struct UserModel: Identifiable, Codable {
     var email: String
     
     /// The date/time when this user record was created.
-    var createdAt: Date
+    var createdAt: Date?
     
     /// URL to the user’s profile image (stored in Firebase Storage or elsewhere).
     var profileImageUrl: String?

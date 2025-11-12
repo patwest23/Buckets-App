@@ -52,11 +52,28 @@ final class OnboardingViewModel: ObservableObject {
 
     /// An identifier that allows the onboarding flow to reset its navigation state.
     @Published var onboardingViewID = UUID()
+
+    /// Represents the various states of loading the authenticated user's profile.
+    enum ProfileLoadingState: Equatable {
+        case idle
+        case loading
+        case loaded
+        case failed
+    }
+
+    /// Tracks the loading state for the current user's profile document.
+    @Published var profileLoadingState: ProfileLoadingState = .idle
+
+    /// Optional human-readable message describing why profile loading failed.
+    @Published var profileLoadingErrorMessage: String?
     
     // MARK: - Firebase
     private let storage = Storage.storage()
     private let firestore = Firestore.firestore()
     private var userDocListener: ListenerRegistration?
+
+    /// Timeout task used to guard against an infinite loading state when fetching the profile document.
+    private var profileLoadTimeoutTask: Task<Void, Never>?
     
     /// Convenience property for the user doc ID (matching Auth UID).
     var userId: String? {
@@ -70,6 +87,7 @@ final class OnboardingViewModel: ObservableObject {
     
     deinit {
         userDocListener?.remove()
+        profileLoadTimeoutTask?.cancel()
     }
     
     // MARK: - Check Auth State
@@ -78,13 +96,18 @@ final class OnboardingViewModel: ObservableObject {
         Task {
             if let currentUser = Auth.auth().currentUser {
                 isAuthenticated = true
+                profileLoadingErrorMessage = nil
+                profileLoadingState = .loading
+                startProfileLoadTimeout()
                 print("[OnboardingViewModel] Already signed in with UID:", currentUser.uid)
-                
+
                 await fetchUserDocument(userId: currentUser.uid)
                 await loadProfileImage()
             } else {
                 print("[OnboardingViewModel] No authenticated user found.")
                 isAuthenticated = false
+                profileLoadingState = .idle
+                cancelProfileLoadTimeout()
             }
         }
     }
@@ -92,12 +115,59 @@ final class OnboardingViewModel: ObservableObject {
     func validateAuthSession() -> Bool {
         guard Auth.auth().currentUser != nil else {
             self.isAuthenticated = false
+            self.profileLoadingState = .idle
+            cancelProfileLoadTimeout()
             handleError(NSError(domain: "AuthError",
                                 code: -1,
                                 userInfo: [NSLocalizedDescriptionKey: "User session expired."]))
             return false
         }
         return true
+    }
+
+    // MARK: - Profile Loading Helpers
+
+    private func startProfileLoadTimeout() {
+        profileLoadTimeoutTask?.cancel()
+        profileLoadTimeoutTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 8_000_000_000) // 8 seconds
+            } catch {
+                return
+            }
+
+            guard let self else { return }
+            if !Task.isCancelled,
+               self.user == nil,
+               self.profileLoadingState == .loading {
+                self.profileLoadingState = .failed
+                if self.profileLoadingErrorMessage == nil {
+                    self.profileLoadingErrorMessage = "We're having trouble loading your profile right now."
+                }
+            }
+        }
+    }
+
+    private func cancelProfileLoadTimeout() {
+        profileLoadTimeoutTask?.cancel()
+        profileLoadTimeoutTask = nil
+    }
+
+    func retryProfileLoad() {
+        guard let currentUser = Auth.auth().currentUser else {
+            profileLoadingState = .failed
+            profileLoadingErrorMessage = "Your session has expired. Please sign in again."
+            return
+        }
+
+        profileLoadingErrorMessage = nil
+        profileLoadingState = .loading
+        startProfileLoadTimeout()
+
+        Task { [weak self] in
+            await self?.fetchUserDocument(userId: currentUser.uid)
+            await self?.loadProfileImage()
+        }
     }
     
     // MARK: - Google Sign-In
@@ -168,7 +238,10 @@ final class OnboardingViewModel: ObservableObject {
                 
                 self.isAuthenticated = true
                 self.clearErrorState()
-                
+                self.profileLoadingErrorMessage = nil
+                self.profileLoadingState = .loading
+                self.startProfileLoadTimeout()
+
                 Task {
                     let userDocRef = self.firestore.collection("users").document(authUser.uid)
 
@@ -207,7 +280,10 @@ final class OnboardingViewModel: ObservableObject {
             let authResult = try await Auth.auth().signIn(withEmail: email, password: password)
             isAuthenticated = true
             clearErrorState()
-            
+            profileLoadingErrorMessage = nil
+            profileLoadingState = .loading
+            startProfileLoadTimeout()
+
             print("[OnboardingViewModel] signIn success. Auth UID:", authResult.user.uid)
             
             // Store credentials in Keychain for Face/Touch ID
@@ -232,6 +308,7 @@ final class OnboardingViewModel: ObservableObject {
             isAuthenticated = false
             userDocListener?.remove()
             clearState()
+            cancelProfileLoadTimeout()
 
             // Optionally remove from Keychain
             KeychainHelper.shared.deleteValue(for: "email")
@@ -239,6 +316,8 @@ final class OnboardingViewModel: ObservableObject {
 
         } catch {
             handleError(error)
+            profileLoadingState = .failed
+            profileLoadingErrorMessage = error.localizedDescription
         }
     }
 
@@ -353,7 +432,10 @@ final class OnboardingViewModel: ObservableObject {
             let authResult = try await Auth.auth().createUser(withEmail: email, password: password)
             isAuthenticated = true
             clearErrorState()
-            
+            profileLoadingErrorMessage = nil
+            profileLoadingState = .loading
+            startProfileLoadTimeout()
+
             print("[OnboardingViewModel] createUser success. UID:", authResult.user.uid)
             
             // Store credentials in Keychain if you want Face ID next time
@@ -391,7 +473,13 @@ final class OnboardingViewModel: ObservableObject {
                 print("[OnboardingViewModel] Real-time update. user.id =", self.user?.id ?? "nil")
                 self.username = self.user?.username ?? ""
                 self.evaluateUsernameRequirement(userId: userId)
+                self.profileLoadingState = .loaded
+                self.profileLoadingErrorMessage = nil
+                self.cancelProfileLoadTimeout()
             } catch {
+                self.profileLoadingState = .failed
+                self.profileLoadingErrorMessage = error.localizedDescription
+                self.cancelProfileLoadTimeout()
                 self.handleError(error)
             }
         }
@@ -527,11 +615,17 @@ final class OnboardingViewModel: ObservableObject {
             try await userDoc.setData(docData)
             print("[OnboardingViewModel] User document created at /users/\(userId).")
         } catch {
+            profileLoadingState = .failed
+            profileLoadingErrorMessage = error.localizedDescription
+            cancelProfileLoadTimeout()
             handleError(error)
         }
     }
 
     func fetchUserDocument(userId: String) async {
+        profileLoadingState = .loading
+        profileLoadingErrorMessage = nil
+        startProfileLoadTimeout()
         let userDoc = firestore.collection("users").document(userId)
         do {
             let snapshot = try await userDoc.getDocument()
@@ -549,6 +643,8 @@ final class OnboardingViewModel: ObservableObject {
             username = self.user?.username ?? ""
             evaluateUsernameRequirement(userId: userId)
             startListeningToUserDocument(userId: userId)
+            profileLoadingState = .loaded
+            cancelProfileLoadTimeout()
 
             if self.user?.id == userId {
                 print("[OnboardingViewModel] Matches Auth UID:", userId)
@@ -559,6 +655,9 @@ final class OnboardingViewModel: ObservableObject {
             
         } catch {
             print("[OnboardingViewModel] Error fetching/decoding user doc:", error.localizedDescription)
+            profileLoadingState = .failed
+            profileLoadingErrorMessage = error.localizedDescription
+            cancelProfileLoadTimeout()
             handleError(error)
         }
     }
@@ -588,6 +687,9 @@ final class OnboardingViewModel: ObservableObject {
         isAuthenticated = false
         requiresUsernameSetup = false
         onboardingViewID = UUID()
+        profileLoadingState = .idle
+        profileLoadingErrorMessage = nil
+        cancelProfileLoadTimeout()
     }
 
     private func evaluateUsernameRequirement(userId: String) {
