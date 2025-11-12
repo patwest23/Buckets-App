@@ -18,6 +18,8 @@ class MockOnboardingViewModel: ObservableObject {
     @Published var profileImageData: Data? = nil
     @Published var errorMessage: String? = nil
     @Published var showErrorAlert: Bool = false
+    @Published var profileLoadingState: OnboardingViewModel.ProfileLoadingState = .idle
+    @Published var profileLoadingErrorMessage: String? = nil
     
     /// Example user object. Defaults to a "mock" user with ID "mockUserId".
     @Published var user: UserModel? = UserModel(id: "mockUserId", email: "mockuser@example.com")
@@ -37,6 +39,7 @@ class MockOnboardingViewModel: ObservableObject {
             isAuthenticated = true
             user = UserModel(id: "mockUserId", email: email)
             errorMessage = nil
+            profileLoadingState = .loaded
         } else {
             simulateError("Invalid email or password.")
         }
@@ -84,6 +87,8 @@ class MockOnboardingViewModel: ObservableObject {
         password = "password"
         profileImageData = nil
         user = nil
+        profileLoadingState = .idle
+        profileLoadingErrorMessage = nil
     }
     
     /// Helper method to simulate an error
@@ -91,7 +96,11 @@ class MockOnboardingViewModel: ObservableObject {
         isAuthenticated = false
         errorMessage = message
         showErrorAlert = true
+        profileLoadingState = .failed
+        profileLoadingErrorMessage = message
     }
+
+    func retryProfileLoad() {}
 }
 
 

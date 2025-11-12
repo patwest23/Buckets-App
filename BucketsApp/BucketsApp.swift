@@ -27,7 +27,12 @@ struct BucketsApp: App {
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
-            } else if onboardingViewModel.user == nil {
+            } else if onboardingViewModel.profileLoadingState == .failed {
+                ProfileLoadingFallbackView()
+                    .environmentObject(onboardingViewModel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground))
+            } else if onboardingViewModel.user == nil || onboardingViewModel.profileLoadingState == .loading {
                 ProgressView("Loading your profile…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(.systemBackground))
