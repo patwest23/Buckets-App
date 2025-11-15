@@ -85,12 +85,7 @@ final class SocialViewModel: ObservableObject {
     func refreshActivityLog() async {
         try? await Task.sleep(nanoseconds: 800_000_000)
         await MainActor.run {
-            if let randomUser = (following + explore).randomElement(),
-               let item = randomUser.listItems.randomElement() {
-                let newEvent = ActivityEvent(user: randomUser, item: item, type: .added, timestamp: Date())
-                activityLog.insert(newEvent, at: 0)
-                trimActivityLog()
-            }
+            trimActivityLog()
         }
     }
 
@@ -125,7 +120,7 @@ final class SocialViewModel: ObservableObject {
         followers = Array(users.prefix(3))
         following = users.filter { $0.isFollowing }
         explore = users
-        activityLog = ActivityEvent.mockFeed(users: users)
+        activityLog = []
     }
 
     private func trimActivityLog() {

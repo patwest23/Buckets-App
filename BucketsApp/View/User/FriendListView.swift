@@ -3,7 +3,7 @@ import SwiftUI
 struct FriendListView: View {
     @EnvironmentObject var socialViewModel: SocialViewModel
 
-    @State private var selectedTab: FriendListTab
+    @State private var selectedTab: FriendListTab = .followers
     @State private var searchText: String = ""
 
     init(initialTab: FriendListTab = .followers) {

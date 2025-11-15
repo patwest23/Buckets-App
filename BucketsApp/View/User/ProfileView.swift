@@ -304,11 +304,11 @@ extension ProfileView {
             }
 
             if recentActivity.isEmpty {
-                ContentUnavailableView(
-                    "No recent activity",
-                    systemImage: "sparkles",
-                    description: Text("Follow more people to see their milestones."))
-                    .frame(maxWidth: .infinity)
+                Text("No activity this month")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
             } else {
                 VStack(spacing: 0) {
                     ForEach(recentActivity) { event in
