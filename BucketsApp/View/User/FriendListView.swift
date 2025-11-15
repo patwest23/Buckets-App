@@ -18,6 +18,12 @@ struct FriendListView: View {
                     .listRowBackground(Color.clear)
             }
 
+            Section {
+                filterTabs
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+
             Section(header: Text("Connections")) {
                 let users = socialViewModel.filteredUsers(for: selectedTab, searchText: searchText)
 
@@ -40,17 +46,6 @@ struct FriendListView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Friends")
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Filter", selection: $selectedTab) {
-                    ForEach(FriendListTab.allCases) { tab in
-                        Text(tab.title).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 320)
-            }
-        }
     }
 
     private var searchField: some View {
@@ -66,6 +61,15 @@ struct FriendListView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.secondarySystemBackground))
         )
+    }
+
+    private var filterTabs: some View {
+        Picker("Filter", selection: $selectedTab) {
+            ForEach(FriendListTab.allCases) { tab in
+                Text(tab.title).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 }
 
