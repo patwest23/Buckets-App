@@ -272,6 +272,7 @@ extension ProfileView {
     private func friendMetric(title: String, count: Int, tab: FriendListTab) -> some View {
         NavigationLink {
             FriendListView(initialTab: tab)
+                .environmentObject(socialViewModel)
         } label: {
             VStack(spacing: 6) {
                 Text("\(count)")
