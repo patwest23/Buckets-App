@@ -11,6 +11,7 @@ struct ListView: View {
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var userViewModel: UserViewModel
+    @EnvironmentObject var socialViewModel: SocialViewModel
     @Environment(\.colorScheme) private var colorScheme
     
     // Detail navigation
@@ -136,6 +137,7 @@ struct ListView: View {
                                     .environmentObject(onboardingViewModel)
                                     .environmentObject(userViewModel)
                                     .environmentObject(bucketListViewModel)
+                                    .environmentObject(socialViewModel)
                             }
                             // Detail sheet => matches the Reminders detail presentation
                             .sheet(item: $selectedItem, onDismiss: handleDetailDismiss) { item in
@@ -500,7 +502,8 @@ struct ListView_Previews: PreviewProvider {
         
         let mockOnboardingVM = OnboardingViewModel()
         let mockUserVM = UserViewModel()
-        
+        let mockSocialVM = SocialViewModel()
+
         return Group {
             // 1) Empty scenario
             NavigationStack {
@@ -508,15 +511,17 @@ struct ListView_Previews: PreviewProvider {
                     .environmentObject(mockListVMEmpty)
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockSocialVM)
             }
             .previewDisplayName("ListView - Empty")
-            
+
             // 2) Populated scenario
             NavigationStack {
                 ListView()
                     .environmentObject(mockListVMWithItems)
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockSocialVM)
             }
             .previewDisplayName("ListView - With Items (3 real images)")
         }

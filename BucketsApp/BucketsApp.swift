@@ -18,6 +18,7 @@ struct BucketsApp: App {
     @StateObject var bucketListViewModel = ListViewModel()
     @StateObject var onboardingViewModel = OnboardingViewModel()
     @StateObject var userViewModel = UserViewModel()
+    @StateObject var socialViewModel = SocialViewModel()
 
     var body: some Scene {
         WindowGroup {
@@ -27,6 +28,7 @@ struct BucketsApp: App {
                     .environmentObject(onboardingViewModel)
                     .environmentObject(bucketListViewModel)
                     .environmentObject(userViewModel)
+                    .environmentObject(socialViewModel)
             } else if onboardingViewModel.profileLoadingState == .failed {
                 ProfileLoadingFallbackView()
                     .environmentObject(onboardingViewModel)
@@ -46,6 +48,7 @@ struct BucketsApp: App {
                         .environmentObject(bucketListViewModel)
                         .environmentObject(onboardingViewModel)
                         .environmentObject(userViewModel)
+                        .environmentObject(socialViewModel)
                         .onAppear {
                             Task {
                                 // If we have a current Firebase user, start loading items, etc.

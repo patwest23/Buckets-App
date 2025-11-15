@@ -14,7 +14,8 @@ struct ProfileView: View {
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject var listViewModel: ListViewModel
     @EnvironmentObject var userViewModel: UserViewModel
-    
+    @EnvironmentObject var socialViewModel: SocialViewModel
+
     @State private var isPickerPresented = false
     @State private var selectedImageItem: PhotosPickerItem?
     
@@ -23,6 +24,12 @@ struct ProfileView: View {
     private let cardShadowColor = Color.black.opacity(0.1)
     private let cardShadowRadius: CGFloat = 4
     
+    private let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter
+    }()
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
@@ -37,6 +44,8 @@ struct ProfileView: View {
                 .overlay(cardBorder)
 
                 statsDashboard
+                friendsSection
+                activityLogSection
             }
             .padding(28)
             .padding(.bottom, 24)
@@ -58,6 +67,12 @@ struct ProfileView: View {
                     Image(systemName: "gearshape.fill")
                 }
             }
+        }
+        .refreshable {
+            await socialViewModel.refreshActivityLog()
+        }
+        .onAppear {
+            socialViewModel.bootstrapIfNeeded()
         }
     }
 }
@@ -218,6 +233,119 @@ extension ProfileView {
         }
     }
 
+    private var friendsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Friends")
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .opacity(0)
+            }
+
+            HStack(spacing: 0) {
+                friendMetric(
+                    title: "Followers",
+                    count: socialViewModel.userCount(for: .followers),
+                    tab: .followers
+                )
+
+                Rectangle()
+                    .fill(Color(.systemGray4))
+                    .frame(width: 1, height: 48)
+                    .padding(.vertical, -6)
+
+                friendMetric(
+                    title: "Following",
+                    count: socialViewModel.userCount(for: .following),
+                    tab: .following
+                )
+            }
+        }
+        .padding(24)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
+    private func friendMetric(title: String, count: Int, tab: FriendListTab) -> some View {
+        NavigationLink {
+            FriendListView(initialTab: tab)
+        } label: {
+            VStack(spacing: 6) {
+                Text("\(count)")
+                    .font(.title2.weight(.semibold))
+                    .foregroundColor(.primary)
+
+                Text(title.uppercased())
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .kerning(1.2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var activityLogSection: some View {
+        let recentActivity = socialViewModel.recentActivity
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Activity log")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("Past 30 days")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            if recentActivity.isEmpty {
+                ContentUnavailableView(
+                    "No recent activity",
+                    systemImage: "sparkles",
+                    description: Text("Follow more people to see their milestones."))
+                    .frame(maxWidth: .infinity)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(recentActivity) { event in
+                        NavigationLink {
+                            UserListView(user: event.user, highlightedItemID: event.item.id)
+                        } label: {
+                            activityRow(for: event)
+                        }
+                        .buttonStyle(.plain)
+
+                        if event.id != recentActivity.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+        .padding(24)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
+    private func activityRow(for event: ActivityEvent) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            let verb = event.type == .completed ? "completed" : "added"
+            Text("\(event.user.username) \(verb) \(event.item.title)")
+                .font(.subheadline)
+                .foregroundColor(.primary)
+
+            Text(relativeFormatter.localizedString(for: event.timestamp, relativeTo: Date()))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
+    }
+
     private func metricBlock(title: String, value: Int) -> some View {
         VStack(spacing: 6) {
             Text("\(value)")
@@ -290,6 +418,7 @@ struct ProfileView_Previews: PreviewProvider {
         let mockOnboardingVM = OnboardingViewModel()
         let mockListVM = ListViewModel()
         let mockUserVM = UserViewModel()
+        let mockSocialVM = SocialViewModel()
         
         mockListVM.items = [
             ItemModel(userId: "abc", name: "Bucket 1", completed: false),
@@ -303,6 +432,7 @@ struct ProfileView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockListVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockSocialVM)
             }
             .previewDisplayName("ProfileView - Light Mode")
             
@@ -312,6 +442,7 @@ struct ProfileView_Previews: PreviewProvider {
                     .environmentObject(mockOnboardingVM)
                     .environmentObject(mockListVM)
                     .environmentObject(mockUserVM)
+                    .environmentObject(mockSocialVM)
                     .preferredColorScheme(.dark)
             }
             .previewDisplayName("ProfileView - Dark Mode")
