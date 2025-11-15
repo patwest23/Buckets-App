@@ -3,7 +3,7 @@
 //  BucketsApp
 //
 //  Created by Patrick Westerkamp on 5/13/23.
-//
+//lets make this thing antisocial
 
 
 import SwiftUI
