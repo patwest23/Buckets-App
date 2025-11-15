@@ -20,6 +20,7 @@ struct FullScreenCarouselView: View {
 
     @GestureState private var dragTranslation: CGFloat = 0
     @State private var selectedIndex: Int
+    @State private var headerHeight: CGFloat = 0
 
     private let dragDismissThreshold: CGFloat = 120
 
@@ -73,73 +74,53 @@ struct FullScreenCarouselView: View {
                 }
             }
 
-        ZStack(alignment: .top) {
-            dynamicBackground
-                .ignoresSafeArea()
+        GeometryReader { proxy in
+            let availableWidth = proxy.size.width
+            let availableHeight = proxy.size.height
+            let maxSquareSide = min(availableWidth, 1080)
+            let heightAfterHeader = max(availableHeight - headerHeight, 0)
+            let imageSide = min(maxSquareSide, heightAfterHeader)
+            let remainingSpace = max(heightAfterHeader - imageSide, 0)
+            let topSpacing = remainingSpace / 2
+            let bottomSpacing = remainingSpace - topSpacing
 
-            if !images.isEmpty {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(images.enumerated()), id: \.offset) { index, imageSource in
-                        carouselContent(for: imageSource)
-                            .tag(index)
-                    }
-                }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-            } else {
-                VStack {
-                    Image(systemName: "photo")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("No images available")
-                        .foregroundColor(.secondary)
-                        .font(.headline)
-                }
-            }
+            ZStack(alignment: .topLeading) {
+                dynamicBackground
+                    .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                        .imageScale(.large)
-                        .foregroundColor(isCompleted ? .accentColor : .gray)
-                        .alignmentGuide(.top) { $0[.top] }
+                VStack(spacing: 0) {
+                    headerSection
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(itemName)
-                            .font(.title3.weight(.semibold))
-                            .foregroundColor(textColor)
-                            .multilineTextAlignment(.leading)
+                    Color.clear
+                        .frame(height: topSpacing)
 
-                        if formattedDate != nil || (location?.isEmpty == false) {
-                            HStack(spacing: 8) {
-                                if let formattedDate {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "calendar")
-                                        Text(formattedDate)
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(subtitleColor)
-                                }
-
-                                if let location, !location.isEmpty {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "mappin.and.ellipse")
-                                        Text(location)
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(subtitleColor)
-                                }
+                    if !images.isEmpty && imageSide > 0 {
+                        TabView(selection: $selectedIndex) {
+                            ForEach(Array(images.enumerated()), id: \.offset) { index, imageSource in
+                                carouselContent(for: imageSource)
+                                    .frame(width: imageSide, height: imageSide)
+                                    .clipped()
+                                    .tag(index)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: imageSide)
+                        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+                    } else {
+                        placeholderContent
+                            .frame(width: imageSide > 0 ? imageSide : maxSquareSide,
+                                   height: imageSide > 0 ? imageSide : maxSquareSide)
+                            .clipped()
+                            .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
 
-                Spacer()
+                    Color.clear
+                        .frame(height: bottomSpacing)
+                }
+                .frame(width: availableWidth, height: availableHeight, alignment: .top)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 52)
         }
+        .onPreferenceChange(HeaderHeightPreferenceKey.self) { headerHeight = $0 }
         .offset(y: dragTranslation)
         .opacity(opacity(for: dragTranslation))
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: dragTranslation)
@@ -155,7 +136,6 @@ struct FullScreenCarouselView: View {
                     .resizable()
             )
             .background(dynamicBackground)
-            .ignoresSafeArea()
         case .remote(let urlStr):
             if let cached = listViewModel.imageCache[urlStr] {
                 PinchZoomImage(
@@ -163,7 +143,6 @@ struct FullScreenCarouselView: View {
                         .resizable()
                 )
                 .background(dynamicBackground)
-                .ignoresSafeArea()
             } else {
                 VStack(spacing: 16) {
                     ProgressView("Loading image...")
@@ -173,14 +152,84 @@ struct FullScreenCarouselView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(dynamicBackground)
-                .ignoresSafeArea()
             }
         }
+    }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                    .imageScale(.large)
+                    .foregroundColor(isCompleted ? .accentColor : .gray)
+                    .alignmentGuide(.top) { $0[.top] }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(itemName)
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(textColor)
+                        .multilineTextAlignment(.leading)
+
+                    if formattedDate != nil || (location?.isEmpty == false) {
+                        HStack(spacing: 8) {
+                            if let formattedDate {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "calendar")
+                                    Text(formattedDate)
+                                }
+                                .font(.caption)
+                                .foregroundColor(subtitleColor)
+                            }
+
+                            if let location, !location.isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                    Text(location)
+                                }
+                                .font(.caption)
+                                .foregroundColor(subtitleColor)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: HeaderHeightPreferenceKey.self, value: proxy.size.height)
+            }
+        )
+    }
+
+    private var placeholderContent: some View {
+        VStack {
+            Image(systemName: "photo")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text("No images available")
+                .foregroundColor(.secondary)
+                .font(.headline)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func opacity(for translation: CGFloat) -> Double {
         let distance = min(abs(translation), 200)
         return Double(1 - (distance / 400))
+    }
+}
+
+private struct HeaderHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
