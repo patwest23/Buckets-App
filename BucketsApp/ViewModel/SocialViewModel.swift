@@ -1,6 +1,5 @@
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 enum FriendListTab: String, CaseIterable, Identifiable {
     case followers
