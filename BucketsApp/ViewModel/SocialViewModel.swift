@@ -99,9 +99,9 @@ final class SocialViewModel: ObservableObject {
         pendingEvents[event.id] = event
         delayTasks[event.id]?.cancel()
         delayTasks[event.id] = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: activityDelay)
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: self.activityDelay)
             await MainActor.run {
-                guard let self = self else { return }
                 self.pendingEvents[event.id] = nil
                 self.activityLog.insert(event, at: 0)
                 self.trimActivityLog()
