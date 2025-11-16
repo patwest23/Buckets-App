@@ -13,12 +13,33 @@ struct LocationSuggestion: Identifiable, Hashable {
     }
 
     var displayText: String {
-        if title.isEmpty { return subtitle }
-        if subtitle.isEmpty { return title }
-        if subtitle.localizedCaseInsensitiveContains(title) {
-            return subtitle
+        let cleanedTitle = sanitizedTitle
+        let cleanedSubtitle = sanitizedSubtitle
+        if cleanedTitle.isEmpty { return cleanedSubtitle }
+        if cleanedSubtitle.isEmpty { return cleanedTitle }
+        if cleanedSubtitle.localizedCaseInsensitiveContains(cleanedTitle) {
+            return cleanedSubtitle
         }
-        return "\(title), \(subtitle)"
+        return "\(cleanedTitle), \(cleanedSubtitle)"
+    }
+
+    var primaryText: String {
+        let cleanedTitle = sanitizedTitle
+        return cleanedTitle.isEmpty ? displayText : cleanedTitle
+    }
+
+    var secondaryText: String? {
+        let cleanedSubtitle = sanitizedSubtitle
+        guard !cleanedSubtitle.isEmpty else { return nil }
+        return cleanedSubtitle == primaryText ? nil : cleanedSubtitle
+    }
+
+    private var sanitizedTitle: String {
+        title.removingUnitedStatesSuffix()
+    }
+
+    private var sanitizedSubtitle: String {
+        subtitle.removingUnitedStatesSuffix()
     }
 
     func hash(into hasher: inout Hasher) {
@@ -382,7 +403,7 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     @MainActor
     private func applyLocationSuggestion(_ suggestion: LocationSuggestion, mapItem: MKMapItem?) {
         defer { isApplyingLocationSuggestion = false }
-        let displayText = mapItem?.placemark.title ?? suggestion.displayText
+        let displayText = (mapItem?.placemark.title ?? suggestion.displayText).removingUnitedStatesSuffix()
         let coordinate = mapItem?.placemark.coordinate
 
         var location = currentItem.location ?? Location(latitude: 0, longitude: 0, address: nil)
@@ -412,5 +433,16 @@ extension DetailItemViewModel: MKLocalSearchCompleterDelegate {
         Task { @MainActor [weak self] in
             self?.clearLocationSuggestions()
         }
+    }
+}
+
+private extension String {
+    func removingUnitedStatesSuffix() -> String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let range = trimmed.range(of: "[,\\s]*United States$", options: [.regularExpression, .caseInsensitive]) else {
+            return trimmed
+        }
+        let cleaned = trimmed.replacingCharacters(in: range, with: "")
+        return cleaned.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(.init(charactersIn: ",")))
     }
 }
