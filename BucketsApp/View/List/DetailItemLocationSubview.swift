@@ -54,12 +54,12 @@ private extension DetailItemLocationSubview {
                     onSuggestionTapped(suggestion)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(suggestion.title.isEmpty ? suggestion.displayText : suggestion.title)
+                        Text(suggestion.primaryText)
                             .font(.body)
                             .foregroundColor(.primary)
 
-                        if !suggestion.subtitle.isEmpty && suggestion.title != suggestion.subtitle {
-                            Text(suggestion.subtitle)
+                        if let subtitle = suggestion.secondaryText {
+                            Text(subtitle)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
