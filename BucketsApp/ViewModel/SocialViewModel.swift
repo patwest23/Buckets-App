@@ -146,16 +146,20 @@ final class SocialViewModel: ObservableObject {
             var newActivityEvents: [ActivityEvent] = []
 
             for userDocument in snapshot.documents {
+                let documentID = userDocument.documentID
+                // Capture identifiers before awaiting so we never touch the snapshot after suspension.
+
                 do {
                     let userModel = try userDocument.data(as: UserModel.self)
-                    let itemsSnapshot = try await userDocument.reference.collection("items").getDocuments()
+                    let itemsQuery = db.collection("users").document(documentID).collection("items")
+                    let itemsSnapshot = try await itemsQuery.getDocuments()
                     let itemModels: [ItemModel] = try itemsSnapshot.documents.compactMap { document in
                         try document.data(as: ItemModel.self)
                     }
 
                     var (user, enrichedItems) = buildSocialUser(
                         from: userModel,
-                        userID: userDocument.documentID,
+                        userID: documentID,
                         items: itemModels
                     )
                     if previouslyFollowing.contains(user.firebaseUserID) {
@@ -166,7 +170,7 @@ final class SocialViewModel: ObservableObject {
                     newActivityEvents.append(contentsOf: events)
                     loadedUsers.append(user)
                 } catch {
-                    print("[SocialViewModel] Failed to decode user document:", error.localizedDescription)
+                    print("[SocialViewModel] Failed to decode user document \(documentID):", error.localizedDescription)
                 }
             }
 
