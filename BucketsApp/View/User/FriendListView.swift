@@ -5,6 +5,7 @@ struct FriendListView: View {
 
     @State private var selectedTab: FriendListTab = .followers
     @State private var searchText: String = ""
+    @FocusState private var isSearchFocused: Bool
 
     init(initialTab: FriendListTab = .followers) {
         _selectedTab = State(initialValue: initialTab)
@@ -46,6 +47,15 @@ struct FriendListView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Friends")
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isSearchFocused = false
+                }
+                .font(.headline)
+            }
+        }
     }
 
     private var searchField: some View {
@@ -55,6 +65,7 @@ struct FriendListView: View {
             TextField("Search followers", text: $searchText)
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
+                .focused($isSearchFocused)
         }
         .padding(12)
         .background(
