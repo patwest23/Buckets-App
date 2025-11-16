@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 🔒 Profile images remain private to each user
+    match /users/{userId}/profile_images/{imageName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 📸 Bucket item images (new path) – any signed-in user can view, only owner can write
+    match /users/{userId}/item-images/{itemId}/{imageName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ♻️ Backwards-compatible access for legacy uploads stored under users/{userId}/item-<UUID>
+    match /users/{userId}/{legacyFolder}/{imageName} {
+      allow read: if request.auth != null && legacyFolder.matches('item-[A-Za-z0-9-]+');
+      allow write: if request.auth != null && request.auth.uid == userId && legacyFolder.matches('item-[A-Za-z0-9-]+');
+    }
+
+    // ✅ Optional shared/public paths
+    match /public/{allPaths=**} {
+      allow read: if true;
+    }
+
+    // ❌ Default deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
