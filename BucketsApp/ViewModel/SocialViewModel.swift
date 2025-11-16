@@ -239,6 +239,9 @@ final class SocialViewModel: ObservableObject {
         let displayName = userModel.name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDisplayName = displayName?.isEmpty == false ? displayName! : username.replacingOccurrences(of: "@", with: "").capitalized
 
+        let profileImageURLString = userModel.profileImageUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileImageURL = profileImageURLString?.isEmpty == false ? URL(string: profileImageURLString!) : nil
+
         return (
             SocialUser(
                 firebaseUserID: userID,
@@ -246,6 +249,8 @@ final class SocialViewModel: ObservableObject {
                 displayName: resolvedDisplayName,
                 email: userModel.email,
                 memberSince: userModel.createdAt ?? Date(),
+                avatarSystemImage: "person.crop.circle",
+                profileImageURL: profileImageURL,
                 stats: stats,
                 listItems: socialItems,
                 isFollowing: false,

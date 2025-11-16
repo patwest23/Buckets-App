@@ -45,6 +45,7 @@ struct SocialUser: Identifiable, Hashable {
     var email: String
     var memberSince: Date
     var avatarSystemImage: String
+    var profileImageURL: URL?
     var stats: SocialStats
     var listItems: [SocialBucketItem]
     var isFollowing: Bool
@@ -58,6 +59,7 @@ struct SocialUser: Identifiable, Hashable {
         email: String,
         memberSince: Date,
         avatarSystemImage: String = "person.crop.circle",
+        profileImageURL: URL? = nil,
         stats: SocialStats,
         listItems: [SocialBucketItem] = [],
         isFollowing: Bool = false,
@@ -70,6 +72,7 @@ struct SocialUser: Identifiable, Hashable {
         self.email = email
         self.memberSince = memberSince
         self.avatarSystemImage = avatarSystemImage
+        self.profileImageURL = profileImageURL
         self.stats = stats
         self.listItems = listItems
         self.isFollowing = isFollowing
@@ -102,6 +105,13 @@ extension SocialUser {
     static var mockUsers: [SocialUser] {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate]
+
+        let profileImageURLs: [URL] = [
+            URL(string: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400&q=80")!,
+            URL(string: "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=400&q=80")!,
+            URL(string: "https://images.unsplash.com/photo-1520340356584-8f5c05a004a0?w=400&q=80")!,
+            URL(string: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80")!
+        ]
 
         let imageURLs: [URL] = [
             URL(string: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=600&q=80")!,
@@ -136,6 +146,7 @@ extension SocialUser {
                 email: "pat@example.com",
                 memberSince: formatter.date(from: "2019-05-03") ?? Date(),
                 avatarSystemImage: "person.circle.fill",
+                profileImageURL: profileImageURLs[0],
                 stats: SocialStats(total: 42, completed: 18, lastCompletion: Calendar.current.date(byAdding: .day, value: -3, to: Date())),
                 listItems: sampleItems(base: "City"),
                 isFollowing: true,
@@ -148,6 +159,7 @@ extension SocialUser {
                 email: "jess@example.com",
                 memberSince: formatter.date(from: "2020-02-12") ?? Date(),
                 avatarSystemImage: "person.crop.circle.fill.badge.checkmark",
+                profileImageURL: profileImageURLs[1],
                 stats: SocialStats(total: 30, completed: 10, lastCompletion: Calendar.current.date(byAdding: .day, value: -8, to: Date())),
                 listItems: sampleItems(base: "Coast"),
                 isFollowing: true,
@@ -160,6 +172,7 @@ extension SocialUser {
                 email: "tom@example.com",
                 memberSince: formatter.date(from: "2018-10-23") ?? Date(),
                 avatarSystemImage: "person.crop.circle.badge.moon",
+                profileImageURL: profileImageURLs[2],
                 stats: SocialStats(total: 55, completed: 44, lastCompletion: Calendar.current.date(byAdding: .day, value: -1, to: Date())),
                 listItems: sampleItems(base: "Trail"),
                 isFollowing: false,
@@ -172,6 +185,7 @@ extension SocialUser {
                 email: "amelia@example.com",
                 memberSince: formatter.date(from: "2021-07-14") ?? Date(),
                 avatarSystemImage: "person.crop.circle.badge.questionmark",
+                profileImageURL: profileImageURLs[3],
                 stats: SocialStats(total: 18, completed: 6, lastCompletion: Calendar.current.date(byAdding: .day, value: -20, to: Date())),
                 listItems: sampleItems(base: "Food"),
                 isFollowing: false,

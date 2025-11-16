@@ -93,13 +93,11 @@ private struct FriendRow: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: user.avatarSystemImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 42, height: 42)
-                .foregroundColor(.accentColor)
-                .padding(6)
-                .background(Circle().fill(Color(.secondarySystemBackground)))
+            ProfileAvatarView(
+                imageURL: user.profileImageURL,
+                placeholderSystemImage: user.avatarSystemImage,
+                size: 54
+            )
 
             VStack(alignment: .leading, spacing: 4) {
                 NavigationLink {
