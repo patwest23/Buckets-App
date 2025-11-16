@@ -334,10 +334,18 @@ extension ProfileView {
 
     private func activityRow(for event: ActivityEvent) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            let verb = event.type == .completed ? "completed" : "added"
-            Text("\(event.user.username) \(verb) \(event.item.title)")
-                .font(.subheadline)
-                .foregroundColor(.primary)
+            let verb = event.type == .completed ? " completed " : " added "
+            (
+                Text(event.user.username)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.accentColor)
+                + Text(verb)
+                    .foregroundColor(.primary)
+                + Text(event.item.title)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+            )
+            .font(.subheadline)
 
             Text(relativeFormatter.localizedString(for: event.timestamp, relativeTo: Date()))
                 .font(.caption)
