@@ -33,8 +33,6 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
-                header
-
                 VStack(spacing: 20) {
                     profileHeader
                     profileMeta
@@ -79,19 +77,6 @@ struct ProfileView: View {
 
 // MARK: - Subviews
 extension ProfileView {
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your profile")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("Update your avatar and keep an eye on how your bucket list is progressing.")
-                .font(.callout)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
 
     // MARK: - Profile Header
     private var profileHeader: some View {
