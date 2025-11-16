@@ -297,6 +297,10 @@ final class SocialViewModel: ObservableObject {
         }
 
         if let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            if let refreshed = await refreshedFirebaseDownloadURL(for: url, cacheKey: trimmed) {
+                return refreshed
+            }
+
             imageURLCache[trimmed] = url
             return url
         }
@@ -304,7 +308,7 @@ final class SocialViewModel: ObservableObject {
         if trimmed.hasPrefix("gs://") {
             do {
                 let downloadURL = try await storage.reference(forURL: trimmed).downloadURL()
-                imageURLCache[trimmed] = downloadURL
+                cache(downloadURL, forRawKey: trimmed, storagePath: nil)
                 return downloadURL
             } catch {
                 print("[SocialViewModel] Failed to resolve storage URL \(trimmed):", error.localizedDescription)
@@ -312,11 +316,62 @@ final class SocialViewModel: ObservableObject {
         } else if !trimmed.contains("://") {
             do {
                 let downloadURL = try await storage.reference(withPath: trimmed).downloadURL()
-                imageURLCache[trimmed] = downloadURL
+                cache(downloadURL, forRawKey: trimmed, storagePath: trimmed)
                 return downloadURL
             } catch {
                 print("[SocialViewModel] Failed to resolve relative storage path \(trimmed):", error.localizedDescription)
             }
+        }
+
+        return nil
+    }
+
+    private func refreshedFirebaseDownloadURL(for url: URL, cacheKey: String) async -> URL? {
+        guard let storagePath = firebaseStoragePath(from: url) else {
+            return nil
+        }
+
+        if let cached = imageURLCache[storagePath] {
+            imageURLCache[cacheKey] = cached
+            return cached
+        }
+
+        do {
+            let downloadURL = try await storage.reference(withPath: storagePath).downloadURL()
+            cache(downloadURL, forRawKey: cacheKey, storagePath: storagePath)
+            return downloadURL
+        } catch {
+            print("[SocialViewModel] Failed to refresh Firebase download URL for \(storagePath):", error.localizedDescription)
+            return nil
+        }
+    }
+
+    private func cache(_ url: URL, forRawKey rawKey: String, storagePath: String?) {
+        imageURLCache[rawKey] = url
+        if let storagePath {
+            imageURLCache[storagePath] = url
+        }
+    }
+
+    private func firebaseStoragePath(from url: URL) -> String? {
+        guard let host = url.host?.lowercased() else { return nil }
+
+        if host.contains("firebasestorage.googleapis.com") {
+            guard let range = url.path.range(of: "/o/") else { return nil }
+            let encodedPath = String(url.path[range.upperBound...])
+            return encodedPath.removingPercentEncoding ?? encodedPath
+        }
+
+        if host == "storage.googleapis.com" {
+            let trimmedPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            let components = trimmedPath.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true)
+            guard components.count == 2 else { return nil }
+            return String(components[1])
+        }
+
+        if host.hasSuffix(".appspot.com") || host.hasSuffix(".firebasestorage.app") {
+            let trimmedPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return trimmedPath.isEmpty ? nil : trimmedPath
         }
 
         return nil
