@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFirestore
+import FirebaseStorage
 
 enum FriendListTab: String, CaseIterable, Identifiable {
     case followers
@@ -29,7 +30,9 @@ final class SocialViewModel: ObservableObject {
     private var delayTasks: [UUID: Task<Void, Never>] = [:]
     private let activityDelay: UInt64 = 70 * 1_000_000_000 // ~70 seconds
     private let db = Firestore.firestore()
+    private let storage = Storage.storage()
     private var hasLoadedFromFirestore = false
+    private var imageURLCache: [String: URL] = [:]
 
     init(useMockData: Bool = false) {
         if useMockData {
@@ -96,9 +99,9 @@ final class SocialViewModel: ObservableObject {
         pendingEvents[event.id] = event
         delayTasks[event.id]?.cancel()
         delayTasks[event.id] = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: activityDelay)
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: self.activityDelay)
             await MainActor.run {
-                guard let self = self else { return }
                 self.pendingEvents[event.id] = nil
                 self.activityLog.insert(event, at: 0)
                 self.trimActivityLog()
@@ -157,7 +160,7 @@ final class SocialViewModel: ObservableObject {
                         try document.data(as: ItemModel.self)
                     }
 
-                    var (user, enrichedItems) = buildSocialUser(
+                    var (user, enrichedItems) = await buildSocialUser(
                         from: userModel,
                         userID: documentID,
                         items: itemModels
@@ -195,9 +198,10 @@ final class SocialViewModel: ObservableObject {
         from userModel: UserModel,
         userID: String,
         items: [ItemModel]
-    ) -> (SocialUser, [(ItemModel, SocialBucketItem)]) {
-        let enrichedItems = items.map { item -> (ItemModel, SocialBucketItem) in
-            let imageURL = item.imageUrls.first.flatMap { URL(string: $0) }
+    ) async -> (SocialUser, [(ItemModel, SocialBucketItem)]) {
+        var enrichedItems: [(ItemModel, SocialBucketItem)] = []
+        for item in items {
+            let imageURL = await resolveFirstImageURL(from: item.imageUrls)
             let blurbSource = item.description?.trimmingCharacters(in: .whitespacesAndNewlines)
             let resolvedBlurb: String
             if let blurb = blurbSource, !blurb.isEmpty {
@@ -218,7 +222,7 @@ final class SocialViewModel: ObservableObject {
                 blurb: resolvedBlurb
             )
 
-            return (item, socialItem)
+            enrichedItems.append((item, socialItem))
         }
 
         let socialItems = enrichedItems.map { $0.1 }
@@ -273,5 +277,103 @@ final class SocialViewModel: ObservableObject {
             let timestamp = item.completed ? (item.dueDate ?? item.creationDate) : item.creationDate
             return ActivityEvent(user: user, item: socialItem, type: type, timestamp: timestamp)
         }
+    }
+
+    private func resolveFirstImageURL(from urlStrings: [String]) async -> URL? {
+        for raw in urlStrings {
+            if let resolved = await resolveImageURL(from: raw) {
+                return resolved
+            }
+        }
+        return nil
+    }
+
+    private func resolveImageURL(from rawString: String) async -> URL? {
+        let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let cached = imageURLCache[trimmed] {
+            return cached
+        }
+
+        if let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            if let refreshed = await refreshedFirebaseDownloadURL(for: url, cacheKey: trimmed) {
+                return refreshed
+            }
+
+            imageURLCache[trimmed] = url
+            return url
+        }
+
+        if trimmed.hasPrefix("gs://") {
+            do {
+                let downloadURL = try await storage.reference(forURL: trimmed).downloadURL()
+                cache(downloadURL, forRawKey: trimmed, storagePath: nil)
+                return downloadURL
+            } catch {
+                print("[SocialViewModel] Failed to resolve storage URL \(trimmed):", error.localizedDescription)
+            }
+        } else if !trimmed.contains("://") {
+            do {
+                let downloadURL = try await storage.reference(withPath: trimmed).downloadURL()
+                cache(downloadURL, forRawKey: trimmed, storagePath: trimmed)
+                return downloadURL
+            } catch {
+                print("[SocialViewModel] Failed to resolve relative storage path \(trimmed):", error.localizedDescription)
+            }
+        }
+
+        return nil
+    }
+
+    private func refreshedFirebaseDownloadURL(for url: URL, cacheKey: String) async -> URL? {
+        guard let storagePath = firebaseStoragePath(from: url) else {
+            return nil
+        }
+
+        if let cached = imageURLCache[storagePath] {
+            imageURLCache[cacheKey] = cached
+            return cached
+        }
+
+        do {
+            let downloadURL = try await storage.reference(withPath: storagePath).downloadURL()
+            cache(downloadURL, forRawKey: cacheKey, storagePath: storagePath)
+            return downloadURL
+        } catch {
+            print("[SocialViewModel] Failed to refresh Firebase download URL for \(storagePath):", error.localizedDescription)
+            return nil
+        }
+    }
+
+    private func cache(_ url: URL, forRawKey rawKey: String, storagePath: String?) {
+        imageURLCache[rawKey] = url
+        if let storagePath {
+            imageURLCache[storagePath] = url
+        }
+    }
+
+    private func firebaseStoragePath(from url: URL) -> String? {
+        guard let host = url.host?.lowercased() else { return nil }
+
+        if host.contains("firebasestorage.googleapis.com") {
+            guard let range = url.path.range(of: "/o/") else { return nil }
+            let encodedPath = String(url.path[range.upperBound...])
+            return encodedPath.removingPercentEncoding ?? encodedPath
+        }
+
+        if host == "storage.googleapis.com" {
+            let trimmedPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            let components = trimmedPath.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true)
+            guard components.count == 2 else { return nil }
+            return String(components[1])
+        }
+
+        if host.hasSuffix(".appspot.com") || host.hasSuffix(".firebasestorage.app") {
+            let trimmedPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return trimmedPath.isEmpty ? nil : trimmedPath
+        }
+
+        return nil
     }
 }

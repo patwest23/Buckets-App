@@ -471,7 +471,7 @@ class ListViewModel: ObservableObject {
         do {
             let data = try Data(contentsOf: fileURL)
             let storageRef = Storage.storage().reference()
-                .child("users/\(userId)/item-\(attachment.itemID.uuidString)/\(attachment.id.uuidString).jpg")
+                .child("users/\(userId)/item-images/\(attachment.itemID.uuidString)/\(attachment.id.uuidString).jpg")
             let metadata = StorageMetadata()
             metadata.contentType = "image/jpeg"
             try await storageRef.putDataAsync(data, metadata: metadata)
@@ -550,22 +550,28 @@ class ListViewModel: ObservableObject {
     private func clearRemoteImages(for itemID: UUID) async {
         guard let userId = userId else { return }
 
-        let itemFolderRef = Storage.storage().reference()
-            .child("users/\(userId)/item-\(itemID.uuidString)")
+        let userRoot = Storage.storage().reference().child("users/\(userId)")
+        let modernFolder = userRoot.child("item-images/\(itemID.uuidString)")
+        let legacyFolder = userRoot.child("item-\(itemID.uuidString)")
 
+        await deleteStorageFolder(modernFolder, context: "item-images")
+        await deleteStorageFolder(legacyFolder, context: "legacy-item")
+    }
+
+    private func deleteStorageFolder(_ folderRef: StorageReference, context: String) async {
         do {
-            let listResult = try await itemFolderRef.listAll()
+            let listResult = try await folderRef.listAll()
             for itemRef in listResult.items {
                 do {
                     try await itemRef.delete()
                 } catch {
-                    print("[ListViewModel] Failed to delete storage item: \(error.localizedDescription)")
+                    print("[ListViewModel] Failed to delete storage item (\(context)): \(error.localizedDescription)")
                 }
             }
         } catch {
             let nsError = error as NSError
             if nsError.domain != StorageErrorDomain || StorageErrorCode(rawValue: nsError.code) != .objectNotFound {
-                print("[ListViewModel] clearRemoteImages error: \(error.localizedDescription)")
+                print("[ListViewModel] clearRemoteImages (\(context)) error: \(error.localizedDescription)")
             }
         }
     }
