@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+               1F2F55A33012345600ABCDE0 /* ProfileAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F2F55A23012345600ABCDE0 /* ProfileAvatarView.swift */; };
 		1F18B6BA2D5934090005DF5F /* FullScreenCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */; };
 		1FB0C0A32F9D2E9800AA55AA /* CarouselImageSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */; };
 		1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F234B222D21DAE7000DF507 /* UserViewModel.swift */; };
@@ -58,6 +59,7 @@ BA233B721E7D4B3497D4C697 /* SocialModels.swift in Sources */ = {isa = PBXBuildFi
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+               1F2F55A23012345600ABCDE0 /* ProfileAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarView.swift; sourceTree = "<group>"; };
 		1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullScreenCarouselView.swift; sourceTree = "<group>"; };
 		1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarouselImageSource.swift; sourceTree = "<group>"; };
 		1F234B222D21DAE7000DF507 /* UserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserViewModel.swift; sourceTree = "<group>"; };
@@ -122,10 +124,11 @@ DC32A2E68C514EA7A0BBB7FD /* UserListView.swift */ = {isa = PBXFileReference; las
 
 /* Begin PBXGroup section */
 1F62F07729E27ABA00C107CD /* User */ = {
-isa = PBXGroup;
-children = (
-1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */,
-1FCD29332D62849E0022E4CB /* SettingsView.swift */,
+                isa = PBXGroup;
+                children = (
+                       1F2F55A23012345600ABCDE0 /* ProfileAvatarView.swift */,
+                        1FE7B0C82D73ED0900D7BDC1 /* NewUserNameView.swift */,
+                        1FCD29332D62849E0022E4CB /* SettingsView.swift */,
 1F815C8D29ECA08B000063D3 /* HomeView.swift */,
 1FE006E72A10541200B0A6D7 /* ProfileView.swift */,
 6F3D8844C97E4F9C8CB571E9 /* FriendListView.swift */,
@@ -338,10 +341,11 @@ sourceTree = "<group>";
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		1FED1A0529E20B2E00868BAC /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+                1FED1A0529E20B2E00868BAC /* Sources */ = {
+                        isa = PBXSourcesBuildPhase;
+                        buildActionMask = 2147483647;
+                        files = (
+                               1F2F55A33012345600ABCDE0 /* ProfileAvatarView.swift in Sources */,
 				1FE7B0C92D73ED1100D7BDC1 /* NewUserNameView.swift in Sources */,
 				1FED1A1F29E20C1500868BAC /* LogInView.swift in Sources */,
 				1F234B232D21DAE7000DF507 /* UserViewModel.swift in Sources */,
