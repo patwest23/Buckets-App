@@ -47,6 +47,9 @@ struct FriendListView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Friends")
+        .onAppear {
+            socialViewModel.bootstrapIfNeeded()
+        }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -62,7 +65,7 @@ struct FriendListView: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
-            TextField("Search followers", text: $searchText)
+            TextField("Search people", text: $searchText)
                 .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
                 .focused($isSearchFocused)
@@ -135,7 +138,7 @@ struct FriendListView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationStack {
             FriendListView(initialTab: .following)
-                .environmentObject(SocialViewModel())
+                .environmentObject(SocialViewModel(useMockData: true))
         }
     }
 }

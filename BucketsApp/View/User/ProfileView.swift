@@ -419,7 +419,7 @@ struct ProfileView_Previews: PreviewProvider {
         let mockOnboardingVM = OnboardingViewModel()
         let mockListVM = ListViewModel()
         let mockUserVM = UserViewModel()
-        let mockSocialVM = SocialViewModel()
+        let mockSocialVM = SocialViewModel(useMockData: true)
         
         mockListVM.items = [
             ItemModel(userId: "abc", name: "Bucket 1", completed: false),

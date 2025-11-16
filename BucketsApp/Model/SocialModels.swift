@@ -39,6 +39,7 @@ struct SocialBucketItem: Identifiable, Hashable {
 
 struct SocialUser: Identifiable, Hashable {
     let id: UUID
+    let firebaseUserID: String
     var username: String
     var displayName: String
     var email: String
@@ -51,6 +52,7 @@ struct SocialUser: Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
+        firebaseUserID: String = UUID().uuidString,
         username: String,
         displayName: String,
         email: String,
@@ -62,6 +64,7 @@ struct SocialUser: Identifiable, Hashable {
         isFollower: Bool = false
     ) {
         self.id = id
+        self.firebaseUserID = firebaseUserID
         self.username = username
         self.displayName = displayName
         self.email = email
@@ -127,6 +130,7 @@ extension SocialUser {
 
         return [
             SocialUser(
+                firebaseUserID: UUID().uuidString,
                 username: "@patwest",
                 displayName: "Pat West",
                 email: "pat@example.com",
@@ -138,6 +142,7 @@ extension SocialUser {
                 isFollower: true
             ),
             SocialUser(
+                firebaseUserID: UUID().uuidString,
                 username: "@wanderlux",
                 displayName: "Jess Summers",
                 email: "jess@example.com",
@@ -149,6 +154,7 @@ extension SocialUser {
                 isFollower: false
             ),
             SocialUser(
+                firebaseUserID: UUID().uuidString,
                 username: "@kitetom",
                 displayName: "Tom Lee",
                 email: "tom@example.com",
@@ -160,6 +166,7 @@ extension SocialUser {
                 isFollower: true
             ),
             SocialUser(
+                firebaseUserID: UUID().uuidString,
                 username: "@heyamelia",
                 displayName: "Amelia Chen",
                 email: "amelia@example.com",

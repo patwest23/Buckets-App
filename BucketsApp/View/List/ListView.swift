@@ -187,6 +187,9 @@ struct ListView: View {
                     .padding()
             }
         }
+        .task {
+            socialViewModel.bootstrapIfNeeded()
+        }
     }
     
     // MARK: - Main Content
@@ -502,7 +505,7 @@ struct ListView_Previews: PreviewProvider {
         
         let mockOnboardingVM = OnboardingViewModel()
         let mockUserVM = UserViewModel()
-        let mockSocialVM = SocialViewModel()
+        let mockSocialVM = SocialViewModel(useMockData: true)
 
         return Group {
             // 1) Empty scenario
