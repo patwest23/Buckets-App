@@ -15,7 +15,6 @@ struct FullScreenCarouselView: View {
     let dateCompleted: Date?
 
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var listViewModel: ListViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     @GestureState private var dragTranslation: CGFloat = 0
@@ -157,18 +156,16 @@ struct FullScreenCarouselView: View {
             .background(dynamicBackground)
             .ignoresSafeArea()
         case .remote(let urlStr):
-            if let cached = listViewModel.imageCache[urlStr] {
-                PinchZoomImage(
-                    image: Image(uiImage: cached)
-                        .resizable()
-                )
-                .background(dynamicBackground)
-                .ignoresSafeArea()
+            if let url = URL(string: urlStr) {
+                RemoteZoomableImage(url: url, background: dynamicBackground)
+                    .ignoresSafeArea()
             } else {
-                VStack(spacing: 16) {
-                    ProgressView("Loading image...")
-                    Text("Pull down to close")
-                        .font(.caption)
+                VStack(spacing: 12) {
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("Invalid image URL")
+                        .font(.headline)
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -181,6 +178,44 @@ struct FullScreenCarouselView: View {
     private func opacity(for translation: CGFloat) -> Double {
         let distance = min(abs(translation), 200)
         return Double(1 - (distance / 400))
+    }
+}
+
+private struct RemoteZoomableImage: View {
+    let url: URL
+    let background: Color
+
+    var body: some View {
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .empty:
+                VStack(spacing: 12) {
+                    ProgressView("Loading image...")
+                    Text("Pull down to close")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(background)
+            case .success(let image):
+                PinchZoomImage(image: image)
+                    .background(background)
+            case .failure:
+                VStack(spacing: 12) {
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.system(size: 48))
+                    Text("Image failed to load")
+                        .font(.headline)
+                }
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(background)
+            @unknown default:
+                EmptyView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(background)
+            }
+        }
     }
 }
 

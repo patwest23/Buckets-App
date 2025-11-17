@@ -4,7 +4,7 @@ struct UserListView: View {
     let user: SocialUser
     var highlightedItemID: UUID?
 
-    @State private var selectedImage: RemoteImageToken?
+    @State private var carouselPresentation: CarouselPresentation?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -27,8 +27,15 @@ struct UserListView: View {
                 }
             }
         }
-        .fullScreenCover(item: $selectedImage) { token in
-            RemoteImageViewer(token: token)
+        .fullScreenCover(item: $carouselPresentation) { config in
+            FullScreenCarouselView(
+                images: config.images,
+                initialIndex: config.initialIndex,
+                itemName: config.itemTitle,
+                isCompleted: config.isCompleted,
+                location: config.locationDescription,
+                dateCompleted: config.completionDate
+            )
         }
     }
 
@@ -89,8 +96,16 @@ struct UserListView: View {
             } else {
                 LazyVStack(spacing: 16) {
                     ForEach(user.listItems) { item in
-                        PublicItemRow(item: item) { token in
-                            selectedImage = token
+                        PublicItemRow(item: item) { tappedIndex in
+                            let carouselImages = item.imageURLs.map { CarouselImageSource.remote($0.absoluteString) }
+                            carouselPresentation = CarouselPresentation(
+                                images: carouselImages,
+                                initialIndex: tappedIndex,
+                                itemTitle: item.title,
+                                isCompleted: item.isCompleted,
+                                locationDescription: item.locationDescription,
+                                completionDate: item.completionDate
+                            )
                         }
                         .id(item.id)
                         .overlay(
@@ -122,57 +137,59 @@ struct UserListView: View {
 
 private struct PublicItemRow: View {
     let item: SocialBucketItem
-    let onImageTap: (RemoteImageToken) -> Void
+    let onImageTap: (Int) -> Void
+
+    private let imageCellSize: CGFloat = 90
+    private let spacing: CGFloat = 6
+
+    private var formattedCompletionDate: String? {
+        guard let date = item.completionDate else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(item.isCompleted ? .accentColor : .secondary)
-                VStack(alignment: .leading, spacing: 4) {
+
+                VStack(alignment: .leading, spacing: 6) {
                     Text(item.title)
                         .font(.headline)
+
                     Text(item.blurb)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+
+                    if formattedCompletionDate != nil || (item.locationDescription?.isEmpty == false) {
+                        HStack(spacing: 8) {
+                            if let formattedCompletionDate {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "calendar")
+                                    Text(formattedCompletionDate)
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
+
+                            if let location = item.locationDescription, !location.isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "mappin.and.ellipse")
+                                    Text(location)
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
+                        }
+                    }
                 }
                 Spacer()
             }
 
-            if let url = item.imageURL {
-                Button {
-                    onImageTap(RemoteImageToken(url: url))
-                } label: {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView().frame(maxWidth: .infinity, minHeight: 140)
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 180)
-                                .clipped()
-                                .cornerRadius(14)
-                        case .failure:
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color(.systemGray5))
-                                .frame(height: 180)
-                                .overlay(
-                                    VStack(spacing: 8) {
-                                        Image(systemName: "wifi.slash")
-                                        Text("Image unavailable")
-                                            .font(.footnote)
-                                    }
-                                    .foregroundColor(.secondary)
-                                )
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
+            if !item.imageURLs.isEmpty {
+                imageGrid
             }
         }
         .padding(16)
@@ -181,50 +198,64 @@ private struct PublicItemRow: View {
                 .fill(Color(.secondarySystemGroupedBackground))
         )
     }
-}
 
-private struct RemoteImageToken: Identifiable, Hashable {
-    let url: URL
-    var id: URL { url }
-}
+    private var imageGrid: some View {
+        let columns = Array(repeating: GridItem(.fixed(imageCellSize), spacing: spacing), count: 3)
 
-private struct RemoteImageViewer: View {
-    let token: RemoteImageToken
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.black.ignoresSafeArea()
-            AsyncImage(url: token.url) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.black)
-                case .failure:
-                    VStack(spacing: 12) {
-                        Image(systemName: "wifi.exclamationmark")
-                        Text("Could not load image")
+        return LazyVGrid(columns: columns, spacing: spacing) {
+            ForEach(Array(item.imageURLs.enumerated()), id: \.offset) { index, url in
+                RemoteGridThumbnail(url: url)
+                    .onTapGesture {
+                        onImageTap(index)
                     }
-                    .foregroundColor(.white)
-                @unknown default:
-                    EmptyView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Button(action: { dismiss() }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.white)
-                    .padding()
             }
         }
     }
+}
+
+private struct RemoteGridThumbnail: View {
+    let url: URL
+
+    private let size: CGFloat = 90
+
+    var body: some View {
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .empty:
+                ProgressView()
+                    .frame(width: size, height: size)
+                    .background(Color(.systemGray5))
+            case .success(let image):
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipped()
+            case .failure:
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemGray5))
+                    .overlay(
+                        Image(systemName: "wifi.slash")
+                            .foregroundColor(.secondary)
+                    )
+                    .frame(width: size, height: size)
+            @unknown default:
+                EmptyView()
+                    .frame(width: size, height: size)
+            }
+        }
+        .cornerRadius(10)
+    }
+}
+
+private struct CarouselPresentation: Identifiable {
+    let id = UUID()
+    let images: [CarouselImageSource]
+    let initialIndex: Int
+    let itemTitle: String
+    let isCompleted: Bool
+    let locationDescription: String?
+    let completionDate: Date?
 }
 
 struct UserListView_Previews: PreviewProvider {

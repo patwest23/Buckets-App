@@ -201,7 +201,7 @@ final class SocialViewModel: ObservableObject {
     ) async -> (SocialUser, [(ItemModel, SocialBucketItem)]) {
         var enrichedItems: [(ItemModel, SocialBucketItem)] = []
         for item in items {
-            let imageURL = await resolveFirstImageURL(from: item.imageUrls)
+            let resolvedImages = await resolveImageURLs(from: item.imageUrls)
             let blurbSource = item.description?.trimmingCharacters(in: .whitespacesAndNewlines)
             let resolvedBlurb: String
             if let blurb = blurbSource, !blurb.isEmpty {
@@ -218,8 +218,10 @@ final class SocialViewModel: ObservableObject {
                 id: item.id,
                 title: item.name.isEmpty ? "Untitled bucket" : item.name,
                 isCompleted: item.completed,
-                imageURL: imageURL,
-                blurb: resolvedBlurb
+                imageURLs: resolvedImages,
+                blurb: resolvedBlurb,
+                locationDescription: item.location?.address,
+                completionDate: item.dueDate
             )
 
             enrichedItems.append((item, socialItem))
@@ -279,13 +281,14 @@ final class SocialViewModel: ObservableObject {
         }
     }
 
-    private func resolveFirstImageURL(from urlStrings: [String]) async -> URL? {
+    private func resolveImageURLs(from urlStrings: [String]) async -> [URL] {
+        var resolved: [URL] = []
         for raw in urlStrings {
-            if let resolved = await resolveImageURL(from: raw) {
-                return resolved
+            if let url = await resolveImageURL(from: raw) {
+                resolved.append(url)
             }
         }
-        return nil
+        return resolved
     }
 
     private func resolveImageURL(from rawString: String) async -> URL? {
