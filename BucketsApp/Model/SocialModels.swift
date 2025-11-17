@@ -25,15 +25,27 @@ struct SocialBucketItem: Identifiable, Hashable {
     let id: UUID
     var title: String
     var isCompleted: Bool
-    var imageURL: URL?
+    var imageURLs: [URL]
     var blurb: String
+    var locationDescription: String?
+    var completionDate: Date?
 
-    init(id: UUID = UUID(), title: String, isCompleted: Bool, imageURL: URL? = nil, blurb: String) {
+    init(
+        id: UUID = UUID(),
+        title: String,
+        isCompleted: Bool,
+        imageURLs: [URL] = [],
+        blurb: String,
+        locationDescription: String? = nil,
+        completionDate: Date? = nil
+    ) {
         self.id = id
         self.title = title
         self.isCompleted = isCompleted
-        self.imageURL = imageURL
+        self.imageURLs = imageURLs
         self.blurb = blurb
+        self.locationDescription = locationDescription
+        self.completionDate = completionDate
     }
 }
 
@@ -132,8 +144,10 @@ extension SocialUser {
                 SocialBucketItem(
                     title: "\(base) adventure #\(index + 1)",
                     isCompleted: index % 2 == 0,
-                    imageURL: imageURLs[index % imageURLs.count],
-                    blurb: blurbs[index % blurbs.count]
+                    imageURLs: Array(imageURLs.shuffled().prefix(Int.random(in: 1...3))),
+                    blurb: blurbs[index % blurbs.count],
+                    locationDescription: index % 2 == 0 ? "Downtown Loft" : "Seaside Cliff",
+                    completionDate: index % 2 == 0 ? Calendar.current.date(byAdding: .day, value: -index, to: Date()) : nil
                 )
             }
         }
