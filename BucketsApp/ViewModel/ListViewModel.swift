@@ -40,7 +40,11 @@ class ListViewModel: ObservableObject {
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
-    private var listenerRegistration: ListenerRegistration?
+    private var ownerListener: ListenerRegistration?
+    private var sharedListener: ListenerRegistration?
+    private var currentUsername: String?
+    private var ownerItemsCache: [ItemModel] = []
+    private var sharedItemsCache: [ItemModel] = []
     
     private var userId: String? {
         Auth.auth().currentUser?.uid
@@ -56,15 +60,19 @@ class ListViewModel: ObservableObject {
     
     deinit {
         print("[ListViewModel] deinit called.")
-        listenerRegistration?.remove()
-        listenerRegistration = nil
+        ownerListener?.remove()
+        sharedListener?.remove()
+        ownerListener = nil
+        sharedListener = nil
         print("[ListViewModel] Stopped listening to items.")
     }
-    
+
     // MARK: - Stop Real-Time Listening
     func stopListeningToItems() {
-        listenerRegistration?.remove()
-        listenerRegistration = nil
+        ownerListener?.remove()
+        sharedListener?.remove()
+        ownerListener = nil
+        sharedListener = nil
         print("[ListViewModel] Stopped listening to items.")
     }
     
@@ -74,24 +82,36 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] loadItems: userId is nil (not authenticated).")
             return
         }
-        
+
         do {
-            let snapshot = try await db
+            let resolvedUsername = try await fetchUsernameIfNeeded(for: userId)
+
+            let ownerSnapshot = try await db
                 .collection("users")
                 .document(userId)
                 .collection("items")
                 .getDocuments()
-            
-            let fetchedItems = try snapshot.documents.compactMap {
+
+            let ownerItems = try ownerSnapshot.documents.compactMap {
                 try $0.data(as: ItemModel.self)
             }
-            
-            self.items = fetchedItems
+
+            var sharedItems: [ItemModel] = []
+            if let resolvedUsername, !resolvedUsername.isEmpty {
+                let sharedSnapshot = try await db
+                    .collectionGroup("items")
+                    .whereField("sharedWithUsernames", arrayContains: resolvedUsername)
+                    .getDocuments()
+
+                sharedItems = try sharedSnapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+            }
+
+            ownerItemsCache = ownerItems
+            sharedItemsCache = sharedItems
+            applyMergedItems()
+
             print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
-            sortItems()
-            
-            await prefetchItemImages()
-            
+
         } catch {
             print("[ListViewModel] loadItems error:", error.localizedDescription)
         }
@@ -103,41 +123,97 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] startListeningToItems: userId is nil (not authenticated).")
             return
         }
-        
+
         stopListeningToItems()
-        
+        Task {
+            do {
+                let resolvedUsername = try await fetchUsernameIfNeeded(for: userId)
+                await MainActor.run { self.attachOwnerListener(for: userId) }
+                if let resolvedUsername, !resolvedUsername.isEmpty {
+                    await MainActor.run { self.attachSharedListener(for: resolvedUsername) }
+                }
+            } catch {
+                print("[ListViewModel] startListeningToItems username fetch error:", error.localizedDescription)
+            }
+        }
+    }
+
+
+    private func fetchUsernameIfNeeded(for userId: String) async throws -> String? {
+        if let currentUsername { return currentUsername }
+
+        let userDoc = try await db.collection("users").document(userId).getDocument()
+        if userDoc.exists {
+            let model = try userDoc.data(as: UserModel.self)
+            currentUsername = model.username
+        }
+        return currentUsername
+    }
+
+    private func attachOwnerListener(for userId: String) {
         let collectionRef = db
             .collection("users")
             .document(userId)
             .collection("items")
-        
-        listenerRegistration = collectionRef.addSnapshotListener { [weak self] snapshot, error in
+
+        ownerListener = collectionRef.addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
-            
+
             if let error = error {
                 print("[ListViewModel] startListeningToItems error:", error.localizedDescription)
                 return
             }
             guard let snapshot = snapshot else { return }
-            
+
             do {
-                let fetched = try snapshot.documents.compactMap {
-                    try $0.data(as: ItemModel.self)
-                }
-                self.items = fetched
+                self.ownerItemsCache = try snapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+                self.applyMergedItems()
                 print("[ListViewModel] startListeningToItems: Received \(self.items.count) items")
-                self.sortItems()
-                
-                Task {
-                    await self.prefetchItemImages()
-                }
-                
             } catch {
                 print("[ListViewModel] Decoding error:", error.localizedDescription)
             }
         }
     }
-    
+
+    private func attachSharedListener(for username: String) {
+        sharedListener = db
+            .collectionGroup("items")
+            .whereField("sharedWithUsernames", arrayContains: username)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    print("[ListViewModel] shared listener error:", error.localizedDescription)
+                    return
+                }
+
+                guard let snapshot else { return }
+
+                do {
+                    self.sharedItemsCache = try snapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+                    self.applyMergedItems()
+                } catch {
+                    print("[ListViewModel] shared listener decode error:", error.localizedDescription)
+                }
+            }
+    }
+
+    private func applyMergedItems() {
+        var combined: [ItemModel] = []
+        var seen: Set<String> = []
+
+        for item in ownerItemsCache + sharedItemsCache {
+            let key = "\(item.userId)|\(item.id)"
+            if seen.insert(key).inserted {
+                combined.append(item)
+            }
+        }
+
+        items = combined
+        sortItems()
+        Task { await prefetchItemImages() }
+    }
+
     
     // MARK: - Add or Update
     func addOrUpdateItem(_ item: ItemModel) {
