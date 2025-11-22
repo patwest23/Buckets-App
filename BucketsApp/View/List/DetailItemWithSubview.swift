@@ -20,7 +20,7 @@ struct DetailItemWithSubview: View {
 
     var body: some View {
         DetailSectionCard(title: "With", systemImage: "person.2") {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 instructionRow
 
                 usernameChips
@@ -48,11 +48,13 @@ struct DetailItemWithSubview: View {
     }
 
     private var usernameChips: some View {
-        FlexibleChipContainer(alignment: .leading, spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], alignment: .leading, spacing: 10) {
             ForEach(usernames, id: \.self) { username in
                 tagChip(for: username)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .padding(.top, 2)
     }
 
     private func tagChip(for username: String) -> some View {
@@ -155,40 +157,5 @@ struct DetailItemWithSubview: View {
         onAddUsername(trimmed)
         inputText = ""
         isFocused = false
-    }
-}
-
-/// A lightweight flexible container that lays out chip-like content across lines.
-struct FlexibleChipContainer<Content: View>: View {
-    var alignment: HorizontalAlignment
-    var spacing: CGFloat
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            var x: CGFloat = 0
-            var y: CGFloat = 0
-
-            ZStack(alignment: Alignment(horizontal: alignment, vertical: .top)) {
-                content
-                    .alignmentGuide(.leading) { dimension in
-                        if (abs(x - dimension.width) > width) {
-                            x = 0
-                            y -= dimension.height + spacing
-                        }
-                        let result = x
-                        if dimension.width < width {
-                            x -= dimension.width + spacing
-                        }
-                        return result
-                    }
-                    .alignmentGuide(.top) { _ in
-                        let result = y
-                        return result
-                    }
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 10)
     }
 }
