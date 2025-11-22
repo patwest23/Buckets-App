@@ -297,7 +297,7 @@ class ListViewModel: ObservableObject {
     }
     
     private func prefetchImages(for item: ItemModel) async {
-        for urlStr in item.imageUrls {
+        for urlStr in item.allImageUrls {
             if imageCache[urlStr] != nil {
                 continue
             }

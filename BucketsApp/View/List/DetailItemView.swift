@@ -11,6 +11,7 @@ import PhotosUI
 enum DetailItemField: Hashable {
     case title
     case location
+    case sharedWith
 }
 
 @MainActor
@@ -18,6 +19,7 @@ struct DetailItemView: View {
     // MARK: - Environment
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var socialViewModel: SocialViewModel
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - View model
@@ -60,7 +62,11 @@ struct DetailItemView: View {
                 viewModel.updateImagePicker(using: pending)
             }
             .onAppear {
-                viewModel.configureDependencies(bucketListViewModel: bucketListViewModel, onboardingViewModel: onboardingViewModel)
+                viewModel.configureDependencies(
+                    bucketListViewModel: bucketListViewModel,
+                    onboardingViewModel: onboardingViewModel,
+                    socialViewModel: socialViewModel
+                )
                 viewModel.refreshCurrentItemFromList(focusedField: focusedField)
                 viewModel.updateImagePicker(using: bucketListViewModel.pendingLocalImages)
             }
@@ -112,6 +118,18 @@ struct DetailItemView: View {
                 isCompleted: viewModel.currentItem.completed,
                 imageUrls: viewModel.currentItem.imageUrls
             )
+
+            DetailItemWithSubview(
+                usernames: $viewModel.sharedWithUsernames,
+                inputText: $viewModel.sharedWithText,
+                maxUserCount: 3,
+                suggestions: viewModel.sharedWithSuggestions,
+                isShowingSuggestions: viewModel.isShowingSharedSuggestions,
+                onTextChange: viewModel.handleSharedWithChange(_:),
+                onAddUsername: viewModel.addSharedUser(_:),
+                onRemoveUsername: viewModel.removeSharedUser(_:)
+            )
+            .id(DetailItemField.sharedWith)
 
             DetailItemLocationSubview(
                 locationText: Binding(

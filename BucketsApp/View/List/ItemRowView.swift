@@ -43,7 +43,7 @@ struct ItemRowView: View {
     private let cardCornerRadius: CGFloat = 12
     private let cardPadding: CGFloat = 8
     private let cardShadowRadius: CGFloat = 4
-    private let imageCellSize: CGFloat = 80
+    private let imageCellSize: CGFloat = 96
     private let spacing: CGFloat = 6
 
     @State private var showFullScreenGallery = false
@@ -52,8 +52,8 @@ struct ItemRowView: View {
     var body: some View {
         let pendingImages = bucketListViewModel.pendingLocalImages[item.id] ?? []
         let pendingToDisplay = Array(pendingImages.prefix(3))
-        let remainingSlots = max(0, 3 - pendingToDisplay.count)
-        let remoteUrlsToDisplay = Array(item.imageUrls.prefix(remainingSlots))
+        let remainingSlots = max(0, 12 - pendingToDisplay.count)
+        let remoteUrlsToDisplay = Array(item.allImageUrls.prefix(remainingSlots))
 
         HStack(alignment: .top, spacing: 8) {
             Button(action: toggleCompleted) {
@@ -93,8 +93,9 @@ struct ItemRowView: View {
                 if displayMode == .detailed {
                     let completionText = completionDescription
                     let locationText = locationDescription
+                    let sharedText = sharedWithDescription
 
-                    if completionText != nil || locationText != nil {
+                    if completionText != nil || locationText != nil || sharedText != nil {
                         HStack(spacing: 8) {
                             if let completionText {
                                 HStack(spacing: 4) {
@@ -113,16 +114,24 @@ struct ItemRowView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             }
+
+                            if let sharedText {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "person.2")
+                                    Text(sharedText)
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if hasImages(pendingToDisplay: pendingToDisplay, remoteUrls: remoteUrlsToDisplay) {
-                        imageGrid(
+                        imageCarousel(
                             pendingAll: pendingImages,
-                            pendingToDisplay: pendingToDisplay,
                             remoteDisplay: remoteUrlsToDisplay,
-                            remoteAll: item.imageUrls
+                            remoteAll: item.allImageUrls
                         )
                     }
                 }
@@ -238,45 +247,48 @@ extension ItemRowView {
         return ItemRowView.dateFormatter.string(from: date)
     }
 
+    private var sharedWithDescription: String? {
+        guard !item.sharedWithUsernames.isEmpty else { return nil }
+        return item.sharedWithUsernames.joined(separator: ", ")
+    }
+
     private func hasImages(pendingToDisplay: [UIImage], remoteUrls: [String]) -> Bool {
         !pendingToDisplay.isEmpty || !remoteUrls.isEmpty
     }
 
     @ViewBuilder
-    private func imageGrid(
+    private func imageCarousel(
         pendingAll: [UIImage],
-        pendingToDisplay: [UIImage],
         remoteDisplay: [String],
         remoteAll: [String]
     ) -> some View {
-        let columns = Array(
-            repeating: GridItem(.fixed(imageCellSize), spacing: spacing),
-            count: 3
-        )
+        let remoteLimit = max(0, 12 - pendingAll.count)
+        let displayedRemote = Array(remoteDisplay.prefix(remoteLimit))
+        let carouselRemote = Array(remoteAll.prefix(remoteLimit))
 
-        let gridImages = makeCarouselImages(
-            pendingToDisplay: pendingToDisplay,
-            remoteUrls: remoteDisplay
+        let thumbnailSources = makeCarouselImages(
+            pendingToDisplay: pendingAll,
+            remoteUrls: displayedRemote
         )
 
         let carouselImages = makeCarouselImages(
             pendingToDisplay: pendingAll,
-            remoteUrls: remoteAll
+            remoteUrls: carouselRemote
         )
 
-        LazyVGrid(columns: columns, spacing: spacing) {
-            ForEach(Array(gridImages.enumerated()), id: \.offset) { gridIndex, imageSource in
-                gridThumbnail(for: imageSource)
-                    .onTapGesture {
-                        selectedImageIndex = mapGridIndexToCarouselIndex(
-                            gridIndex: gridIndex,
-                            pendingDisplayCount: pendingToDisplay.count,
-                            pendingAllCount: pendingAll.count
-                        )
-                        showFullScreenGallery = true
-                    }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing) {
+                ForEach(Array(thumbnailSources.enumerated()), id: \.offset) { index, imageSource in
+                    carouselThumbnail(for: imageSource)
+                        .onTapGesture {
+                            selectedImageIndex = index
+                            showFullScreenGallery = true
+                        }
+                }
             }
+            .padding(.vertical, 4)
         }
+        .frame(height: imageCellSize + 8)
         .fullScreenCover(isPresented: $showFullScreenGallery) {
             FullScreenCarouselView(
                 images: carouselImages,
@@ -296,31 +308,18 @@ extension ItemRowView {
     ) -> [CarouselImageSource] {
         let localImages = pendingToDisplay.map { CarouselImageSource.local($0) }
         let remoteImages = remoteUrls.map { CarouselImageSource.remote($0) }
-        return localImages + remoteImages
-    }
-
-    private func mapGridIndexToCarouselIndex(
-        gridIndex: Int,
-        pendingDisplayCount: Int,
-        pendingAllCount: Int
-    ) -> Int {
-        if gridIndex < pendingDisplayCount {
-            return gridIndex
-        }
-
-        let remoteGridIndex = gridIndex - pendingDisplayCount
-        return pendingAllCount + remoteGridIndex
+        return Array(localImages.prefix(3)) + remoteImages
     }
 
     @ViewBuilder
-    private func gridThumbnail(for imageSource: CarouselImageSource) -> some View {
+    private func carouselThumbnail(for imageSource: CarouselImageSource) -> some View {
         switch imageSource {
         case .local(let uiImage):
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()
                 .frame(width: imageCellSize, height: imageCellSize)
-                .cornerRadius(8)
+                .cornerRadius(10)
                 .clipped()
         case .remote(let urlStr):
             if let uiImage = bucketListViewModel.imageCache[urlStr] {
@@ -328,13 +327,13 @@ extension ItemRowView {
                     .resizable()
                     .scaledToFill()
                     .frame(width: imageCellSize, height: imageCellSize)
-                    .cornerRadius(8)
+                    .cornerRadius(10)
                     .clipped()
             } else {
                 ProgressView()
                     .frame(width: imageCellSize, height: imageCellSize)
                     .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+                    .cornerRadius(10)
             }
         }
     }

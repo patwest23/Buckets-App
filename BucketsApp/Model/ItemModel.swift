@@ -51,9 +51,13 @@ struct ItemModel: Codable, Identifiable, Hashable {
     var completed: Bool     // If `true`, item is marked as complete.
     var orderIndex: Int     // Custom order index, useful for manual reordering in a list.
     var creationDate: Date  // When the item was created.
-    
+
     /// Stores URLs (as strings) that point to images in Firebase Storage or elsewhere on the web.
     var imageUrls: [String]
+    /// Stores URLs contributed by collaborators on shared list items.
+    var sharedImageUrls: [String]
+    /// Usernames (prefixed with "@") that this item has been shared with.
+    var sharedWithUsernames: [String]
 
     // MARK: - Initializer
     init(
@@ -71,7 +75,9 @@ struct ItemModel: Codable, Identifiable, Hashable {
         completed: Bool = false,
         orderIndex: Int = 0,
         creationDate: Date = Date(),
-        imageUrls: [String] = []
+        imageUrls: [String] = [],
+        sharedImageUrls: [String] = [],
+        sharedWithUsernames: [String] = []
     ) {
         self.id = id
         self.userId = userId
@@ -88,9 +94,26 @@ struct ItemModel: Codable, Identifiable, Hashable {
         self.orderIndex = orderIndex
         self.creationDate = creationDate
         self.imageUrls = imageUrls
+        self.sharedImageUrls = sharedImageUrls
+        self.sharedWithUsernames = sharedWithUsernames
     }
 
     // MARK: - Computed Properties
+
+    /// Combines the current user's images with any collaborator images, removing duplicates while
+    /// preserving order.
+    var allImageUrls: [String] {
+        var seen = Set<String>()
+        var combined: [String] = []
+
+        for url in imageUrls + sharedImageUrls {
+            if seen.insert(url).inserted {
+                combined.append(url)
+            }
+        }
+
+        return combined
+    }
 
     /// Returns `true` if `url` is a valid URL scheme that can be opened on this platform.
     var isValidUrl: Bool {

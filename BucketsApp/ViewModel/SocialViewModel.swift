@@ -201,7 +201,7 @@ final class SocialViewModel: ObservableObject {
     ) async -> (SocialUser, [(ItemModel, SocialBucketItem)]) {
         var enrichedItems: [(ItemModel, SocialBucketItem)] = []
         for item in items {
-            let resolvedImages = await resolveImageURLs(from: item.imageUrls)
+            let resolvedImages = await resolveImageURLs(from: item.allImageUrls)
             let blurbSource = item.description?.trimmingCharacters(in: .whitespacesAndNewlines)
             let resolvedBlurb: String
             if let blurb = blurbSource, !blurb.isEmpty {
