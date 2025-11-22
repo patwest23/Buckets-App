@@ -3,6 +3,7 @@ import SwiftUI
 struct DetailItemWithSubview: View {
     @Binding var usernames: [String]
     @Binding var inputText: String
+    @Binding var isDeleteMode: Bool
 
     let maxUserCount: Int
     let suggestions: [String]
@@ -12,7 +13,6 @@ struct DetailItemWithSubview: View {
     let onRemoveUsername: (String) -> Void
 
     @FocusState private var isFocused: Bool
-    @State private var isDeleteMode = false
 
     private var hasRoomForMore: Bool {
         usernames.count < maxUserCount

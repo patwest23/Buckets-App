@@ -25,6 +25,9 @@ struct DetailItemView: View {
     // MARK: - View model
     @StateObject private var viewModel: DetailItemViewModel
 
+    // MARK: - Interaction state
+    @State private var isWithDeleteMode = false
+
     // MARK: - Sheets & Alerts
     @State private var showDateCreatedSheet = false
     @State private var showDateCompletedSheet = false
@@ -44,6 +47,13 @@ struct DetailItemView: View {
             ScrollView {
                 scrollContent
             }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    if isWithDeleteMode {
+                        withAnimation { isWithDeleteMode = false }
+                    }
+                }
+            )
             .scrollDismissesKeyboard(.interactively)
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Details")
@@ -122,6 +132,7 @@ struct DetailItemView: View {
             DetailItemWithSubview(
                 usernames: $viewModel.sharedWithUsernames,
                 inputText: $viewModel.sharedWithText,
+                isDeleteMode: $isWithDeleteMode,
                 maxUserCount: 3,
                 suggestions: viewModel.sharedWithSuggestions,
                 isShowingSuggestions: viewModel.isShowingSharedSuggestions,
