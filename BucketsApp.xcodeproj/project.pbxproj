@@ -39,6 +39,7 @@
             1FD222242EAD000100000001 /* DetailItemItemSubview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD222232EAD000100000001 /* DetailItemItemSubview.swift */; };
             1FD222262EAD000100000001 /* DetailItemPhotosSubview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD222252EAD000100000001 /* DetailItemPhotosSubview.swift */; };
             1FD222282EAD000100000001 /* DetailItemLocationSubview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD222272EAD000100000001 /* DetailItemLocationSubview.swift */; };
+            1FD2222A2EAD000100000001 /* DetailItemWithSubview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FD222292EAD000100000001 /* DetailItemWithSubview.swift */; };
             1FE006E82A10541200B0A6D7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE006E72A10541200B0A6D7 /* ProfileView.swift */; };
                 1FE0EB8429EB577F007D16A6 /* OnBoardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */; };
                 1FE6B36B29E65E5200C6B59A /* ItemRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */; };
@@ -87,6 +88,7 @@ BA233B721E7D4B3497D4C697 /* SocialModels.swift in Sources */ = {isa = PBXBuildFi
             1FD222232EAD000100000001 /* DetailItemItemSubview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemItemSubview.swift; sourceTree = "<group>"; };
             1FD222252EAD000100000001 /* DetailItemPhotosSubview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemPhotosSubview.swift; sourceTree = "<group>"; };
             1FD222272EAD000100000001 /* DetailItemLocationSubview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemLocationSubview.swift; sourceTree = "<group>"; };
+            1FD222292EAD000100000001 /* DetailItemWithSubview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailItemWithSubview.swift; sourceTree = "<group>"; };
             1FE006E72A10541200B0A6D7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
                 1FE0EB8329EB577F007D16A6 /* OnBoardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnBoardingViewModel.swift; sourceTree = "<group>"; };
                 1FE6B36A29E65E5200C6B59A /* ItemRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRowView.swift; sourceTree = "<group>"; };
@@ -255,8 +257,9 @@ sourceTree = "<group>";
                                 1FD222232EAD000100000001 /* DetailItemItemSubview.swift */,
                                 1FD222252EAD000100000001 /* DetailItemPhotosSubview.swift */,
                                 1FD222272EAD000100000001 /* DetailItemLocationSubview.swift */,
+                                1FD222292EAD000100000001 /* DetailItemWithSubview.swift */,
                                 1F18B6B92D5934090005DF5F /* FullScreenCarouselView.swift */,
-				1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */,
+                                1FB0C0A22F9D2E9800AA55AA /* CarouselImageSource.swift */,
                                 1FCD29312D62709F0022E4CB /* PinchZoomImage.swift */,
                         );
 			path = List;
@@ -359,6 +362,7 @@ sourceTree = "<group>";
                                 1FD222242EAD000100000001 /* DetailItemItemSubview.swift in Sources */,
                                 1FD222262EAD000100000001 /* DetailItemPhotosSubview.swift in Sources */,
                                 1FD222282EAD000100000001 /* DetailItemLocationSubview.swift in Sources */,
+                                1FD2222A2EAD000100000001 /* DetailItemWithSubview.swift in Sources */,
                                 1FAAA3922B53425A007C7A26 /* UpdateEmailView.swift in Sources */,
 				1FFDC43F2D4FF2EB00DD087F /* UpdateUserNameView.swift in Sources */,
 1FCD29342D6284A70022E4CB /* SettingsView.swift in Sources */,
