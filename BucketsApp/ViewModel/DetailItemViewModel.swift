@@ -78,6 +78,8 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     @Published var skipSaveOnDisappear = false
     @Published var locationSuggestions: [LocationSuggestion] = []
     @Published var isShowingLocationSuggestions = false
+    @Published private(set) var personalImageUrls: [String] = []
+    @Published private(set) var canEditPhotos: Bool = true
 
     // MARK: - Sub view models
     let imagePickerViewModel: ImagePickerViewModel
@@ -115,6 +117,7 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     func configureDependencies(bucketListViewModel: ListViewModel, onboardingViewModel _: OnboardingViewModel, socialViewModel: SocialViewModel) {
         self.bucketListViewModel = bucketListViewModel
         self.socialViewModel = socialViewModel
+        resolveImagePermissions()
         refreshSharedSuggestions()
     }
 
@@ -139,6 +142,8 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         if sharedWithText.isEmpty {
             refreshSharedSuggestions()
         }
+
+        resolveImagePermissions()
 
         if creationDate != updatedItem.creationDate {
             creationDate = updatedItem.creationDate
@@ -166,6 +171,7 @@ final class DetailItemViewModel: NSObject, ObservableObject {
 
         guard currentItem.completed else { return }
         guard let bucketListViewModel else { return }
+        guard canEditPhotos else { return }
 
         currentItem.imageUrls = []
 
@@ -351,6 +357,18 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         saveTitle()
         saveLocation()
         saveSharedWith()
+    }
+
+    private func resolveImagePermissions() {
+        guard let bucketListViewModel else { return }
+        let isOwner = bucketListViewModel.isOwnedByCurrentUser(currentItem)
+        canEditPhotos = isOwner
+
+        if isOwner {
+            personalImageUrls = currentItem.imageUrls
+        } else {
+            personalImageUrls = currentItem.sharedImageUrls
+        }
     }
 
     private func saveTitle() {

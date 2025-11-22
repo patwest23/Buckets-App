@@ -126,7 +126,8 @@ struct DetailItemView: View {
             DetailItemPhotosSubview(
                 imagePickerViewModel: viewModel.imagePickerViewModel,
                 isCompleted: viewModel.currentItem.completed,
-                imageUrls: viewModel.currentItem.imageUrls
+                imageUrls: viewModel.personalImageUrls,
+                canEdit: viewModel.canEditPhotos
             )
 
             DetailItemWithSubview(

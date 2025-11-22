@@ -49,6 +49,11 @@ class ListViewModel: ObservableObject {
     private var userId: String? {
         Auth.auth().currentUser?.uid
     }
+
+    // MARK: - Ownership helpers
+    func isOwnedByCurrentUser(_ item: ItemModel) -> Bool {
+        item.userId == userId
+    }
     
     // MARK: - Initialization
     init() {
