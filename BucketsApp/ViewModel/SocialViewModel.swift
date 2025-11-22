@@ -147,6 +147,7 @@ final class SocialViewModel: ObservableObject {
 
             var loadedUsers: [SocialUser] = []
             var newActivityEvents: [ActivityEvent] = []
+            var userBundles: [(SocialUser, [(ItemModel, SocialBucketItem)])] = []
 
             for userDocument in snapshot.documents {
                 let documentID = userDocument.documentID
@@ -169,12 +170,21 @@ final class SocialViewModel: ObservableObject {
                         user.isFollowing = true
                     }
 
-                    let events = buildActivityEvents(for: user, enrichedItems: enrichedItems)
-                    newActivityEvents.append(contentsOf: events)
+                    userBundles.append((user, enrichedItems))
                     loadedUsers.append(user)
                 } catch {
                     print("[SocialViewModel] Failed to decode user document \(documentID):", error.localizedDescription)
                 }
+            }
+
+            var usernameLookup: [String: SocialUser] = [:]
+            for user in loadedUsers {
+                usernameLookup[user.username.lowercased()] = user
+            }
+
+            for (user, enrichedItems) in userBundles {
+                let events = buildActivityEvents(for: user, enrichedItems: enrichedItems, usernameLookup: usernameLookup)
+                newActivityEvents.append(contentsOf: events)
             }
 
             followers = loadedUsers
@@ -272,13 +282,40 @@ final class SocialViewModel: ObservableObject {
 
     private func buildActivityEvents(
         for user: SocialUser,
-        enrichedItems: [(ItemModel, SocialBucketItem)]
+        enrichedItems: [(ItemModel, SocialBucketItem)],
+        usernameLookup: [String: SocialUser]
     ) -> [ActivityEvent] {
-        enrichedItems.map { item, socialItem in
+        var events: [ActivityEvent] = []
+
+        for (item, socialItem) in enrichedItems {
             let type: ActivityEventType = item.completed ? .completed : .added
             let timestamp = item.completed ? (item.dueDate ?? item.creationDate) : item.creationDate
-            return ActivityEvent(user: user, item: socialItem, type: type, timestamp: timestamp)
+            events.append(ActivityEvent(user: user, item: socialItem, type: type, timestamp: timestamp))
+
+            guard item.completed else { continue }
+
+            for collaboratorHandle in item.sharedWithUsernames {
+                let normalizedHandle: String
+                if collaboratorHandle.hasPrefix("@") {
+                    normalizedHandle = collaboratorHandle.lowercased()
+                } else {
+                    normalizedHandle = "@" + collaboratorHandle.lowercased()
+                }
+
+                guard normalizedHandle != user.username.lowercased(),
+                      let collaborator = usernameLookup[normalizedHandle] else { continue }
+
+                let collaboratorEvent = ActivityEvent(
+                    user: collaborator,
+                    item: socialItem,
+                    type: .completed,
+                    timestamp: timestamp
+                )
+                events.append(collaboratorEvent)
+            }
         }
+
+        return events
     }
 
     private func resolveImageURLs(from urlStrings: [String]) async -> [URL] {
