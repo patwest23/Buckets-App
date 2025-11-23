@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
+import FirebaseAuth
 
 enum FriendListTab: String, CaseIterable, Identifiable {
     case followers
@@ -32,6 +33,7 @@ final class SocialViewModel: ObservableObject {
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
     private var hasLoadedFromFirestore = false
+    private var cachedCurrentUserID: String? { Auth.auth().currentUser?.uid }
     private var imageURLCache: [String: URL] = [:]
 
     init(useMockData: Bool = false) {
@@ -75,6 +77,11 @@ final class SocialViewModel: ObservableObject {
     }
 
     func toggleFollow(_ user: SocialUser) {
+        guard let currentUserID = cachedCurrentUserID else {
+            lastErrorMessage = "You need to be signed in to follow users."
+            return
+        }
+
         var updated = user
         updated.isFollowing.toggle()
 
@@ -88,6 +95,10 @@ final class SocialViewModel: ObservableObject {
             }
         } else {
             following.removeAll { $0.id == updated.id }
+        }
+
+        Task {
+            await persistFollowChange(for: updated, currentUserID: currentUserID)
         }
     }
 
@@ -144,9 +155,12 @@ final class SocialViewModel: ObservableObject {
         do {
             let snapshot = try await db.collection("users").getDocuments()
             let previouslyFollowing = Set(following.map { $0.firebaseUserID })
+            let currentUserID = cachedCurrentUserID
 
             var loadedUsers: [SocialUser] = []
             var newActivityEvents: [ActivityEvent] = []
+            var rawUsers: [(userID: String, model: UserModel, items: [ItemModel])] = []
+            var currentUserFollowers: Set<String> = []
 
             for userDocument in snapshot.documents {
                 let documentID = userDocument.documentID
@@ -154,27 +168,59 @@ final class SocialViewModel: ObservableObject {
 
                 do {
                     let userModel = try userDocument.data(as: UserModel.self)
+                    if documentID == currentUserID {
+                        currentUserFollowers = Set(userModel.followers)
+                    }
+
                     let itemsQuery = db.collection("users").document(documentID).collection("items")
                     let itemsSnapshot = try await itemsQuery.getDocuments()
                     let itemModels: [ItemModel] = try itemsSnapshot.documents.compactMap { document in
                         try document.data(as: ItemModel.self)
                     }
 
-                    var (user, enrichedItems) = await buildSocialUser(
-                        from: userModel,
-                        userID: documentID,
-                        items: itemModels
-                    )
-                    if previouslyFollowing.contains(user.firebaseUserID) {
-                        user.isFollowing = true
-                    }
-
-                    let events = buildActivityEvents(for: user, enrichedItems: enrichedItems)
-                    newActivityEvents.append(contentsOf: events)
-                    loadedUsers.append(user)
+                    rawUsers.append((userID: documentID, model: userModel, items: itemModels))
                 } catch {
                     print("[SocialViewModel] Failed to decode user document \(documentID):", error.localizedDescription)
                 }
+            }
+
+            var userBundlesWithLookup: [(SocialUser, [(ItemModel, SocialBucketItem)])] = []
+
+            for raw in rawUsers {
+                let sharedItems = await loadSharedItems(for: raw.model, userID: raw.userID)
+                let combinedItems = merge(items: raw.items, with: sharedItems)
+                var (user, enrichedItems) = await buildSocialUser(
+                    from: raw.model,
+                    userID: raw.userID,
+                    items: combinedItems
+                )
+
+                if previouslyFollowing.contains(user.firebaseUserID) || raw.model.followers.contains(currentUserID ?? "") {
+                    user.isFollowing = true
+                }
+                if currentUserFollowers.contains(user.firebaseUserID) {
+                    user.isFollower = true
+                }
+
+                userBundlesWithLookup.append((user, enrichedItems))
+                loadedUsers.append(user)
+            }
+
+            var usernameLookup: [String: SocialUser] = [:]
+            var userIdLookup: [String: SocialUser] = [:]
+            for user in loadedUsers {
+                usernameLookup[user.username.lowercased()] = user
+                userIdLookup[user.firebaseUserID] = user
+            }
+
+            for (user, enrichedItems) in userBundlesWithLookup {
+                let events = buildActivityEvents(
+                    for: user,
+                    enrichedItems: enrichedItems,
+                    usernameLookup: usernameLookup,
+                    userIdLookup: userIdLookup
+                )
+                newActivityEvents.append(contentsOf: events)
             }
 
             followers = loadedUsers
@@ -201,7 +247,7 @@ final class SocialViewModel: ObservableObject {
     ) async -> (SocialUser, [(ItemModel, SocialBucketItem)]) {
         var enrichedItems: [(ItemModel, SocialBucketItem)] = []
         for item in items {
-            let resolvedImages = await resolveImageURLs(from: item.imageUrls)
+            let resolvedImages = await resolveImageURLs(from: item.allImageUrls)
             let blurbSource = item.description?.trimmingCharacters(in: .whitespacesAndNewlines)
             let resolvedBlurb: String
             if let blurb = blurbSource, !blurb.isEmpty {
@@ -264,7 +310,7 @@ final class SocialViewModel: ObservableObject {
                 stats: stats,
                 listItems: socialItems,
                 isFollowing: false,
-                isFollower: true
+                isFollower: false
             ),
             enrichedItems
         )
@@ -272,12 +318,125 @@ final class SocialViewModel: ObservableObject {
 
     private func buildActivityEvents(
         for user: SocialUser,
-        enrichedItems: [(ItemModel, SocialBucketItem)]
+        enrichedItems: [(ItemModel, SocialBucketItem)],
+        usernameLookup: [String: SocialUser],
+        userIdLookup: [String: SocialUser]
     ) -> [ActivityEvent] {
-        enrichedItems.map { item, socialItem in
+        var events: [ActivityEvent] = []
+        var seen: Set<String> = []
+
+        for (item, socialItem) in enrichedItems {
             let type: ActivityEventType = item.completed ? .completed : .added
             let timestamp = item.completed ? (item.dueDate ?? item.creationDate) : item.creationDate
-            return ActivityEvent(user: user, item: socialItem, type: type, timestamp: timestamp)
+            let key = "\(user.firebaseUserID)|\(socialItem.id)|\(type.rawValue)"
+
+            if seen.insert(key).inserted {
+                events.append(ActivityEvent(user: user, item: socialItem, type: type, timestamp: timestamp))
+            }
+
+            guard item.completed else { continue }
+
+            var participants: [SocialUser] = []
+
+            if let owner = userIdLookup[item.userId] {
+                participants.append(owner)
+            } else {
+                participants.append(user)
+            }
+
+            for collaboratorHandle in item.sharedWithUsernames {
+                let normalizedHandle: String
+                if collaboratorHandle.hasPrefix("@") {
+                    normalizedHandle = collaboratorHandle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                } else {
+                    normalizedHandle = "@" + collaboratorHandle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                }
+
+                guard let collaborator = usernameLookup[normalizedHandle] else { continue }
+                participants.append(collaborator)
+            }
+
+            for participant in participants {
+                let collaboratorKey = "\(participant.firebaseUserID)|\(socialItem.id)|\(type.rawValue)"
+                if seen.insert(collaboratorKey).inserted {
+                    let collaboratorEvent = ActivityEvent(
+                        user: participant,
+                        item: socialItem,
+                        type: .completed,
+                        timestamp: timestamp
+                    )
+                    events.append(collaboratorEvent)
+                }
+            }
+        }
+
+        return events
+    }
+
+    private func loadSharedItems(for userModel: UserModel, userID: String) async -> [ItemModel] {
+        guard let username = userModel.username?.trimmingCharacters(in: .whitespacesAndNewlines), !username.isEmpty else {
+            return []
+        }
+
+        let handle = username.hasPrefix("@") ? username : "@" + username
+        let handlesToQuery = Set([handle, handle.lowercased()])
+
+        var merged: [String: ItemModel] = [:]
+
+        for candidate in handlesToQuery {
+            do {
+                let snapshot = try await db
+                    .collectionGroup("items")
+                    .whereField("sharedWithUsernames", arrayContains: candidate)
+                    .getDocuments()
+                let models: [ItemModel] = try snapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+                for item in models {
+                    merged["\(item.userId)|\(item.id)"] = item
+                }
+            } catch {
+                print("[SocialViewModel] Failed to load shared items for user \(userID) using handle \(candidate):", error.localizedDescription)
+            }
+        }
+
+        return Array(merged.values)
+    }
+
+    private func merge(items: [ItemModel], with sharedItems: [ItemModel]) -> [ItemModel] {
+        var merged: [String: ItemModel] = [:]
+
+        for item in items + sharedItems {
+            let key = "\(item.userId)|\(item.id)"
+            merged[key] = item
+        }
+
+        return Array(merged.values)
+    }
+
+    private func persistFollowChange(for user: SocialUser, currentUserID: String) async {
+        let docRef = db.collection("users").document(user.firebaseUserID)
+        do {
+            if user.isFollowing {
+                try await docRef.updateData(["followers": FieldValue.arrayUnion([currentUserID])])
+            } else {
+                try await docRef.updateData(["followers": FieldValue.arrayRemove([currentUserID])])
+            }
+        } catch {
+            await MainActor.run {
+                // Revert optimistic update on failure
+                var reverted = user
+                reverted.isFollowing.toggle()
+                update(user: reverted, in: &followers)
+                update(user: reverted, in: &following)
+                update(user: reverted, in: &explore)
+                if reverted.isFollowing {
+                    if !following.contains(where: { $0.id == reverted.id }) {
+                        following.append(reverted)
+                    }
+                } else {
+                    following.removeAll { $0.id == reverted.id }
+                }
+                lastErrorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -309,14 +468,24 @@ final class SocialViewModel: ObservableObject {
         }
 
         if trimmed.hasPrefix("gs://") {
+            guard let storageURL = URL(string: trimmed), let host = storageURL.host, !host.isEmpty else {
+                print("[SocialViewModel] Skipping malformed storage URL: \(trimmed)")
+                return nil
+            }
+
             do {
-                let downloadURL = try await storage.reference(forURL: trimmed).downloadURL()
+                let downloadURL = try await storage.reference(forURL: storageURL.absoluteString).downloadURL()
                 cache(downloadURL, forRawKey: trimmed, storagePath: nil)
                 return downloadURL
             } catch {
                 print("[SocialViewModel] Failed to resolve storage URL \(trimmed):", error.localizedDescription)
             }
         } else if !trimmed.contains("://") {
+            guard isValidStoragePath(trimmed) else {
+                print("[SocialViewModel] Skipping invalid storage path: \(trimmed)")
+                return nil
+            }
+
             do {
                 let downloadURL = try await storage.reference(withPath: trimmed).downloadURL()
                 cache(downloadURL, forRawKey: trimmed, storagePath: trimmed)
@@ -354,6 +523,14 @@ final class SocialViewModel: ObservableObject {
         if let storagePath {
             imageURLCache[storagePath] = url
         }
+    }
+
+    private func isValidStoragePath(_ raw: String) -> Bool {
+        let disallowed = CharacterSet.whitespacesAndNewlines
+        guard !raw.isEmpty, raw.rangeOfCharacter(from: disallowed) == nil else { return false }
+        // Firebase paths cannot start or end with a slash and cannot contain consecutive slashes.
+        if raw.hasPrefix("/") || raw.hasSuffix("/") || raw.contains("//") { return false }
+        return true
     }
 
     private func firebaseStoragePath(from url: URL) -> String? {

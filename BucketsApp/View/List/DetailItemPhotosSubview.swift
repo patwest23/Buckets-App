@@ -6,6 +6,7 @@ struct DetailItemPhotosSubview: View {
     @ObservedObject var imagePickerViewModel: ImagePickerViewModel
     let isCompleted: Bool
     let imageUrls: [String]
+    let canEdit: Bool
 
     var body: some View {
         DetailSectionCard(title: "Photos", systemImage: "photo.on.rectangle") {
@@ -26,10 +27,14 @@ struct DetailItemPhotosSubview: View {
                     }
                     .font(.body)
                 }
-                .disabled(!isCompleted)
-                .opacity(isCompleted ? 1 : 0.4)
+                .disabled(!isCompleted || !canEdit)
+                .opacity((isCompleted && canEdit) ? 1 : 0.4)
 
-                if !isCompleted {
+                if !canEdit {
+                    Text("Only your own photos can be managed here.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if !isCompleted {
                     Text("Mark as completed to attach photos.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

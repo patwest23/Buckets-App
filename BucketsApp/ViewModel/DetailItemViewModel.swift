@@ -70,15 +70,24 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     @Published private(set) var lastSavedCreationDate: Date
     @Published private(set) var lastSavedCompletionDate: Date?
     @Published private(set) var lastSavedCompleted: Bool
+    @Published private(set) var lastSavedSharedWith: [String]
+    @Published var sharedWithUsernames: [String]
+    @Published var sharedWithText: String = ""
+    @Published var sharedWithSuggestions: [String] = []
+    @Published var isShowingSharedSuggestions = false
     @Published var skipSaveOnDisappear = false
     @Published var locationSuggestions: [LocationSuggestion] = []
     @Published var isShowingLocationSuggestions = false
+    @Published private(set) var personalImageUrls: [String] = []
+    @Published private(set) var canEditPhotos: Bool = true
 
     // MARK: - Sub view models
     let imagePickerViewModel: ImagePickerViewModel
     private var shouldProcessPickerImages = false
     private let searchCompleter: MKLocalSearchCompleter
     private var isApplyingLocationSuggestion = false
+    private let maxSharedUsers = 3
+    private var socialViewModel: SocialViewModel?
 
     // MARK: - Init
     init(item: ItemModel) {
@@ -95,6 +104,8 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         self.lastSavedCreationDate = item.creationDate
         self.lastSavedCompletionDate = item.dueDate
         self.lastSavedCompleted = item.completed
+        self.lastSavedSharedWith = item.sharedWithUsernames
+        self.sharedWithUsernames = item.sharedWithUsernames
         self.imagePickerViewModel = ImagePickerViewModel()
         self.searchCompleter = MKLocalSearchCompleter()
         self.searchCompleter.resultTypes = [.address, .pointOfInterest]
@@ -103,8 +114,11 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     }
 
     // MARK: - Configuration
-    func configureDependencies(bucketListViewModel: ListViewModel, onboardingViewModel _: OnboardingViewModel) {
+    func configureDependencies(bucketListViewModel: ListViewModel, onboardingViewModel _: OnboardingViewModel, socialViewModel: SocialViewModel) {
         self.bucketListViewModel = bucketListViewModel
+        self.socialViewModel = socialViewModel
+        resolveImagePermissions()
+        refreshSharedSuggestions()
     }
 
     // MARK: - Public actions
@@ -123,6 +137,13 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         if focusedField != .location {
             locationText = updatedAddress
         }
+
+        sharedWithUsernames = updatedItem.sharedWithUsernames
+        if sharedWithText.isEmpty {
+            refreshSharedSuggestions()
+        }
+
+        resolveImagePermissions()
 
         if creationDate != updatedItem.creationDate {
             creationDate = updatedItem.creationDate
@@ -150,11 +171,19 @@ final class DetailItemViewModel: NSObject, ObservableObject {
 
         guard currentItem.completed else { return }
         guard let bucketListViewModel else { return }
+        guard canEditPhotos else { return }
 
-        currentItem.imageUrls = []
+        let isOwner = bucketListViewModel.isOwnedByCurrentUser(currentItem)
+        let destination: ListViewModel.ImageDestination = isOwner ? .owned : .shared
+
+        if isOwner {
+            currentItem.imageUrls = []
+        } else {
+            currentItem.sharedImageUrls = []
+        }
 
         Task {
-            await bucketListViewModel.replaceImages(with: newImages, for: currentItem.id)
+            await bucketListViewModel.replaceImages(with: newImages, for: currentItem.id, destination: destination)
             await MainActor.run {
                 self.imagePickerViewModel.imageSelections = []
                 if newImages.isEmpty {
@@ -208,6 +237,38 @@ final class DetailItemViewModel: NSObject, ObservableObject {
             loc.address = newValue.isEmpty ? nil : newValue
             currentItem.location = newValue.isEmpty ? nil : loc
         }
+    }
+
+    func handleSharedWithChange(_ newValue: String) {
+        let normalized = normalizeUsernameInput(newValue)
+        sharedWithText = normalized
+        refreshSharedSuggestions()
+    }
+
+    func addSharedUser(_ rawValue: String) {
+        let normalized = normalizedUsername(rawValue)
+        guard !normalized.isEmpty else { return }
+        guard !sharedWithUsernames.contains(where: { $0.caseInsensitiveCompare(normalized) == .orderedSame }) else {
+            sharedWithText = ""
+            refreshSharedSuggestions()
+            return
+        }
+        guard sharedWithUsernames.count < maxSharedUsers else { return }
+
+        sharedWithUsernames.append(normalized)
+        currentItem.sharedWithUsernames = sharedWithUsernames
+        lastSavedSharedWith = sharedWithUsernames
+        bucketListViewModel?.addOrUpdateItem(currentItem)
+        sharedWithText = ""
+        refreshSharedSuggestions()
+    }
+
+    func removeSharedUser(_ username: String) {
+        sharedWithUsernames.removeAll { $0.caseInsensitiveCompare(username) == .orderedSame }
+        currentItem.sharedWithUsernames = sharedWithUsernames
+        lastSavedSharedWith = sharedWithUsernames
+        bucketListViewModel?.addOrUpdateItem(currentItem)
+        refreshSharedSuggestions()
     }
 
     func commitAndDismiss(dismiss: DismissAction) {
@@ -302,6 +363,20 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     private func commitEdits() {
         saveTitle()
         saveLocation()
+        saveSharedWith()
+    }
+
+    private func resolveImagePermissions() {
+        guard let bucketListViewModel else { return }
+        let isOwner = bucketListViewModel.isOwnedByCurrentUser(currentItem)
+        let isCollaborator = bucketListViewModel.isCurrentUserCollaborator(currentItem)
+        canEditPhotos = isOwner || isCollaborator
+
+        if isOwner {
+            personalImageUrls = currentItem.imageUrls
+        } else {
+            personalImageUrls = currentItem.sharedImageUrls
+        }
     }
 
     private func saveTitle() {
@@ -360,6 +435,11 @@ final class DetailItemViewModel: NSObject, ObservableObject {
             currentItem.dueDate = nil
             completionDate = lastSavedCreationDate
         }
+
+        sharedWithUsernames = lastSavedSharedWith
+        currentItem.sharedWithUsernames = lastSavedSharedWith
+        sharedWithText = ""
+        refreshSharedSuggestions()
     }
 
     func updateImagePicker(using pendingImages: [UUID: [UIImage]]) {
@@ -416,6 +496,57 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         locationText = displayText
         clearLocationSuggestions()
         saveLocation()
+    }
+
+    private func saveSharedWith() {
+        guard sharedWithUsernames != lastSavedSharedWith else { return }
+        currentItem.sharedWithUsernames = sharedWithUsernames
+        bucketListViewModel?.addOrUpdateItem(currentItem)
+        lastSavedSharedWith = sharedWithUsernames
+    }
+
+    private func refreshSharedSuggestions() {
+        guard let socialViewModel else {
+            sharedWithSuggestions = []
+            isShowingSharedSuggestions = false
+            return
+        }
+
+        let query = sharedWithText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            sharedWithSuggestions = Array(socialViewModel.following.map { $0.username }.prefix(3))
+            isShowingSharedSuggestions = !sharedWithSuggestions.isEmpty
+            return
+        }
+
+        let lowercasedQuery = query.lowercased()
+        let results = socialViewModel.following
+            .map { $0.username }
+            .filter { username in
+                username.lowercased().contains(lowercasedQuery)
+            }
+            .filter { candidate in
+                !sharedWithUsernames.contains { $0.caseInsensitiveCompare(candidate) == .orderedSame }
+            }
+        sharedWithSuggestions = Array(results.prefix(3))
+        isShowingSharedSuggestions = !sharedWithSuggestions.isEmpty
+    }
+
+    private func normalizeUsernameInput(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sanitized = trimmed.replacingOccurrences(of: " ", with: "")
+        if sanitized.isEmpty { return "" }
+        if sanitized.hasPrefix("@") { return sanitized }
+        return "@" + sanitized
+    }
+
+    private func normalizedUsername(_ value: String) -> String {
+        var normalized = normalizeUsernameInput(value)
+        if normalized.count <= 1 { return "" }
+        if normalized.count > 30 {
+            normalized = String(normalized.prefix(30))
+        }
+        return normalized
     }
 }
 

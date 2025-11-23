@@ -40,10 +40,36 @@ class ListViewModel: ObservableObject {
     
     // MARK: - Firestore
     private let db = Firestore.firestore()
-    private var listenerRegistration: ListenerRegistration?
+    private var ownerListener: ListenerRegistration?
+    private var sharedListener: ListenerRegistration?
+    private var currentUsername: String?
+    private var ownerItemsCache: [ItemModel] = []
+    private var sharedItemsCache: [ItemModel] = []
+    private var attachmentDestinations: [UUID: ImageDestination] = [:]
     
     private var userId: String? {
         Auth.auth().currentUser?.uid
+    }
+
+    enum ImageDestination {
+        case owned
+        case shared
+    }
+
+    // MARK: - Ownership helpers
+    func isOwnedByCurrentUser(_ item: ItemModel) -> Bool {
+        item.userId == userId
+    }
+
+    func isCurrentUserCollaborator(_ item: ItemModel) -> Bool {
+        guard let handle = currentUsername?.trimmingCharacters(in: .whitespacesAndNewlines), !handle.isEmpty else {
+            return false
+        }
+
+        let normalized = handle.hasPrefix("@") ? handle.lowercased() : "@" + handle.lowercased()
+        return item.sharedWithUsernames.contains { candidate in
+            candidate.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+        }
     }
     
     // MARK: - Initialization
@@ -56,15 +82,19 @@ class ListViewModel: ObservableObject {
     
     deinit {
         print("[ListViewModel] deinit called.")
-        listenerRegistration?.remove()
-        listenerRegistration = nil
+        ownerListener?.remove()
+        sharedListener?.remove()
+        ownerListener = nil
+        sharedListener = nil
         print("[ListViewModel] Stopped listening to items.")
     }
-    
+
     // MARK: - Stop Real-Time Listening
     func stopListeningToItems() {
-        listenerRegistration?.remove()
-        listenerRegistration = nil
+        ownerListener?.remove()
+        sharedListener?.remove()
+        ownerListener = nil
+        sharedListener = nil
         print("[ListViewModel] Stopped listening to items.")
     }
     
@@ -74,24 +104,36 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] loadItems: userId is nil (not authenticated).")
             return
         }
-        
+
         do {
-            let snapshot = try await db
+            let resolvedUsername = try await fetchUsernameIfNeeded(for: userId)
+
+            let ownerSnapshot = try await db
                 .collection("users")
                 .document(userId)
                 .collection("items")
                 .getDocuments()
-            
-            let fetchedItems = try snapshot.documents.compactMap {
+
+            let ownerItems = try ownerSnapshot.documents.compactMap {
                 try $0.data(as: ItemModel.self)
             }
-            
-            self.items = fetchedItems
+
+            var sharedItems: [ItemModel] = []
+            if let resolvedUsername, !resolvedUsername.isEmpty {
+                let sharedSnapshot = try await db
+                    .collectionGroup("items")
+                    .whereField("sharedWithUsernames", arrayContains: resolvedUsername)
+                    .getDocuments()
+
+                sharedItems = try sharedSnapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+            }
+
+            ownerItemsCache = ownerItems
+            sharedItemsCache = sharedItems
+            applyMergedItems()
+
             print("[ListViewModel] loadItems: Fetched \(items.count) items for userId: \(userId)")
-            sortItems()
-            
-            await prefetchItemImages()
-            
+
         } catch {
             print("[ListViewModel] loadItems error:", error.localizedDescription)
         }
@@ -103,41 +145,97 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] startListeningToItems: userId is nil (not authenticated).")
             return
         }
-        
+
         stopListeningToItems()
-        
+        Task {
+            do {
+                let resolvedUsername = try await fetchUsernameIfNeeded(for: userId)
+                await MainActor.run { self.attachOwnerListener(for: userId) }
+                if let resolvedUsername, !resolvedUsername.isEmpty {
+                    await MainActor.run { self.attachSharedListener(for: resolvedUsername) }
+                }
+            } catch {
+                print("[ListViewModel] startListeningToItems username fetch error:", error.localizedDescription)
+            }
+        }
+    }
+
+
+    private func fetchUsernameIfNeeded(for userId: String) async throws -> String? {
+        if let currentUsername { return currentUsername }
+
+        let userDoc = try await db.collection("users").document(userId).getDocument()
+        if userDoc.exists {
+            let model = try userDoc.data(as: UserModel.self)
+            currentUsername = model.username
+        }
+        return currentUsername
+    }
+
+    private func attachOwnerListener(for userId: String) {
         let collectionRef = db
             .collection("users")
             .document(userId)
             .collection("items")
-        
-        listenerRegistration = collectionRef.addSnapshotListener { [weak self] snapshot, error in
+
+        ownerListener = collectionRef.addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
-            
+
             if let error = error {
                 print("[ListViewModel] startListeningToItems error:", error.localizedDescription)
                 return
             }
             guard let snapshot = snapshot else { return }
-            
+
             do {
-                let fetched = try snapshot.documents.compactMap {
-                    try $0.data(as: ItemModel.self)
-                }
-                self.items = fetched
+                self.ownerItemsCache = try snapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+                self.applyMergedItems()
                 print("[ListViewModel] startListeningToItems: Received \(self.items.count) items")
-                self.sortItems()
-                
-                Task {
-                    await self.prefetchItemImages()
-                }
-                
             } catch {
                 print("[ListViewModel] Decoding error:", error.localizedDescription)
             }
         }
     }
-    
+
+    private func attachSharedListener(for username: String) {
+        sharedListener = db
+            .collectionGroup("items")
+            .whereField("sharedWithUsernames", arrayContains: username)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+
+                if let error = error {
+                    print("[ListViewModel] shared listener error:", error.localizedDescription)
+                    return
+                }
+
+                guard let snapshot else { return }
+
+                do {
+                    self.sharedItemsCache = try snapshot.documents.compactMap { try $0.data(as: ItemModel.self) }
+                    self.applyMergedItems()
+                } catch {
+                    print("[ListViewModel] shared listener decode error:", error.localizedDescription)
+                }
+            }
+    }
+
+    private func applyMergedItems() {
+        var combined: [ItemModel] = []
+        var seen: Set<String> = []
+
+        for item in ownerItemsCache + sharedItemsCache {
+            let key = "\(item.userId)|\(item.id)"
+            if seen.insert(key).inserted {
+                combined.append(item)
+            }
+        }
+
+        items = combined
+        sortItems()
+        Task { await prefetchItemImages() }
+    }
+
     
     // MARK: - Add or Update
     func addOrUpdateItem(_ item: ItemModel) {
@@ -205,6 +303,37 @@ class ListViewModel: ObservableObject {
             print("[ListViewModel] persistImageURLs: Saved \(urls.count) image URLs for item \(itemID).")
         } catch {
             print("[ListViewModel] persistImageURLs error:", error.localizedDescription)
+        }
+    }
+
+    func persistSharedImageURLs(_ urls: [String], for itemID: UUID, ownerID: String?) async {
+        guard let ownerID else {
+            print("[ListViewModel] persistSharedImageURLs: ownerID missing for item \(itemID)")
+            return
+        }
+
+        let trimmedOwnerID = ownerID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedOwnerID.isEmpty else {
+            print("[ListViewModel] persistSharedImageURLs: ownerID empty for item \(itemID); skipping write to avoid invalid document path")
+            return
+        }
+
+        let docRef = db
+            .collection("users")
+            .document(trimmedOwnerID)
+            .collection("items")
+            .document(itemID.uuidString)
+
+        do {
+            try await docRef.setData(["sharedImageUrls": urls], merge: true)
+
+            if let index = items.firstIndex(where: { $0.id == itemID }) {
+                items[index].sharedImageUrls = urls
+            }
+
+            print("[ListViewModel] persistSharedImageURLs: Saved \(urls.count) shared images for item \(itemID).")
+        } catch {
+            print("[ListViewModel] persistSharedImageURLs error:", error.localizedDescription)
         }
     }
     
@@ -297,7 +426,7 @@ class ListViewModel: ObservableObject {
     }
     
     private func prefetchImages(for item: ItemModel) async {
-        for urlStr in item.imageUrls {
+        for urlStr in item.allImageUrls {
             if imageCache[urlStr] != nil {
                 continue
             }
@@ -319,11 +448,11 @@ class ListViewModel: ObservableObject {
     }
 
     // MARK: - Attachments
-    func stageImagesForUpload(_ images: [UIImage], for itemID: UUID) async {
+    func stageImagesForUpload(_ images: [UIImage], for itemID: UUID, destination: ImageDestination = .owned) async {
         guard !images.isEmpty else { return }
         guard let item = getItem(by: itemID), item.completed else { return }
 
-        let availableSlots = await availableSlotsForNewAttachments(itemID: itemID)
+        let availableSlots = await availableSlotsForNewAttachments(itemID: itemID, destination: destination)
         guard availableSlots > 0 else {
             print("[ListViewModel] stageImagesForUpload: no available slots for item \(itemID)")
             return
@@ -337,6 +466,7 @@ class ListViewModel: ObservableObject {
             do {
                 let attachment = try await attachmentStore.createAttachment(for: itemID, imageData: data)
                 newAttachments.append(attachment)
+                attachmentDestinations[attachment.id] = destination
             } catch {
                 print("[ListViewModel] stageImagesForUpload: failed to create attachment:", error.localizedDescription)
             }
@@ -358,15 +488,15 @@ class ListViewModel: ObservableObject {
         }
     }
 
-    func replaceImages(with newImages: [UIImage], for itemID: UUID) async {
+    func replaceImages(with newImages: [UIImage], for itemID: UUID, destination: ImageDestination = .owned) async {
         guard let item = getItem(by: itemID) else { return }
         guard item.completed else { return }
 
-        await removeExistingImages(for: itemID)
+        await removeExistingImages(for: itemID, destination: destination)
 
         guard !newImages.isEmpty else { return }
 
-        await stageImagesForUpload(newImages, for: itemID)
+        await stageImagesForUpload(newImages, for: itemID, destination: destination)
     }
 
     private func initializeAttachmentState() async {
@@ -385,8 +515,14 @@ class ListViewModel: ObservableObject {
         }
     }
 
-    private func availableSlotsForNewAttachments(itemID: UUID) async -> Int {
-        let remoteCount = getItem(by: itemID)?.imageUrls.count ?? 0
+    private func availableSlotsForNewAttachments(itemID: UUID, destination: ImageDestination) async -> Int {
+        let remoteCount: Int
+        switch destination {
+        case .owned:
+            remoteCount = getItem(by: itemID)?.imageUrls.count ?? 0
+        case .shared:
+            remoteCount = getItem(by: itemID)?.sharedImageUrls.count ?? 0
+        }
         let existingAttachments = await attachmentStore.attachments(for: itemID)
         let pendingCount = existingAttachments.filter { $0.status != .synced }.count
         return max(0, 3 - remoteCount - pendingCount)
@@ -404,6 +540,7 @@ class ListViewModel: ObservableObject {
     @MainActor
     private func removeUploadTask(for attachmentID: UUID) {
         uploadTasks.removeValue(forKey: attachmentID)
+        attachmentDestinations.removeValue(forKey: attachmentID)
     }
 
     @MainActor
@@ -483,7 +620,8 @@ class ListViewModel: ObservableObject {
                 await cacheImage(image, for: downloadURL.absoluteString)
             }
 
-            await mergeRemoteURL(downloadURL.absoluteString, for: attachment.itemID)
+            let destination = await MainActor.run { self.attachmentDestinations[attachmentID] ?? .owned }
+            await mergeRemoteURL(downloadURL.absoluteString, for: attachment.itemID, destination: destination)
         } catch {
             print("[ListViewModel] performUpload error:", error.localizedDescription)
             await attachmentStore.incrementRetryCount(for: attachmentID)
@@ -502,28 +640,53 @@ class ListViewModel: ObservableObject {
     }
 
     @MainActor
-    private func mergeRemoteURL(_ url: String, for itemID: UUID) {
+    private func mergeRemoteURL(_ url: String, for itemID: UUID, destination: ImageDestination) {
         guard var item = getItem(by: itemID) else { return }
-        if !item.imageUrls.contains(url) {
-            item.imageUrls.append(url)
-            if item.imageUrls.count > 3 {
-                item.imageUrls = Array(item.imageUrls.suffix(3))
+        switch destination {
+        case .owned:
+            if !item.imageUrls.contains(url) {
+                item.imageUrls.append(url)
+                if item.imageUrls.count > 3 {
+                    item.imageUrls = Array(item.imageUrls.suffix(3))
+                }
+                if let index = items.firstIndex(where: { $0.id == itemID }) {
+                    items[index] = item
+                }
+                Task { await self.persistImageURLs(item.imageUrls, for: itemID) }
             }
-            if let index = items.firstIndex(where: { $0.id == itemID }) {
-                items[index] = item
+        case .shared:
+            if !item.sharedImageUrls.contains(url) {
+                item.sharedImageUrls.append(url)
+                if item.sharedImageUrls.count > 3 {
+                    item.sharedImageUrls = Array(item.sharedImageUrls.suffix(3))
+                }
+                if let index = items.firstIndex(where: { $0.id == itemID }) {
+                    items[index] = item
+                }
+                Task { await self.persistSharedImageURLs(item.sharedImageUrls, for: itemID, ownerID: item.userId) }
             }
-            Task { await self.persistImageURLs(item.imageUrls, for: itemID) }
         }
     }
 
-    private func removeExistingImages(for itemID: UUID) async {
-        let existingURLs = getItem(by: itemID)?.imageUrls ?? []
+    private func removeExistingImages(for itemID: UUID, destination: ImageDestination) async {
+        let existingURLs: [String]
+        switch destination {
+        case .owned:
+            existingURLs = getItem(by: itemID)?.imageUrls ?? []
+        case .shared:
+            existingURLs = getItem(by: itemID)?.sharedImageUrls ?? []
+        }
 
         await removeAllAttachments(for: itemID)
         await clearRemoteImages(for: itemID)
 
         if let index = items.firstIndex(where: { $0.id == itemID }) {
-            items[index].imageUrls = []
+            switch destination {
+            case .owned:
+                items[index].imageUrls = []
+            case .shared:
+                items[index].sharedImageUrls = []
+            }
         }
 
         for url in existingURLs {
@@ -531,7 +694,13 @@ class ListViewModel: ObservableObject {
         }
 
         if !existingURLs.isEmpty {
-            await persistImageURLs([], for: itemID)
+            switch destination {
+            case .owned:
+                await persistImageURLs([], for: itemID)
+            case .shared:
+                let ownerID = getItem(by: itemID)?.userId
+                await persistSharedImageURLs([], for: itemID, ownerID: ownerID)
+            }
         }
     }
 
@@ -541,6 +710,7 @@ class ListViewModel: ObservableObject {
             if let task = uploadTasks.removeValue(forKey: attachment.id) {
                 task.cancel()
             }
+            attachmentDestinations.removeValue(forKey: attachment.id)
         }
 
         await attachmentStore.removeAllAttachments(for: itemID)

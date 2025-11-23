@@ -11,6 +11,7 @@ import PhotosUI
 enum DetailItemField: Hashable {
     case title
     case location
+    case sharedWith
 }
 
 @MainActor
@@ -18,10 +19,14 @@ struct DetailItemView: View {
     // MARK: - Environment
     @EnvironmentObject var bucketListViewModel: ListViewModel
     @EnvironmentObject var onboardingViewModel: OnboardingViewModel
+    @EnvironmentObject var socialViewModel: SocialViewModel
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - View model
     @StateObject private var viewModel: DetailItemViewModel
+
+    // MARK: - Interaction state
+    @State private var isWithDeleteMode = false
 
     // MARK: - Sheets & Alerts
     @State private var showDateCreatedSheet = false
@@ -42,6 +47,13 @@ struct DetailItemView: View {
             ScrollView {
                 scrollContent
             }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    if isWithDeleteMode {
+                        withAnimation { isWithDeleteMode = false }
+                    }
+                }
+            )
             .scrollDismissesKeyboard(.interactively)
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("Details")
@@ -60,7 +72,11 @@ struct DetailItemView: View {
                 viewModel.updateImagePicker(using: pending)
             }
             .onAppear {
-                viewModel.configureDependencies(bucketListViewModel: bucketListViewModel, onboardingViewModel: onboardingViewModel)
+                viewModel.configureDependencies(
+                    bucketListViewModel: bucketListViewModel,
+                    onboardingViewModel: onboardingViewModel,
+                    socialViewModel: socialViewModel
+                )
                 viewModel.refreshCurrentItemFromList(focusedField: focusedField)
                 viewModel.updateImagePicker(using: bucketListViewModel.pendingLocalImages)
             }
@@ -110,8 +126,22 @@ struct DetailItemView: View {
             DetailItemPhotosSubview(
                 imagePickerViewModel: viewModel.imagePickerViewModel,
                 isCompleted: viewModel.currentItem.completed,
-                imageUrls: viewModel.currentItem.imageUrls
+                imageUrls: viewModel.personalImageUrls,
+                canEdit: viewModel.canEditPhotos
             )
+
+            DetailItemWithSubview(
+                usernames: $viewModel.sharedWithUsernames,
+                inputText: $viewModel.sharedWithText,
+                isDeleteMode: $isWithDeleteMode,
+                maxUserCount: 3,
+                suggestions: viewModel.sharedWithSuggestions,
+                isShowingSuggestions: viewModel.isShowingSharedSuggestions,
+                onTextChange: viewModel.handleSharedWithChange(_:),
+                onAddUsername: viewModel.addSharedUser(_:),
+                onRemoveUsername: viewModel.removeSharedUser(_:)
+            )
+            .id(DetailItemField.sharedWith)
 
             DetailItemLocationSubview(
                 locationText: Binding(
