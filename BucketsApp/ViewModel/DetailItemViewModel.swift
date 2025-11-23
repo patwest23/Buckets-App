@@ -173,10 +173,17 @@ final class DetailItemViewModel: NSObject, ObservableObject {
         guard let bucketListViewModel else { return }
         guard canEditPhotos else { return }
 
-        currentItem.imageUrls = []
+        let isOwner = bucketListViewModel.isOwnedByCurrentUser(currentItem)
+        let destination: ListViewModel.ImageDestination = isOwner ? .owned : .shared
+
+        if isOwner {
+            currentItem.imageUrls = []
+        } else {
+            currentItem.sharedImageUrls = []
+        }
 
         Task {
-            await bucketListViewModel.replaceImages(with: newImages, for: currentItem.id)
+            await bucketListViewModel.replaceImages(with: newImages, for: currentItem.id, destination: destination)
             await MainActor.run {
                 self.imagePickerViewModel.imageSelections = []
                 if newImages.isEmpty {
@@ -362,7 +369,8 @@ final class DetailItemViewModel: NSObject, ObservableObject {
     private func resolveImagePermissions() {
         guard let bucketListViewModel else { return }
         let isOwner = bucketListViewModel.isOwnedByCurrentUser(currentItem)
-        canEditPhotos = isOwner
+        let isCollaborator = bucketListViewModel.isCurrentUserCollaborator(currentItem)
+        canEditPhotos = isOwner || isCollaborator
 
         if isOwner {
             personalImageUrls = currentItem.imageUrls

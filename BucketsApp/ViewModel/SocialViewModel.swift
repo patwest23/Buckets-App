@@ -207,12 +207,19 @@ final class SocialViewModel: ObservableObject {
             }
 
             var usernameLookup: [String: SocialUser] = [:]
+            var userIdLookup: [String: SocialUser] = [:]
             for user in loadedUsers {
                 usernameLookup[user.username.lowercased()] = user
+                userIdLookup[user.firebaseUserID] = user
             }
 
             for (user, enrichedItems) in userBundlesWithLookup {
-                let events = buildActivityEvents(for: user, enrichedItems: enrichedItems, usernameLookup: usernameLookup)
+                let events = buildActivityEvents(
+                    for: user,
+                    enrichedItems: enrichedItems,
+                    usernameLookup: usernameLookup,
+                    userIdLookup: userIdLookup
+                )
                 newActivityEvents.append(contentsOf: events)
             }
 
@@ -312,7 +319,8 @@ final class SocialViewModel: ObservableObject {
     private func buildActivityEvents(
         for user: SocialUser,
         enrichedItems: [(ItemModel, SocialBucketItem)],
-        usernameLookup: [String: SocialUser]
+        usernameLookup: [String: SocialUser],
+        userIdLookup: [String: SocialUser]
     ) -> [ActivityEvent] {
         var events: [ActivityEvent] = []
         var seen: Set<String> = []
@@ -326,23 +334,33 @@ final class SocialViewModel: ObservableObject {
                 events.append(ActivityEvent(user: user, item: socialItem, type: type, timestamp: timestamp))
             }
 
-            guard item.completed, item.userId == user.firebaseUserID else { continue }
+            guard item.completed else { continue }
+
+            var participants: [SocialUser] = []
+
+            if let owner = userIdLookup[item.userId] {
+                participants.append(owner)
+            } else {
+                participants.append(user)
+            }
 
             for collaboratorHandle in item.sharedWithUsernames {
                 let normalizedHandle: String
                 if collaboratorHandle.hasPrefix("@") {
-                    normalizedHandle = collaboratorHandle.lowercased()
+                    normalizedHandle = collaboratorHandle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 } else {
-                    normalizedHandle = "@" + collaboratorHandle.lowercased()
+                    normalizedHandle = "@" + collaboratorHandle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 }
 
-                guard normalizedHandle != user.username.lowercased(),
-                      let collaborator = usernameLookup[normalizedHandle] else { continue }
+                guard let collaborator = usernameLookup[normalizedHandle] else { continue }
+                participants.append(collaborator)
+            }
 
-                let collaboratorKey = "\(collaborator.firebaseUserID)|\(socialItem.id)|\(type.rawValue)"
+            for participant in participants {
+                let collaboratorKey = "\(participant.firebaseUserID)|\(socialItem.id)|\(type.rawValue)"
                 if seen.insert(collaboratorKey).inserted {
                     let collaboratorEvent = ActivityEvent(
-                        user: collaborator,
+                        user: participant,
                         item: socialItem,
                         type: .completed,
                         timestamp: timestamp
