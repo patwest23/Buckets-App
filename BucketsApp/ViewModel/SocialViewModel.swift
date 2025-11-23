@@ -468,14 +468,24 @@ final class SocialViewModel: ObservableObject {
         }
 
         if trimmed.hasPrefix("gs://") {
+            guard let storageURL = URL(string: trimmed), let host = storageURL.host, !host.isEmpty else {
+                print("[SocialViewModel] Skipping malformed storage URL: \(trimmed)")
+                return nil
+            }
+
             do {
-                let downloadURL = try await storage.reference(forURL: trimmed).downloadURL()
+                let downloadURL = try await storage.reference(forURL: storageURL.absoluteString).downloadURL()
                 cache(downloadURL, forRawKey: trimmed, storagePath: nil)
                 return downloadURL
             } catch {
                 print("[SocialViewModel] Failed to resolve storage URL \(trimmed):", error.localizedDescription)
             }
         } else if !trimmed.contains("://") {
+            guard isValidStoragePath(trimmed) else {
+                print("[SocialViewModel] Skipping invalid storage path: \(trimmed)")
+                return nil
+            }
+
             do {
                 let downloadURL = try await storage.reference(withPath: trimmed).downloadURL()
                 cache(downloadURL, forRawKey: trimmed, storagePath: trimmed)
@@ -513,6 +523,14 @@ final class SocialViewModel: ObservableObject {
         if let storagePath {
             imageURLCache[storagePath] = url
         }
+    }
+
+    private func isValidStoragePath(_ raw: String) -> Bool {
+        let disallowed = CharacterSet.whitespacesAndNewlines
+        guard !raw.isEmpty, raw.rangeOfCharacter(from: disallowed) == nil else { return false }
+        // Firebase paths cannot start or end with a slash and cannot contain consecutive slashes.
+        if raw.hasPrefix("/") || raw.hasSuffix("/") || raw.contains("//") { return false }
+        return true
     }
 
     private func firebaseStoragePath(from url: URL) -> String? {
