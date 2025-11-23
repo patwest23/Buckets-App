@@ -614,7 +614,7 @@ class ListViewModel: ObservableObject {
                 await cacheImage(image, for: downloadURL.absoluteString)
             }
 
-            let destination = attachmentDestinations[attachmentID] ?? .owned
+            let destination = await MainActor.run { self.attachmentDestinations[attachmentID] ?? .owned }
             await mergeRemoteURL(downloadURL.absoluteString, for: attachment.itemID, destination: destination)
         } catch {
             print("[ListViewModel] performUpload error:", error.localizedDescription)
