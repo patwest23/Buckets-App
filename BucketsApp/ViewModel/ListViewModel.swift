@@ -312,9 +312,15 @@ class ListViewModel: ObservableObject {
             return
         }
 
+        let trimmedOwnerID = ownerID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedOwnerID.isEmpty else {
+            print("[ListViewModel] persistSharedImageURLs: ownerID empty for item \(itemID); skipping write to avoid invalid document path")
+            return
+        }
+
         let docRef = db
             .collection("users")
-            .document(ownerID)
+            .document(trimmedOwnerID)
             .collection("items")
             .document(itemID.uuidString)
 
